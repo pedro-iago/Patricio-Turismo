@@ -1,0 +1,1 @@
+ALTER TABLE passageiro RENAME COLUMN idpassageiro TO id_passageiro;
