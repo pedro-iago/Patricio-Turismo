@@ -1,55 +1,51 @@
 package com.partricioturismo.crud.model;
 
 import jakarta.persistence.*;
-
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-@Entity(name = "viagem")
-@Table(name = "viagem")
+@Entity
+@Table(name = "Viagem")
 public class Viagem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer idViagem;
-    private LocalDate dataPartida;
-    private LocalDate dataChegada;
+    private Long id;
+
+    @Column(name = "data_hora_partida", nullable = false)
+    private LocalDateTime dataHoraPartida;
+
+    @Column(name = "data_hora_chegada", nullable = false)
+    private LocalDateTime dataHoraChegada;
 
     @ManyToOne
-    @JoinColumn(name = "idOnibus")
+    @JoinColumn(name = "onibus_id", nullable = false)
     private Onibus onibus;
+
 
     public Viagem() {
     }
 
-    public Viagem(Integer idViagem, LocalDate dataPartida, LocalDate dataChegada, Onibus onibus) {
-        this.idViagem = idViagem;
-        this.dataPartida = dataPartida;
-        this.dataChegada = dataChegada;
-        this.onibus = onibus;
+    public Long getId() {
+        return id;
     }
 
-    public Integer getIdViagem() {
-        return idViagem;
+    public void setId(Long id) {
+        this.id = id;
     }
 
-    public void setIdViagem(Integer idViagem) {
-        this.idViagem = idViagem;
+    public LocalDateTime getDataHoraPartida() {
+        return dataHoraPartida;
     }
 
-    public LocalDate getDataPartida() {
-        return dataPartida;
+    public void setDataHoraPartida(LocalDateTime dataHoraPartida) {
+        this.dataHoraPartida = dataHoraPartida;
     }
 
-    public void setDataPartida(LocalDate dataPartida) {
-        this.dataPartida = dataPartida;
+    public LocalDateTime getDataHoraChegada() {
+        return dataHoraChegada;
     }
 
-    public LocalDate getDataChegada() {
-        return dataChegada;
-    }
-
-    public void setDataChegada(LocalDate dataChegada) {
-        this.dataChegada = dataChegada;
+    public void setDataHoraChegada(LocalDateTime dataHoraChegada) {
+        this.dataHoraChegada = dataHoraChegada;
     }
 
     public Onibus getOnibus() {

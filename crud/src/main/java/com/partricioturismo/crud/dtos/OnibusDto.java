@@ -1,4 +1,9 @@
 package com.partricioturismo.crud.dtos;
 
-public record OnibusDto(Integer idOnibus, String modelo, String placa, int capacidade) {
+public record OnibusDto(
+        Long id,
+        String modelo,
+        String placa,
+        int capacidadePassageiros
+) {
 }

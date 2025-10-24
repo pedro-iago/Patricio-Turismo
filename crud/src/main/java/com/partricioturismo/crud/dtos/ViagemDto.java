@@ -1,8 +1,11 @@
 package com.partricioturismo.crud.dtos;
 
-import com.partricioturismo.crud.model.Onibus;
+import java.time.LocalDateTime; // <-- MUDOU
 
-import java.time.LocalDate;
-
-public record ViagemDto(Integer idViagem, LocalDate dataPartida, LocalDate dataChegada, Integer onibusId) {
+public record ViagemDto(
+        Long id,
+        LocalDateTime dataHoraPartida,
+        LocalDateTime dataHoraChegada,
+        Long onibusId // <-- MUDOU (precisa ser Long)
+) {
 }

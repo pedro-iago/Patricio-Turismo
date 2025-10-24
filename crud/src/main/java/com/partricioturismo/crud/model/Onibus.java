@@ -8,27 +8,35 @@ public class Onibus {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer idOnibus;
+    private Long id;
+
+    @Column(name = "modelo")
     private String modelo;
+
+    @Column(name = "placa")
     private String placa;
-    private int capacidade;
+
+    @Column(name = "capacidade_passageiros")
+    private int capacidadePassageiros;
 
     public Onibus() {
     }
 
-    public Onibus(Integer idOnibus, String modelo, String placa, int capacidade) {
-        this.idOnibus = idOnibus;
+    // Construtor atualizado
+    public Onibus(Long idOnibus, String modelo, String placa, int capacidadePassageiros) {
+        this.id = id;
         this.modelo = modelo;
         this.placa = placa;
-        this.capacidade = capacidade;
+        this.capacidadePassageiros = capacidadePassageiros;
     }
 
-    public Integer getIdOnibus() {
-        return idOnibus;
+    // Getters e Setters atualizados
+    public Long getIdOnibus() {
+        return id;
     }
 
-    public void setIdOnibus(Integer idOnibus) {
-        this.idOnibus = idOnibus;
+    public void setIdOnibus(Long idOnibus) {
+        this.id = idOnibus;
     }
 
     public String getModelo() {
@@ -47,11 +55,11 @@ public class Onibus {
         this.placa = placa;
     }
 
-    public int getCapacidade() {
-        return capacidade;
+    public int getCapacidadePassageiros() {
+        return capacidadePassageiros;
     }
 
-    public void setCapacidade(int capacidade) {
-        this.capacidade = capacidade;
+    public void setCapacidadePassageiros(int capacidadePassageiros) {
+        this.capacidadePassageiros = capacidadePassageiros;
     }
 }

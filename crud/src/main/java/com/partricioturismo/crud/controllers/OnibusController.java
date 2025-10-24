@@ -1,11 +1,8 @@
 package com.partricioturismo.crud.controllers;
 
 import com.partricioturismo.crud.dtos.OnibusDto;
-import com.partricioturismo.crud.dtos.PassageiroDto;
 import com.partricioturismo.crud.model.Onibus;
-import com.partricioturismo.crud.model.Passageiro;
-import com.partricioturismo.crud.repositories.OnibusRepository;
-import org.springframework.beans.BeanUtils;
+import com.partricioturismo.crud.service.OnibusService; // <-- MUDOU
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,49 +16,45 @@ import java.util.Optional;
 public class OnibusController {
 
     @Autowired
-    OnibusRepository repository;
+    OnibusService service; // <-- MUDOU (Injeta o SERVICE)
 
     @GetMapping
-    public ResponseEntity getAll() {
-        List<Onibus> listOnibus = repository.findAll();
+    public ResponseEntity<List<Onibus>> getAll() {
+        List<Onibus> listOnibus = service.findAll();
         return ResponseEntity.status(HttpStatus.OK).body(listOnibus);
     }
 
     @GetMapping("/{idOnibus}")
-    public ResponseEntity getById(@PathVariable(value = "idOnibus") Integer idOnibus) {
-        Optional onibus = repository.findById(idOnibus);
+    public ResponseEntity<Object> getById(@PathVariable(value = "idOnibus") Long idOnibus) { // <-- MUDOU (Long)
+        Optional<Onibus> onibus = service.findById(idOnibus);
         if (onibus.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Onibus não existente");
-
         }
-        return ResponseEntity.status(HttpStatus.FOUND).body(onibus.get());
+        return ResponseEntity.status(HttpStatus.OK).body(onibus.get()); // <-- MUDOU (Status OK)
     }
 
     @PostMapping
-    public ResponseEntity save(@RequestBody OnibusDto onibusDto) {
-        var onibus = new Onibus();
-        BeanUtils.copyProperties(onibusDto, onibus);
-        return ResponseEntity.status(HttpStatus.CREATED).body(repository.save(onibus));
+    public ResponseEntity<Onibus> save(@RequestBody OnibusDto onibusDto) {
+        var onibusSalvo = service.save(onibusDto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(onibusSalvo);
     }
 
     @DeleteMapping("/{idOnibus}")
-    public ResponseEntity delete(@PathVariable(value = "idOnibus") Integer idOnibus) {
-        Optional<Onibus> onibus = repository.findById(idOnibus);
-        if (onibus.isEmpty()) {
+    public ResponseEntity<Object> delete(@PathVariable(value = "idOnibus") Long idOnibus) { // <-- MUDOU (Long)
+        boolean deletado = service.delete(idOnibus);
+        if (!deletado) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Onibus não existente");
         }
-        repository.delete(onibus.get());
-        return ResponseEntity.status(HttpStatus.OK).body("Onibus deletado");
+        return ResponseEntity.status(HttpStatus.OK).body("Onibus deletado com sucesso"); // <-- MUDOU
     }
 
     @PutMapping("/{idOnibus}")
-    public ResponseEntity update(@PathVariable(value = "idOnibus") Integer idOnibus, @RequestBody OnibusDto onibusDto) {
-        Optional<Onibus> onibus = repository.findById(idOnibus);
-        if (onibus.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Passageiro não existente");
+    public ResponseEntity<Object> update(@PathVariable(value = "idOnibus") Long idOnibus, @RequestBody OnibusDto onibusDto) { // <-- MUDOU (Long)
+        Optional<Onibus> onibusAtualizado = service.update(idOnibus, onibusDto);
+        if (onibusAtualizado.isEmpty()) {
+            // Pequeno bug: seu código antigo dizia "Passageiro não existente" aqui
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Onibus não existente"); // <-- MUDOU
         }
-        var onibusModel = onibus.get();
-        BeanUtils.copyProperties(onibusDto, onibusModel);
-        return ResponseEntity.status(HttpStatus.OK).body(repository.save(onibusModel));
+        return ResponseEntity.status(HttpStatus.OK).body(onibusAtualizado.get());
     }
 }
