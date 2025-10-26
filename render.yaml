@@ -1,14 +1,11 @@
 services:
-  # 1. Seu Web Service
   - type: web
     name: patricio-turismo-web
-    
-    # Linha 'runtime: node' foi removida. O Render detectará automaticamente Java e Node.
     plan: free 
     envVars:
       - key: JAVA_VERSION
         value: 17
-    
+
     buildCommand: |
       echo "Iniciando build do Monorepo..."
       cd frontend
@@ -16,21 +13,24 @@ services:
       npm run build
       cd ..
       mkdir -p backend/src/main/resources/static
-      
-      # --- CORREÇÃO FINAL ---
-      # Usando a pasta correta (build) para a cópia
-      echo "Copiando arquivos do Frontend (da pasta 'build')..."
-      cp -r frontend/build/* backend/src/main/resources/static/
-      
+
+      # --- Copiando arquivos do Frontend ---
+      echo "Copiando arquivos do Frontend..."
+      cp -r frontend/dist/* backend/src/main/resources/static/
+
       cd backend
       echo "Dando permissão de execução ao mvnw..."
       chmod +x mvnw
+
+      echo "Configurando JAVA_HOME..."
+      export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+      export PATH=$JAVA_HOME/bin:$PATH
+
       echo "Construindo o Backend (Spring)..."
       ./mvnw clean package -DskipTests
-      
+
     startCommand: java -jar backend/target/crud-0.0.1-SNAPSHOT.jar
 
-# 2. Seu Serviço de Banco de Dados
 databases:
   - name: patricio-db
     plan: free
