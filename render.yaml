@@ -21,6 +21,6 @@ services:
       
     startCommand: java -jar backend/target/crud-0.0.1-SNAPSHOT.jar
 
-  - type: postgres
+  - type: psql
     name: patricio-db
     plan: free
