@@ -15,11 +15,10 @@ services:
       cd ..
       mkdir -p backend/src/main/resources/static
       
-      # --- CORREÇÃO 1 ---
-      # Mudamos de 'dist' para 'build', que é o que o seu Vite cria
+      # --- CORREÇÃO AQUI ---
+      # Mudamos de 'dist' para 'build'
       echo "Copiando arquivos do Frontend (da pasta 'build')..."
       cp -r frontend/build/* backend/src/main/resources/static/
-      # --- FIM DA CORREÇÃO 1 ---
       
       cd backend
       echo "Dando permissão de execução ao mvnw..."
