@@ -1,0 +1,25 @@
+# Logs
+logs
+*.log
+
+# Dependências de IDE (IntelliJ, VSCode)
+.idea/
+.vscode/
+*.iml
+
+# --- Backend (Java/Maven) ---
+# Ignora a pasta de build do Maven
+backend/target/
+
+# Ignora os arquivos estáticos (nós geramos eles no servidor)
+backend/src/main/resources/static/
+
+# --- Frontend (Node/React) ---
+# Ignora as dependências do Node
+frontend/node_modules/
+
+# Ignora a pasta de build do React
+frontend/dist/
+
+# Ignora arquivos de ambiente local
+frontend/.env.local

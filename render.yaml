@@ -1,0 +1,35 @@
+services:
+  # Um único serviço web que constrói tudo
+  - type: web
+    name: patricio-turismo
+    env: java
+    # Informa ao Render para usar o Java 17
+    envVars:
+      - key: JAVA_VERSION
+        value: 17
+        
+    # O "build command" é a mágica.
+    buildCommand: |
+      echo "Iniciando build do Monorepo..."
+      
+      # 1. Construir o Frontend
+      echo "Construindo o Frontend (React)..."
+      cd frontend
+      npm install
+      npm run build
+      
+      # 2. Copiar os arquivos do Frontend para o Backend
+      echo "Copiando arquivos do Frontend para o Backend..."
+      cd ..
+      mkdir -p backend/src/main/resources/static
+      cp -r frontend/dist/* backend/src/main/resources/static/
+      
+      # 3. Construir o Backend (Spring Boot)
+      echo "Construindo o Backend (Spring)..."
+      cd backend
+      ./mvnw clean package -DskipTests
+      
+    # O "start command" roda o JAR final
+    # IMPORTANTE: O nome do seu JAR é 'crud-0.0.1-SNAPSHOT.jar'
+    # (Baseado no nome da sua pasta original 'crud')
+    startCommand: java -jar backend/target/crud-0.0.1-SNAPSHOT.jar
