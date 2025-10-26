@@ -1,13 +1,9 @@
 services:
   - type: web
-    name: patricio-turismo-web 
-    
-
-    
+    name: patricio-turismo-web
     envVars:
       - key: JAVA_VERSION
         value: 17
-    
     buildCommand: |
       echo "Iniciando build do Monorepo..."
       cd frontend
@@ -18,9 +14,8 @@ services:
       cp -r frontend/dist/* backend/src/main/resources/static/
       cd backend
       ./mvnw clean package -DskipTests
-      
     startCommand: java -jar backend/target/crud-0.0.1-SNAPSHOT.jar
 
-  - type: psql
-    name: patricio-db
+databases:
+  - name: patricio-db
     plan: free
