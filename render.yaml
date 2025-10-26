@@ -1,9 +1,8 @@
 services:
   - type: web
     name: patricio-turismo-web
-    runtime: node
-    plan: free 
     
+    plan: free 
     envVars:
       - key: JAVA_VERSION
         value: 17
@@ -15,15 +14,16 @@ services:
       npm run build
       cd ..
       mkdir -p backend/src/main/resources/static
-      cp -r frontend/dist/* backend/src/main/resources/static/
-      cd backend
       
-      # --- CORREÇÃO AQUI ---
-      # Adiciona permissão de execução ao script do Maven
+      # --- CORREÇÃO 1 ---
+      # Mudamos de 'dist' para 'build', que é o que o seu Vite cria
+      echo "Copiando arquivos do Frontend (da pasta 'build')..."
+      cp -r frontend/build/* backend/src/main/resources/static/
+      # --- FIM DA CORREÇÃO 1 ---
+      
+      cd backend
       echo "Dando permissão de execução ao mvnw..."
       chmod +x mvnw
-      # --- FIM DA CORREÇÃO ---
-      
       echo "Construindo o Backend (Spring)..."
       ./mvnw clean package -DskipTests
       
