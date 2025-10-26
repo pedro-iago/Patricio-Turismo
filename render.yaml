@@ -1,13 +1,10 @@
 services:
-  # 1. Seu Web Service
   - type: web
     name: patricio-turismo-web
     
-    # --- MUDANÇA AQUI ---
-    # O 'runtime' é obrigatório. Usamos 'node' porque
-    # nosso build começa com 'npm install'.
     runtime: node
-    # --- FIM DA MUDANÇA ---
+
+    plan: free
 
     envVars:
       - key: JAVA_VERSION
@@ -26,7 +23,6 @@ services:
       
     startCommand: java -jar backend/target/crud-0.0.1-SNAPSHOT.jar
 
-# 2. Seu Serviço de Banco de Dados
 databases:
   - name: patricio-db
     plan: free
