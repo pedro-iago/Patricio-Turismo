@@ -1,11 +1,9 @@
 services:
   - type: web
     name: patricio-turismo-web
-    
     runtime: node
-
-    plan: free
-
+    plan: free 
+    
     envVars:
       - key: JAVA_VERSION
         value: 17
@@ -19,6 +17,14 @@ services:
       mkdir -p backend/src/main/resources/static
       cp -r frontend/dist/* backend/src/main/resources/static/
       cd backend
+      
+      # --- CORREÇÃO AQUI ---
+      # Adiciona permissão de execução ao script do Maven
+      echo "Dando permissão de execução ao mvnw..."
+      chmod +x mvnw
+      # --- FIM DA CORREÇÃO ---
+      
+      echo "Construindo o Backend (Spring)..."
       ./mvnw clean package -DskipTests
       
     startCommand: java -jar backend/target/crud-0.0.1-SNAPSHOT.jar
