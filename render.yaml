@@ -1,7 +1,9 @@
 services:
+  # 1. Seu Web Service
   - type: web
     name: patricio-turismo-web
     
+    # Linha 'runtime: node' foi removida. O Render detectará automaticamente Java e Node.
     plan: free 
     envVars:
       - key: JAVA_VERSION
@@ -15,8 +17,8 @@ services:
       cd ..
       mkdir -p backend/src/main/resources/static
       
-      # --- CORREÇÃO AQUI ---
-      # Mudamos de 'dist' para 'build'
+      # --- CORREÇÃO FINAL ---
+      # Usando a pasta correta (build) para a cópia
       echo "Copiando arquivos do Frontend (da pasta 'build')..."
       cp -r frontend/build/* backend/src/main/resources/static/
       
@@ -28,6 +30,7 @@ services:
       
     startCommand: java -jar backend/target/crud-0.0.1-SNAPSHOT.jar
 
+# 2. Seu Serviço de Banco de Dados
 databases:
   - name: patricio-db
     plan: free
