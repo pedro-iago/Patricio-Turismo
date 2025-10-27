@@ -41,9 +41,11 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Value("${jwt.public.key}")
+    // CORREÇÃO ESSENCIAL: Usamos o nome completo da propriedade que está no seu application.properties
+    @Value("${spring.security.oauth2.resourceserver.jwt.public.key}")
     RSAPublicKey publicKey;
 
+    // CORREÇÃO ESSENCIAL: Mantemos o nome da chave privada (que agora está definida no application.properties)
     @Value("${jwt.private.key}")
     RSAPrivateKey privateKey;
 
@@ -88,6 +90,8 @@ public class SecurityConfig {
                                 "/*.svg"
                         ).permitAll()
                         .requestMatchers(
+                                // A sintaxe deste matcher causou o segundo erro, mas será resolvida com
+                                // a propriedade 'spring.mvc.pathmatch.matching-strategy=ant_path_matcher'
                                 "/{path:[^\\.]*}",
                                 "/**/{path:(?!api|assets)[^\\.]*}"
                         ).permitAll()

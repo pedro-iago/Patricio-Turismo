@@ -1,25 +1,75 @@
-# Logs
-logs
-*.log
+# ========================================================
+# .gitignore para Monorepo (Spring Boot + React/Node)
+# ========================================================
 
-# Dependências de IDE (IntelliJ, VSCode)
+# -----------------------
+# Logs e Dados
+# -----------------------
+logs/
+*.log
+tmp/
+*.err
+*.pid
+*.lock
+
+# -----------------------
+# Arquivos de IDE e Sistema
+# -----------------------
 .idea/
 .vscode/
 *.iml
+*.iws
+*.ipr
+.DS_Store
+*.class
 
-# --- Backend (Java/Maven) ---
-# Ignora a pasta de build do Maven
+# -----------------------
+# Backend (Java/Maven)
+# -----------------------
+# Pasta de build do Maven
+target/
 backend/target/
 
-# Ignora os arquivos estáticos (nós geramos eles no servidor)
+# Binários e artefatos gerados
+*.jar
+*.war
+*.ear
+
+# Recursos estáticos gerados (quando React build é copiado)
 backend/src/main/resources/static/
 
-# --- Frontend (Node/React) ---
-# Ignora as dependências do Node
+# -----------------------
+# Frontend (Node/React)
+# -----------------------
+# Dependências do Node
 frontend/node_modules/
 
-# Ignora a pasta de build do React
+# Pastas de build do React
+frontend/build/
 frontend/dist/
 
-# Ignora arquivos de ambiente local
+# Cache do npm/yarn/pnpm
+frontend/.npm/
+frontend/.yarn/
+frontend/.pnp.*
+
+# -----------------------
+# Variáveis de Ambiente e Cache
+# -----------------------
+# Arquivos de ambiente local
+.env
+.env.local
 frontend/.env.local
+
+# Docker e Build
+docker-compose.override.yml
+.mvn/wrapper/maven-wrapper.jar
+.gradle/
+
+# -----------------------
+# Outros (opcional)
+# -----------------------
+# Arquivos temporários ou de backup
+*~
+*.bak
+*.swp

@@ -15,7 +15,7 @@ interface Luggage {
 }
 
 interface Person {
-  id: number; // Mantido como 'id'
+  id: number; 
   nome: string;
 }
 
@@ -60,7 +60,6 @@ export default function LuggageModal({
     }
   }, [isOpen, passenger]);
 
-  // handleAddItem (sem mudanças)
   const handleAddItem = async () => {
     if (!passenger || !passenger.id || !passenger.pessoa || !passenger.pessoa.id) {
       console.error("Dados do passageiro ou pessoa estão incompletos ou inválidos:", passenger);
@@ -94,7 +93,6 @@ export default function LuggageModal({
     }
   };
 
-  // handleRemoveItem (sem mudanças)
   const handleRemoveItem = async (id: number) => {
     try {
       await api.delete(`/bagagem/${id}`);
@@ -109,16 +107,12 @@ export default function LuggageModal({
       }
     }
   };
-
-  // --- FUNÇÃO handleUpdateItem ATUALIZADA ---
-  // Agora chama a API PUT para salvar as alterações
+  
   const handleUpdateItem = async (id: number, field: keyof Luggage, value: any) => {
-    // 1. Atualiza o estado local PRIMEIRO (para feedback imediato)
     let updatedItem: Luggage | undefined;
     setItems(prevItems =>
       prevItems.map(item => {
         if (item.id === id) {
-          // Garante que o peso seja null se o valor for uma string vazia
           const actualValue = (field === 'peso' && value === '') ? null : value;
           updatedItem = { ...item, [field]: actualValue };
           return updatedItem;
@@ -127,36 +121,28 @@ export default function LuggageModal({
       })
     );
 
-    // 2. Prepara o DTO para o backend
     if (updatedItem && passenger && passenger.pessoa) {
       const luggageDto = {
-        // Campos do BagagemDto
         descricao: updatedItem.descricao,
-        // Envia null se peso for null/undefined, senão envia o número
         peso: updatedItem.peso ?? null,
         passageiroViagemId: passenger.id,
         responsavelId: passenger.pessoa.id
       };
 
       try {
-        // 3. Chama a API PUT
         console.log(`Enviando PUT /bagagem/${id} com DTO:`, luggageDto); // Log
         await api.put(`/bagagem/${id}`, luggageDto);
-        // Não precisa chamar fetchLuggage aqui, o estado local já reflete a mudança.
       } catch (error) {
         console.error(`Erro ao atualizar bagagem ${id}:`, error);
         alert("Falha ao salvar alteração da bagagem."); // Mensagem para o usuário
         if (axios.isAxiosError(error) && error.response && error.response.data) {
            console.error("Detalhes do erro do backend:", error.response.data);
         }
-        // Opcional: Reverter a mudança no estado local se a API falhar
-        // fetchLuggage(); // Busca tudo de novo para reverter
       }
     } else {
         console.error("Não foi possível encontrar o item atualizado ou dados do passageiro para salvar.");
     }
   };
-  // --- FIM DA ATUALIZAÇÃO ---
 
 
   return (

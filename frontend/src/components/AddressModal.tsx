@@ -4,8 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 
-// --- Interfaces que combinam com o Backend ---
-// DTO para salvar (corresponde a EnderecoDto.java)
+
 interface AddressDto {
   logradouro: string;
   numero: string;
@@ -15,7 +14,6 @@ interface AddressDto {
   cep: string;
 }
 
-// Objeto Endereco completo (corresponde a Endereco.java)
 interface Address {
   id: number;
   logradouro: string;
@@ -29,12 +27,11 @@ interface Address {
 interface AddressModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (address: AddressDto) => void; // Envia o DTO correto
-  address: Address | null; // Recebe o Endereco correto
+  onSave: (address: AddressDto) => void; 
+  address: Address | null; 
 }
 
 export default function AddressModal({ isOpen, onClose, onSave, address }: AddressModalProps) {
-  // --- 1. Estado do formulário agora espelha o DTO ---
   const [formData, setFormData] = useState<AddressDto>({
     logradouro: '',
     numero: '',
@@ -44,10 +41,8 @@ export default function AddressModal({ isOpen, onClose, onSave, address }: Addre
     cep: '',
   });
 
-  // 2. Efeito para popular o formulário
   useEffect(() => {
     if (address) {
-      // Modo Edição
       setFormData({
         logradouro: address.logradouro || '',
         numero: address.numero || '',
@@ -57,7 +52,6 @@ export default function AddressModal({ isOpen, onClose, onSave, address }: Addre
         cep: address.cep || '',
       });
     } else {
-      // Modo Criar
       setFormData({
         logradouro: '',
         numero: '',
@@ -69,7 +63,6 @@ export default function AddressModal({ isOpen, onClose, onSave, address }: Addre
     }
   }, [address, isOpen]);
 
-  // 3. handleSubmit envia o DTO
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(formData);
@@ -142,7 +135,7 @@ export default function AddressModal({ isOpen, onClose, onSave, address }: Addre
                 value={formData.estado}
                 onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
                 placeholder="SP"
-                maxLength={50} // Aumentado o limite, estado pode ser nome completo
+                maxLength={50} 
                 required
               />
             </div>

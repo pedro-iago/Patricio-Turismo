@@ -1,119 +1,86 @@
-import React, { useState, useEffect } from 'react'; // 1. useEffect importado
+import React, { useState, useEffect } from 'react'; 
 import { useNavigate } from 'react-router-dom';
 import { Plus, Edit, Trash2, Eye } from 'lucide-react';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-// 3. Badge removido (não precisamos mais de status)
-// import { Badge } from './ui/badge'; 
 import TripModal from './TripModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
-import  api  from '../services/api'; // 2. API importada
+import  api  from '../services/api'; 
 
-// Interface para o Onibus (que agora vem aninhado)
 interface Bus {
-  idOnibus: number; // Combine com o seu Onibus.java
+  idOnibus: number; 
   modelo: string;
   placa: string;
   capacidadePassageiros: number;
 }
 
-// Interface principal da Viagem (Trip) - agora espelha seu backend
 interface Trip {
   id: number;
-  dataHoraPartida: string; // Vem como string ISO (ex: "2025-10-28T08:00:00")
-  dataHoraChegada: string; // Vem como string ISO
-  onibus: Bus; // Objeto Onibus aninhado
+  dataHoraPartida: string;
+  dataHoraChegada: string; 
+  onibus: Bus; 
 }
 
-// Mock trips removido
-// const mockTrips: Trip[] = [ ... ];
+
 
 export default function TripsPage() {
   const navigate = useNavigate();
-  const [trips, setTrips] = useState<Trip[]>([]); // 4. Começa vazio
+  const [trips, setTrips] = useState<Trip[]>([]); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [deleteTrip, setDeleteTrip] = useState<Trip | null>(null);
 
-  // 5. Função para buscar dados da API
   const fetchTrips = async () => {
     try {
-      // Usando o endpoint /viagem do seu ViagemController
       const response = await api.get('/viagem'); 
       setTrips(response.data);
     } catch (error) {
       console.error('Erro ao buscar viagens:', error);
-      // Aqui você pode adicionar um toast ou mensagem de erro
     }
   };
 
-  // 6. useEffect para chamar a função fetchTrips() quando a página carregar
   useEffect(() => {
     fetchTrips();
-  }, []); // O array vazio [] garante que isso rode apenas uma vez
+  }, []); 
 
-  // --- Funções de Salvar, Atualizar e Deletar (AINDA USAM LÓGICA MOCK) ---
-  // --- Vamos conectar elas com a API no próximo passo ---
   const handleCreateTrip = async (tripData: any) => {
-    // tripData é o objeto que o modal nos enviou: 
-    // { dataHoraPartida, dataHoraChegada, onibusId }
     try {
-      // Chama o endpoint POST /viagem do seu ViagemController
       await api.post('/viagem', tripData);
-      
-      // (Opcional) Adicione um toast de sucesso
-      // toast.success("Viagem criada com sucesso!");
 
-      setIsModalOpen(false); // Fecha o modal
-      fetchTrips(); // Recarrega a lista da API para mostrar a nova viagem
+      setIsModalOpen(false); 
+      fetchTrips(); 
     } catch (error) {
       console.error("Erro ao criar viagem:", error);
-      // (Opcional) Adicione um toast de erro
-      // toast.error("Falha ao criar viagem.");
     }
   };
 
-// Substitua sua função 'handleUpdateTrip' por esta:
   const handleUpdateTrip = async (tripData: any) => {
-    if (!selectedTrip) return; // Segurança
+    if (!selectedTrip) return; 
 
     try {
-      // Chama o endpoint PUT /viagem/{id} do seu ViagemController
       await api.put(`/viagem/${selectedTrip.id}`, tripData);
-
-      // (Opcional) Adicione um toast de sucesso
-      // toast.success("Viagem atualizada com sucesso!");
 
       setSelectedTrip(null);
       setIsModalOpen(false);
-      fetchTrips(); // Recarrega a lista da API
+      fetchTrips();
     } catch (error) {
       console.error("Erro ao atualizar viagem:", error);
-      // (Opcional) Adicione um toast de erro
-      // toast.error("Falha ao atualizar viagem.");
     }
   };
 
-  const handleDeleteTrip = async () => { // 1. Adicionado 'async'
-      if (!deleteTrip) return; // Segurança: não faz nada se deleteTrip for nulo
+  const handleDeleteTrip = async () => { 
+      if (!deleteTrip) return; 
 
       try {
-        // 2. Chama o endpoint do seu ViagemController (DELETE /viagem/{id})
         await api.delete(`/viagem/${deleteTrip.id}`);
 
-        // 3. Sucesso! Remove a viagem da lista do frontend (sem precisar recarregar a página)
         setTrips(trips.filter((trip) => trip.id !== deleteTrip.id));
 
-        // 4. Fecha o modal de confirmação
         setDeleteTrip(null);
         
-        // (Opcional) Você pode adicionar um toast de sucesso aqui
-        // toast.success("Viagem deletada com sucesso!");
 
       } catch (error) {
         console.error('Erro ao deletar viagem:', error);
-        // (Opcional) Adicionar um toast de erro se falhar
-        // toast.error("Falha ao deletar viagem.");
       }
     };
 
@@ -144,7 +111,6 @@ export default function TripsPage() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <Table>
           <TableHeader>
-            {/* 7. Cabeçalhos da tabela atualizados */}
             <TableRow>
               <TableHead>Data</TableHead>
               <TableHead>Partida</TableHead>
@@ -156,7 +122,6 @@ export default function TripsPage() {
           <TableBody>
             {trips.map((trip) => (
               <TableRow key={trip.id}>
-                {/* 8. Células de dados atualizadas */}
                 <TableCell>
                   {new Date(trip.dataHoraPartida).toLocaleDateString()}
                 </TableCell>
@@ -172,10 +137,8 @@ export default function TripsPage() {
                     minute: '2-digit',
                   })}
                 </TableCell>
-                {/* 9. Acesso ao dado aninhado */}
                 <TableCell>{trip.onibus.placa}</TableCell>
                 
-                {/* Célula de Status Removida */}
 
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
@@ -227,7 +190,6 @@ export default function TripsPage() {
         onClose={() => setDeleteTrip(null)}
         onConfirm={handleDeleteTrip}
         title="Excluir viagem"
-        // Descrição do modal simplificada
         description={`Tem certeza de que deseja excluir esta viagem? Esta ação não pode ser desfeita.`}
       />
     </div>

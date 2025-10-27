@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, ChevronsUpDown } from "lucide-react";
-// --- CORRECTED IMPORTS ---
-import { cn } from './ui/utils'; // Relative path
-import { Button } from './ui/button'; // Relative path
+import { cn } from './ui/utils'; 
+import { Button } from './ui/button'; 
 import {
   Command,
   CommandEmpty,
@@ -10,20 +9,19 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from './ui/command'; // Relative path
+} from './ui/command'; 
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from './ui/popover'; // Relative path
-// --- END CORRECTED IMPORTS ---
+} from './ui/popover'; 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Label } from './ui/label';
 import api from '../services/api';
 
 // --- Interfaces ---
 interface Person {
-  id: number; // <-- 1. CORRIGIDO PARA 'id'
+  id: number; 
   nome: string;
   cpf: string;
 }
@@ -38,7 +36,7 @@ interface Address {
 
 interface PassengerData {
   id: number;
-  pessoa: Person; // Usará a interface Person atualizada
+  pessoa: Person; 
   enderecoColeta: Address;
   enderecoEntrega: Address;
 }
@@ -70,7 +68,6 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
   const [openPickupPopover, setOpenPickupPopover] = useState(false);
   const [openDropoffPopover, setOpenDropoffPopover] = useState(false);
 
-  // Busca Pessoas e Endereços (sem mudança)
   useEffect(() => {
     if (isOpen) {
       const fetchData = async () => {
@@ -80,7 +77,6 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
             api.get('/pessoa'),
             api.get('/endereco')
           ]);
-          // Log para verificar os dados recebidos da API
           console.log("Pessoas recebidas:", peopleResponse.data);
           console.log("Endereços recebidos:", addressesResponse.data);
           setPeople(peopleResponse.data);
@@ -94,14 +90,12 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
     }
   }, [isOpen]);
 
-  // Popula o formulário ao editar
   useEffect(() => {
     if (passenger && isOpen) {
-      // Usa 'id' da interface Person atualizada
       setFormData({
-        personId: passenger.pessoa?.id?.toString() || '', // <-- 2. CORRIGIDO PARA 'id' (com safe navigation)
-        pickupAddressId: passenger.enderecoColeta?.id?.toString() || '', // Added safe navigation
-        dropoffAddressId: passenger.enderecoEntrega?.id?.toString() || '', // Added safe navigation
+        personId: passenger.pessoa?.id?.toString() || '', 
+        pickupAddressId: passenger.enderecoColeta?.id?.toString() || '', 
+        dropoffAddressId: passenger.enderecoEntrega?.id?.toString() || '', 
       });
     } else {
       setFormData({
@@ -112,7 +106,6 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
     }
   }, [passenger, isOpen]);
 
-  // handleSubmit (sem mudança)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.personId || !formData.pickupAddressId || !formData.dropoffAddressId) {
@@ -126,7 +119,6 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
     });
   };
 
-  // Funções auxiliares para encontrar o nome/endereço selecionado
   const getSelectedPersonName = () => people.find(p => p.id.toString() === formData.personId)?.nome || "Selecione a pessoa...";
   const getSelectedPickupAddress = () => formatAddress(addresses.find(a => a.id.toString() === formData.pickupAddressId) as Address);
   const getSelectedDropoffAddress = () => formatAddress(addresses.find(a => a.id.toString() === formData.dropoffAddressId) as Address);
@@ -243,7 +235,7 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
             </Popover>
           </div>
 
-          {/* Combobox de Endereço de Entrega (sem mudança aqui) */}
+          {/* Combobox de Endereço de Entrega */}
           <div className="space-y-2">
             <Label htmlFor="dropoff">Endereço de Entrega</Label>
             <Popover open={openDropoffPopover} onOpenChange={setOpenDropoffPopover}>

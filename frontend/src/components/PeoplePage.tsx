@@ -2,14 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-// import { Badge } from './ui/badge'; 
 import PersonModal from './PersonModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api'; 
 
-// --- 1. MUDANÇA AQUI: Interface agora usa 'idPessoa' ---
 interface Person {
-  idPessoa: number; // MUDADO DE 'id' PARA 'idPessoa'
+  idPessoa: number; 
   nome: string;
   cpf: string;
   telefone: string;
@@ -42,7 +40,6 @@ export default function PeoplePage() {
     fetchPeople();
   }, []);
 
-  // --- Funções do CRUD ---
 
   const handleCreatePerson = async (personData: PersonDto) => {
     try {
@@ -57,29 +54,26 @@ export default function PeoplePage() {
   const handleUpdatePerson = async (personData: PersonDto) => {
     if (!selectedPerson) return;
     try {
-      // --- 2. MUDANÇA AQUI: URL agora usa 'idPessoa' ---
       await api.put(`/pessoa/${selectedPerson.idPessoa}`, personData);
       setSelectedPerson(null);
       setIsModalOpen(false);
       await fetchPeople(); 
     } catch (error) {
-      console.error("Erro ao atualizar pessoa:", error, selectedPerson); // Adicionado log
+      console.error("Erro ao atualizar pessoa:", error, selectedPerson); 
     }
   };
 
   const handleDeletePerson = async () => {
     if (!deletePerson) return;
     try {
-      // --- 3. MUDANÇA AQUI: URL agora usa 'idPessoa' ---
       await api.delete(`/pessoa/${deletePerson.idPessoa}`);
       setDeletePerson(null);
       await fetchPeople(); 
     } catch (error) {
-      console.error("Erro ao deletar pessoa:", error, deletePerson); // Adicionado log
+      console.error("Erro ao deletar pessoa:", error, deletePerson); 
     }
   };
 
-  // --- Funções de abrir modais (sem mudança) ---
   const openEditModal = (person: Person) => {
     setSelectedPerson(person);
     setIsModalOpen(true);
@@ -106,7 +100,6 @@ export default function PeoplePage() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <Table>
           <TableHeader>
-            {/* Corrigido o aviso de whitespace (DOM nesting) */}
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>Documento (CPF)</TableHead>
@@ -117,7 +110,6 @@ export default function PeoplePage() {
           </TableHeader>
           <TableBody>
             {people.map((person) => (
-              // --- 4. MUDANÇA AQUI: 'key' agora usa 'idPessoa' ---
               <TableRow key={person.idPessoa}>
                 <TableCell>{person.nome}</TableCell>
                 <TableCell>{person.cpf}</TableCell>

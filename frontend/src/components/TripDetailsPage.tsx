@@ -29,7 +29,6 @@ interface Trip {
 }
 
 interface Person {
-  // Mudado para idPessoa para consistência com o backend
   id: number;
   nome: string;
   cpf: string;
@@ -108,12 +107,10 @@ export default function TripDetailsPage() {
         const passengersWithLuggage = await Promise.all(
           passengersData.map(async (passenger) => {
             const luggageResponse = await api.get(`/bagagem/passageiro/${passenger.id}`);
-            // Corrigindo a interface Person internamente se necessário
             const correctedPassenger = {
                 ...passenger,
                 pessoa: {
                     ...passenger.pessoa,
-                    // Garante que o ID da pessoa está como idPessoa
                     idPessoa: passenger.pessoa.id
                 }
             };
@@ -151,12 +148,10 @@ export default function TripDetailsPage() {
       const passengersWithLuggage = await Promise.all(
         passengersData.map(async (passenger) => {
           const luggageResponse = await api.get(`/bagagem/passageiro/${passenger.id}`);
-           // Corrigindo a interface Person internamente se necessário
            const correctedPassenger = {
             ...passenger,
             pessoa: {
                 ...passenger.pessoa,
-                // Garante que o ID da pessoa está como idPessoa
                 idPessoa: passenger.pessoa.id
             }
           };
@@ -174,22 +169,18 @@ export default function TripDetailsPage() {
     }
   };
 
-  // *** FUNÇÃO handleSavePassenger ATUALIZADA ***
   const handleSavePassenger = async (passengerDto: { personId: number; pickupAddressId: number; dropoffAddressId: number }) => {
-    // Monta o DTO com os NOMES CORRETOS esperados pelo backend
     const fullDto = {
-      pessoaId: passengerDto.personId,             // <-- MUDANÇA AQUI
+      pessoaId: passengerDto.personId,             
       viagemId: parseInt(tripId!),
-      enderecoColetaId: passengerDto.pickupAddressId, // <-- MUDANÇA AQUI
-      enderecoEntregaId: passengerDto.dropoffAddressId // <-- MUDANÇA AQUI
+      enderecoColetaId: passengerDto.pickupAddressId, 
+      enderecoEntregaId: passengerDto.dropoffAddressId 
     };
 
     try {
       if (selectedPassenger) {
-        // --- Modo Edição (UPDATE) ---
         await api.put(`/passageiroviagem/${selectedPassenger.id}`, fullDto);
       } else {
-        // --- Modo Criação (CREATE) ---
         await api.post('/passageiroviagem', fullDto);
       }
       setIsPassengerModalOpen(false);
@@ -249,9 +240,7 @@ export default function TripDetailsPage() {
   const filteredPassengers = passengers.filter((passenger) => {
     const searchLower = passengerSearchTerm.toLowerCase();
     const nameMatch = passenger.pessoa.nome.toLowerCase().includes(searchLower);
-    // Verifica se enderecoColeta existe antes de acessar propriedades
     const pickupMatch = passenger.enderecoColeta && formatAddress(passenger.enderecoColeta).toLowerCase().includes(searchLower);
-    // Verifica se enderecoEntrega existe antes de acessar propriedades
     const dropoffMatch = passenger.enderecoEntrega && formatAddress(passenger.enderecoEntrega).toLowerCase().includes(searchLower);
     return nameMatch || pickupMatch || dropoffMatch;
 });
@@ -259,7 +248,6 @@ export default function TripDetailsPage() {
 
   const filteredPackages = packages.filter((pkg) => {
     const searchLower = packageSearchTerm.toLowerCase();
-    // Verifica se as propriedades existem antes de acessá-las
     const descMatch = pkg.descricao && pkg.descricao.toLowerCase().includes(searchLower);
     const senderMatch = pkg.remetente && pkg.remetente.nome && pkg.remetente.nome.toLowerCase().includes(searchLower);
     const recipientMatch = pkg.destinatario && pkg.destinatario.nome && pkg.destinatario.nome.toLowerCase().includes(searchLower);

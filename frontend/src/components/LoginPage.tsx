@@ -17,34 +17,21 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 1. A função de submit agora é async (já era, o que é bom)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      // 2. Faz a chamada POST
       const response = await api.post('/login', {
         username: username,
         password: password
       });
 
-      // --- MUDANÇAS AQUI ---
-      
-      // 3. (REMOVIDO) Não precisamos mais do token
-      // const token = response.data.token;
-
-      // 4. (REMOVIDO) Não salvamos mais no localStorage
-      // localStorage.setItem('authToken', token);
-
-      // 5. (ALTERADO) Chamamos onLogin com o username que veio do backend
-      // (O LoginController agora retorna o username no corpo da resposta)
       const loggedInUsername = response.data; 
       onLogin(loggedInUsername); 
 
     } catch (err) {
-      // 6. Tratamento de erros (continua igual)
       const axiosError = err as AxiosError;
       if (axiosError.response && (axiosError.response.status === 401 || axiosError.response.status === 403)) {
         setError('Usuário ou senha inválidos.');
@@ -54,12 +41,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       console.error("Erro no login:", err);
       setIsLoading(false);
     }
-    // O 'setIsLoading(false)' só deve ser chamado em caso de erro.
-    // Se o login for bem-sucedido, a página vai navegar.
   };
 
   return (
-    // ... (O resto do seu JSX continua exatamente igual)
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-lg shadow-xl p-8">

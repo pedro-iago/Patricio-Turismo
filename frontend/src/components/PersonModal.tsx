@@ -4,16 +4,14 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 
-// --- Interfaces que combinam com o Backend ---
-// DTO para salvar (corresponde a PessoaDto.java)
+
 interface PersonDto {
   nome: string;
   cpf: string;
   telefone: string;
-  idade?: number; // idade é opcional
+  idade?: number; 
 }
 
-// Objeto Pessoa completo (corresponde a Pessoa.java)
 interface Person {
   id: number;
   nome: string;
@@ -25,31 +23,27 @@ interface Person {
 interface PersonModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (person: PersonDto) => void; // Envia o DTO correto
-  person: Person | null; // Recebe a Pessoa correta
+  onSave: (person: PersonDto) => void; 
+  person: Person | null; 
 }
 
 export default function PersonModal({ isOpen, onClose, onSave, person }: PersonModalProps) {
-  // --- 1. Estado do formulário agora espelha o DTO ---
   const [formData, setFormData] = useState({
     nome: '',
     cpf: '',
     telefone: '',
-    idade: '', // Formulários usam string
+    idade: '', 
   });
 
-  // 2. Efeito para popular o formulário
   useEffect(() => {
     if (person) {
-      // Modo Edição
       setFormData({
         nome: person.nome || '',
         cpf: person.cpf || '',
         telefone: person.telefone || '',
-        idade: person.idade?.toString() || '', // Converte número para string
+        idade: person.idade?.toString() || '', 
       });
     } else {
-      // Modo Criar
       setFormData({
         nome: '',
         cpf: '',
@@ -59,7 +53,6 @@ export default function PersonModal({ isOpen, onClose, onSave, person }: PersonM
     }
   }, [person, isOpen]);
 
-  // 3. handleSubmit envia o DTO formatado
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
@@ -80,7 +73,6 @@ export default function PersonModal({ isOpen, onClose, onSave, person }: PersonM
             {person ? 'Atualize as informações da pessoa abaixo.' : 'Insira informações para registrar uma nova pessoa.'}
           </DialogDescription>
         </DialogHeader>
-        {/* --- 4. Formulário Corrigido --- */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="nome">Nome</Label>

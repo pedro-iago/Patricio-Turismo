@@ -1,36 +1,16 @@
 services:
   - type: web
-    name: patricio-turismo-web
-    plan: free 
-    envVars:
-      - key: JAVA_VERSION
-        value: 17
-
-    buildCommand: |
-      echo "Iniciando build do Monorepo..."
-      cd frontend
-      npm install
-      npm run build
-      cd ..
-      mkdir -p backend/src/main/resources/static
-
-      # --- Copiando arquivos do Frontend ---
-      echo "Copiando arquivos do Frontend..."
-      cp -r frontend/dist/* backend/src/main/resources/static/
-
-      cd backend
-      echo "Dando permissão de execução ao mvnw..."
-      chmod +x mvnw
-
-      echo "Configurando JAVA_HOME..."
-      export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
-      export PATH=$JAVA_HOME/bin:$PATH
-
-      echo "Construindo o Backend (Spring)..."
-      ./mvnw clean package -DskipTests
-
-    startCommand: java -jar backend/target/crud-0.0.1-SNAPSHOT.jar
-
-databases:
-  - name: patricio-db
+    name: patricio-turismo
+    env: docker
     plan: free
+    envVars:
+      - key: POSTGRES_HOST
+        value: dpg-d3vnll75r7bs738clal0-a.oregon-postgres.render.com
+      - key: POSTGRES_PORT
+        value: 5432
+      - key: POSTGRES_DATABASE
+        value: patricioturismo_db
+      - key: POSTGRES_USER
+        value: patricioturismo_db
+      - key: POSTGRES_PASSWORD
+        value: 15b5hmV5kBicBSn0ycldjgIKergPSdx4

@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # ==========================================================
+  # 🧩 APP (Spring Boot + React build)
+  # ==========================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: patricio-app
+    ports:
+      - "8080:8080"
+    restart: always
+
+    environment:
+      # URL de conexão com o Postgres (usa o serviço interno 'db')
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/patricio_db
+      SPRING_DATASOURCE_USERNAME: postgres_user
+      SPRING_DATASOURCE_PASSWORD: postgres_password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_PROFILES_ACTIVE: docker
+
+    depends_on:
+      - db
+
+    # Espera o DB responder antes de iniciar a app (ajuda em init lento)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================================
+  # 🗃️ Banco de Dados (PostgreSQL)
+  # ==========================================================
+  db:
+    image: postgres:16-alpine
+    container_name: patricio-db
+    restart: always
+
+    # Porta alterada localmente para evitar conflito (boa prática!)
+    ports:
+      - "5433:5432"
+
+    environment:
+      POSTGRES_DB: patricio_db
+      POSTGRES_USER: postgres_user
+      POSTGRES_PASSWORD: postgres_password
+
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:

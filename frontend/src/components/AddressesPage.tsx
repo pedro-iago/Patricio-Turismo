@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react'; // 1. Importar useEffect
+import React, { useState, useEffect } from 'react'; 
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import AddressModal from './AddressModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
-import api from '../services/api'; // 2. Importar API
+import api from '../services/api'; 
 
-// --- 3. Interface que combina com o Backend (Endereco.java) ---
 interface Address {
   id: number;
   logradouro: string;
@@ -17,7 +16,6 @@ interface Address {
   cep: string;
 }
 
-// DTO para salvar (corresponde a EnderecoDto.java)
 interface AddressDto {
   logradouro: string;
   numero: string;
@@ -27,37 +25,33 @@ interface AddressDto {
   cep: string;
 }
 
-// 4. Remover mockAddresses
-// const mockAddresses: Address[] = [ ... ];
+
 
 export default function AddressesPage() {
-  const [addresses, setAddresses] = useState<Address[]>([]); // 5. Começa vazio
+  const [addresses, setAddresses] = useState<Address[]>([]); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [deleteAddress, setDeleteAddress] = useState<Address | null>(null);
 
-  // --- 6. Função para buscar dados da API ---
   const fetchAddresses = async () => {
     try {
-      const response = await api.get('/endereco'); // Endpoint do EnderecoController
+      const response = await api.get('/endereco'); 
       setAddresses(response.data);
     } catch (error) {
       console.error("Erro ao buscar endereços:", error);
     }
   };
 
-  // 7. useEffect para buscar dados ao carregar
   useEffect(() => {
     fetchAddresses();
   }, []);
 
-  // --- 8. Funções do CRUD conectadas à API ---
 
   const handleCreateAddress = async (addressData: AddressDto) => {
     try {
       await api.post('/endereco', addressData);
       setIsModalOpen(false);
-      await fetchAddresses(); // Recarrega a lista
+      await fetchAddresses(); 
     } catch (error) {
       console.error("Erro ao criar endereço:", error);
     }
@@ -69,7 +63,7 @@ export default function AddressesPage() {
       await api.put(`/endereco/${selectedAddress.id}`, addressData);
       setSelectedAddress(null);
       setIsModalOpen(false);
-      await fetchAddresses(); // Recarrega a lista
+      await fetchAddresses(); 
     } catch (error) {
       console.error("Erro ao atualizar endereço:", error);
     }
@@ -80,13 +74,12 @@ export default function AddressesPage() {
     try {
       await api.delete(`/endereco/${deleteAddress.id}`);
       setDeleteAddress(null);
-      await fetchAddresses(); // Recarrega a lista
+      await fetchAddresses(); 
     } catch (error) {
       console.error("Erro ao deletar endereço:", error);
     }
   };
 
-  // --- Funções de abrir modais (sem mudança) ---
   const openEditModal = (address: Address) => {
     setSelectedAddress(address);
     setIsModalOpen(true);
@@ -97,7 +90,6 @@ export default function AddressesPage() {
     setIsModalOpen(true);
   };
 
-  // 9. Helper para formatar o endereço principal na tabela
   const formatStreetAndNumber = (address: Address) => {
     return `${address.logradouro}, ${address.numero}`;
   };
@@ -115,7 +107,7 @@ export default function AddressesPage() {
         </Button>
       </div>
 
-      {/* --- 10. Tabela Corrigida --- */}
+      {/* --- 10. Tabela --- */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <Table>
           <TableHeader>
@@ -163,7 +155,7 @@ export default function AddressesPage() {
         </Table>
       </div>
 
-      {/* --- 11. Modais (agora usam as funções de API) --- */}
+      {/* --- 11. Modais --- */}
       <AddressModal
         isOpen={isModalOpen}
         onClose={() => {
