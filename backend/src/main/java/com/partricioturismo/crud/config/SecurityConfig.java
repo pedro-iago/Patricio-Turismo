@@ -41,11 +41,11 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    // CORREÇÃO ESSENCIAL: Usamos o nome completo da propriedade que está no seu application.properties
+    // CORREÇÃO: Usa o nome completo da propriedade que está no application.properties
     @Value("${spring.security.oauth2.resourceserver.jwt.public.key}")
     RSAPublicKey publicKey;
 
-    // CORREÇÃO ESSENCIAL: Mantemos o nome da chave privada (que agora está definida no application.properties)
+    // Chave privada (agora definida no application.properties)
     @Value("${jwt.private.key}")
     RSAPrivateKey privateKey;
 
@@ -90,8 +90,6 @@ public class SecurityConfig {
                                 "/*.svg"
                         ).permitAll()
                         .requestMatchers(
-                                // A sintaxe deste matcher causou o segundo erro, mas será resolvida com
-                                // a propriedade 'spring.mvc.pathmatch.matching-strategy=ant_path_matcher'
                                 "/{path:[^\\.]*}",
                                 "/**/{path:(?!api|assets)[^\\.]*}"
                         ).permitAll()
@@ -124,9 +122,19 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001"));
+        // CORREÇÃO CORS FINAL: Incluindo o domínio de produção da Render e os locais de desenvolvimento.
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+                "http://localhost:3001",
+                "https://patricio-turismo.onrender.com" // DOMÍNIO DE PRODUÇÃO
+        ));
+
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+
+        // Inclui "Authorization", "Content-Type" e outros cabeçalhos necessários para CORS e Cookies
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept"));
+
+        // ESSENCIAL para o envio de cookies (como o authToken) e credenciais de autenticação
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
