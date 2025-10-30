@@ -31,13 +31,17 @@ Tudo foi estruturado com foco em **escalabilidade, modularidade e experiência d
 ---
 
 ## 💻 Telas da Aplicação  
-| ![Tela Inicial](./screenshots/home.png) | ![Tela de Login](./screenshots/login.png) |  
+| ![Tela de Login](./printsTela/login.png) | ![Tela de Viagens](./printsTela/viagens.png) |  
 |-----------------------------------------|-------------------------------------------|  
-| <p align="center">🏠 Página Inicial</p> | <p align="center">🔐 Login</p> |  
+| <p align="center">🔐 Login</p> | <p align="center">🧭 Painel de Viagens</p> |  
 
-| ![Painel de Viagens](./screenshots/dashboard.png) | ![Página de Detalhes](./screenshots/details.png) |  
+| ![Painel de Onibus](./printsTela/Onibus.png) | ![Página de pessoas](./printsTela/pessoas.png) |  
 |-----------------------------------------|---------------------------------------------|  
-| <p align="center">🧭 Painel de Viagens</p> | <p align="center">🚌 Detalhes da Viagem</p> |
+| <p align="center">🚍 Onibus</p> | <p align="center">👬 Pessoas</p> |
+
+| ![Painel de Detalhes da Viagem](./printsTela/viagemDetalhes.png) | ![Página de enderecos](./printsTela/enderecos.png) |  
+|-----------------------------------------|---------------------------------------------|  
+| <p align="center">🚌 Detalhes da Viagem</p> | <p align="center">🏠 Endereçõs</p> |
 
 ---
 
