@@ -1,12 +1,5 @@
 # 🚌 Patricio Turismo  
 
-## 👥 Equipe de Desenvolvimento  
-<table>
-<tr>
-<td align="center" width="200"><pre><a href="https://github.com/pedro-iago"><img src="https://avatars.githubusercontent.com/u/151461327?v=4" width="200" alt="GitHub Profile picture"/><br><sub>Pedro Iago Ribeiro</sub></a><br>RM565411</pre></td>
-</tr>
-</table>
-
 ---
 
 ## 📄 Sobre o Projeto  
@@ -63,6 +56,7 @@ Tudo foi estruturado com foco em **escalabilidade, modularidade e experiência d
 ---
 
 ## 🧩 Arquitetura do Projeto  
+```bash
 Patricio-Turismo/
 │
 ├── backend/ # API Spring Boot
@@ -77,7 +71,7 @@ Patricio-Turismo/
 │
 ├── docker-compose.yml # Orquestração dos containers
 └── README.md
-
+```
 
 ---
 
