@@ -110,14 +110,14 @@ docker-compose up --build
 ```
 ---
 
-🧠 Flyway - Controle de Migrações
+## 🧠 Flyway - Controle de Migrações
 
 O banco de dados é versionado com Flyway Core, garantindo consistência entre ambientes e rastreabilidade de alterações de schema.
 Cada nova versão do banco é automaticamente migrada no startup da aplicação.
 
 ---
 
-🧭 Futuras Implementações
+## 🧭 Futuras Implementações
 
  Painel administrativo completo
 
@@ -127,7 +127,7 @@ Cada nova versão do banco é automaticamente migrada no startup da aplicação.
 
  ---
 
-🧱 História do Projeto
+## 🧱 História do Projeto
 
 O Patricio Turismo nasceu como um projeto autoral com o objetivo de digitalizar a operação de uma empresa real de transporte rodoviário.
 Desde o design da marca até o deploy final em ambiente Docker, cada etapa foi planejada para unir tecnologia moderna, boas práticas de engenharia e a identidade acolhedora da empresa.
@@ -142,10 +142,9 @@ Implementação do Backend – API REST segura com Spring Boot e OAuth 2.0.
 
 Integração e Deploy – estruturação em containers Docker e versionamento no GitHub.
 
-👨‍💻 Autor
+## 👨‍💻 Autor
 <table> <tr> <td align="center" width="200"><a href="https://github.com/pedro-iago"><img src="https://avatars.githubusercontent.com/u/151461327?v=4" width="120" alt="GitHub Profile picture"/><br><sub><b>Pedro Iago Ribeiro</b></sub></a><br>Desenvolvedor Full Stack</td> </tr> </table>
 
-📍 Brasil
 🎓 Estudante de Análise e Desenvolvimento de Sistemas
 💬 Interesses: Java, React, Docker, APIs REST, Arquitetura de Software
 
