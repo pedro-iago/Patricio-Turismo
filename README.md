@@ -147,4 +147,3 @@ Integração e Deploy – estruturação em containers Docker e versionamento no
 
 🎓 Estudante de Análise e Desenvolvimento de Sistemas
 💬 Interesses: Java, React, Docker, APIs REST, Arquitetura de Software
-
