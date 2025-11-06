@@ -1,7 +1,7 @@
 package com.partricioturismo.crud.controllers;
 
 import com.partricioturismo.crud.dtos.BagagemDto;
-import com.partricioturismo.crud.model.Bagagem;
+// import com.partricioturismo.crud.model.Bagagem; // Não precisamos mais da entidade aqui
 import com.partricioturismo.crud.service.BagagemService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -19,19 +19,19 @@ public class BagagemController {
     BagagemService service;
 
     @GetMapping
-    public ResponseEntity<List<Bagagem>> getAll() {
+    public ResponseEntity<List<BagagemDto>> getAll() { // Alterado para BagagemDto
         return ResponseEntity.status(HttpStatus.OK).body(service.findAll());
     }
 
     @GetMapping("/passageiro/{passageiroViagemId}")
-    public ResponseEntity<List<Bagagem>> getByPassageiroViagemId(@PathVariable Long passageiroViagemId) {
-        List<Bagagem> bagagens = service.findByPassageiroViagemId(passageiroViagemId);
+    public ResponseEntity<List<BagagemDto>> getByPassageiroViagemId(@PathVariable Long passageiroViagemId) { // Alterado para BagagemDto
+        List<BagagemDto> bagagens = service.findByPassageiroViagemId(passageiroViagemId);
         return ResponseEntity.status(HttpStatus.OK).body(bagagens);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Object> getById(@PathVariable(value = "id") Long id) {
-        Optional<Bagagem> bagagem = service.findById(id);
+        Optional<BagagemDto> bagagem = service.findById(id); // Alterado para BagagemDto
         if (bagagem.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Bagagem não encontrada");
         }
@@ -41,7 +41,7 @@ public class BagagemController {
     @PostMapping
     public ResponseEntity<Object> save(@RequestBody BagagemDto dto) {
         try {
-            var bagagemSalva = service.save(dto);
+            var bagagemSalva = service.save(dto); // service.save() agora retorna DTO
             return ResponseEntity.status(HttpStatus.CREATED).body(bagagemSalva);
         } catch (RuntimeException e) {
             // Captura os "Não encontrado!" do service
@@ -61,7 +61,7 @@ public class BagagemController {
     @PutMapping("/{id}")
     public ResponseEntity<Object> update(@PathVariable(value = "id") Long id, @RequestBody BagagemDto dto) {
         try {
-            Optional<Bagagem> bagagemAtualizada = service.update(id, dto);
+            Optional<BagagemDto> bagagemAtualizada = service.update(id, dto); // Alterado para BagagemDto
             if (bagagemAtualizada.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Bagagem não encontrada");
             }

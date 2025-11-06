@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors; // Importe esta classe
 
 @Service
 public class BagagemService {
@@ -25,19 +26,41 @@ public class BagagemService {
     @Autowired
     private PassageiroViagemRepository passageiroViagemRepository;
 
-    public List<Bagagem> findAll() {
-        return repository.findAll();
+    // --- NOVO MÉTODO HELPER ---
+    // Converte a entidade Bagagem para o BagagemDto
+    private BagagemDto convertToDto(Bagagem bagagem) {
+        return new BagagemDto(
+                bagagem.getId(),
+                bagagem.getPeso(),
+                bagagem.getDescricao(),
+                // Acesso seguro aos IDs das relações LAZY
+                bagagem.getPassageiroViagem() != null ? bagagem.getPassageiroViagem().getId() : null,
+                bagagem.getResponsavel() != null ? bagagem.getResponsavel().getId() : null
+        );
     }
 
-    public List<Bagagem> findByPassageiroViagemId(Long passageiroViagemId) {
-        return repository.findByPassageiroViagemId(passageiroViagemId);
+    // --- MÉTODOS ATUALIZADOS ---
+
+    @Transactional(readOnly = true) // Adicionado para garantir a leitura LAZY
+    public List<BagagemDto> findAll() {
+        return repository.findAll().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
 
-    public Optional<Bagagem> findById(Long id) {
-        return repository.findById(id);
+    @Transactional(readOnly = true) // Adicionado para garantir a leitura LAZY
+    public List<BagagemDto> findByPassageiroViagemId(Long passageiroViagemId) {
+        return repository.findByPassageiroViagemId(passageiroViagemId).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
 
-    // Método auxiliar para carregar as entidades
+    @Transactional(readOnly = true) // Adicionado para garantir a leitura LAZY
+    public Optional<BagagemDto> findById(Long id) {
+        return repository.findById(id).map(this::convertToDto);
+    }
+
+    // Método auxiliar para carregar as entidades (sem alteração)
     private Bagagem carregarEntidades(Bagagem bagagem, BagagemDto dto) {
         // 1. Busca Responsável (obrigatório)
         Pessoa responsavel = pessoaRepository.findById(dto.responsavelId())
@@ -57,15 +80,16 @@ public class BagagemService {
     }
 
     @Transactional
-    public Bagagem save(BagagemDto dto) {
+    public BagagemDto save(BagagemDto dto) { // Retorno alterado para DTO
         Bagagem bagagem = new Bagagem();
         BeanUtils.copyProperties(dto, bagagem); // Copia peso e descricao
         bagagem = carregarEntidades(bagagem, dto); // Busca e seta as entidades
-        return repository.save(bagagem);
+        Bagagem bagagemSalva = repository.save(bagagem);
+        return convertToDto(bagagemSalva); // Retorna o DTO
     }
 
     @Transactional
-    public Optional<Bagagem> update(Long id, BagagemDto dto) {
+    public Optional<BagagemDto> update(Long id, BagagemDto dto) { // Retorno alterado para DTO
         Optional<Bagagem> optionalBagagem = repository.findById(id);
         if (optionalBagagem.isEmpty()) {
             return Optional.empty();
@@ -74,7 +98,8 @@ public class BagagemService {
         Bagagem bagagemModel = optionalBagagem.get();
         BeanUtils.copyProperties(dto, bagagemModel, "id"); // Copia peso e descricao
         bagagemModel = carregarEntidades(bagagemModel, dto); // Atualiza as entidades
-        return Optional.of(repository.save(bagagemModel));
+        Bagagem bagagemAtualizada = repository.save(bagagemModel);
+        return Optional.of(convertToDto(bagagemAtualizada)); // Retorna o DTO
     }
 
     @Transactional
