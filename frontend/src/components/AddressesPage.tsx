@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react'; 
-// ÍCONE DE BUSCA ADICIONADO
+// Importa o Search e o Input
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
+import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-// INPUT ADICIONADO
-import { Input } from './ui/input'; 
 import AddressModal from './AddressModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api'; 
@@ -50,12 +49,49 @@ export default function AddressesPage() {
     fetchAddresses();
   }, []);
 
-  // --- Funções de CRUD (sem mudanças) ---
-  const handleCreateAddress = async (addressData: AddressDto) => { /* ... */ };
-  const handleUpdateAddress = async (addressData: AddressDto) => { /* ... */ };
-  const handleDeleteAddress = async () => { /* ... */ };
-  const openEditModal = (address: Address) => { /* ... */ };
-  const openCreateModal = () => { /* ... */ };
+  const handleCreateAddress = async (addressData: AddressDto) => {
+    try {
+      await api.post('/endereco', addressData);
+      setIsModalOpen(false);
+      await fetchAddresses(); 
+    } catch (error) {
+      console.error("Erro ao criar endereço:", error);
+    }
+  };
+
+  const handleUpdateAddress = async (addressData: AddressDto) => {
+    if (!selectedAddress) return;
+    try {
+      await api.put(`/endereco/${selectedAddress.id}`, addressData);
+      setSelectedAddress(null);
+      setIsModalOpen(false);
+      await fetchAddresses(); 
+    } catch (error) {
+      console.error("Erro ao atualizar endereço:", error);
+    }
+  };
+
+  const handleDeleteAddress = async () => {
+    if (!deleteAddress) return;
+    try {
+      await api.delete(`/endereco/${deleteAddress.id}`);
+      setDeleteAddress(null);
+      await fetchAddresses(); 
+    } catch (error) {
+      console.error("Erro ao deletar endereço:", error);
+    }
+  };
+
+  // --- FUNÇÕES DO MODAL (CORRETAS) ---
+  const openEditModal = (address: Address) => {
+    setSelectedAddress(address);
+    setIsModalOpen(true);
+  };
+
+  const openCreateModal = () => {
+    setSelectedAddress(null);
+    setIsModalOpen(true);
+  };
 
   const formatStreetAndNumber = (address: Address) => {
     return `${address.logradouro}, ${address.numero}`;
@@ -68,7 +104,6 @@ export default function AddressesPage() {
       address.logradouro.toLowerCase().includes(searchLower) ||
       address.bairro.toLowerCase().includes(searchLower) ||
       address.cidade.toLowerCase().includes(searchLower) ||
-      address.estado.toLowerCase().includes(searchLower) ||
       address.cep.toLowerCase().includes(searchLower)
     );
   });
@@ -91,7 +126,7 @@ export default function AddressesPage() {
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           type="text"
-          placeholder="Pesquisar por rua, bairro, cidade..."
+          placeholder="Pesquisar por rua, bairro, cidade ou CEP..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10"

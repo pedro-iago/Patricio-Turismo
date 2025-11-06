@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react'; 
 import { useNavigate } from 'react-router-dom';
-// ÍCONE DE BUSCA ADICIONADO
+// Importa o Search e o Input
 import { Plus, Edit, Trash2, Eye, Search } from 'lucide-react';
+import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-// INPUT ADICIONADO
-import { Input } from './ui/input'; 
 import TripModal from './TripModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import  api  from '../services/api'; 
@@ -30,7 +29,7 @@ export default function TripsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [deleteTrip, setDeleteTrip] = useState<Trip | null>(null);
-
+  
   // --- NOVO ESTADO PARA A BUSCA ---
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -47,20 +46,58 @@ export default function TripsPage() {
     fetchTrips();
   }, []); 
 
-  // --- Funções de CRUD (sem mudanças) ---
-  const handleCreateTrip = async (tripData: any) => { /* ... */ };
-  const handleUpdateTrip = async (tripData: any) => { /* ... */ };
-  const handleDeleteTrip = async () => { /* ... */ };
-  const openEditModal = (trip: Trip) => { /* ... */ };
-  const openCreateModal = () => { /* ... */ };
+  const handleCreateTrip = async (tripData: any) => {
+    try {
+      await api.post('/viagem', tripData);
+      setIsModalOpen(false); 
+      fetchTrips(); 
+    } catch (error) {
+      console.error("Erro ao criar viagem:", error);
+    }
+  };
+
+  const handleUpdateTrip = async (tripData: any) => {
+    if (!selectedTrip) return; 
+
+    try {
+      await api.put(`/viagem/${selectedTrip.id}`, tripData);
+      setSelectedTrip(null);
+      setIsModalOpen(false);
+      fetchTrips();
+    } catch (error) {
+      console.error("Erro ao atualizar viagem:", error);
+    }
+  };
+
+  const handleDeleteTrip = async () => { 
+      if (!deleteTrip) return; 
+      try {
+        await api.delete(`/viagem/${deleteTrip.id}`);
+        setTrips(trips.filter((trip) => trip.id !== deleteTrip.id));
+        setDeleteTrip(null);
+      } catch (error) {
+        console.error('Erro ao deletar viagem:', error);
+      }
+    };
+
+  // --- FUNÇÕES DO MODAL (CORRETAS) ---
+  const openEditModal = (trip: Trip) => {
+    setSelectedTrip(trip);
+    setIsModalOpen(true);
+  };
+
+  const openCreateModal = () => {
+    setSelectedTrip(null);
+    setIsModalOpen(true);
+  };
 
   // --- LÓGICA DE FILTRO ---
   const filteredTrips = trips.filter(trip => {
     const searchLower = searchTerm.toLowerCase();
-    const dataFormatada = new Date(trip.dataHoraPartida).toLocaleDateString();
+    const partidaDate = new Date(trip.dataHoraPartida).toLocaleDateString();
     return (
-      dataFormatada.includes(searchLower) ||
-      trip.onibus.placa.toLowerCase().includes(searchLower)
+      (trip.onibus && trip.onibus.placa.toLowerCase().includes(searchLower)) ||
+      partidaDate.includes(searchLower)
     );
   });
 
@@ -82,7 +119,7 @@ export default function TripsPage() {
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           type="text"
-          placeholder="Pesquisar por data ou placa do ônibus..."
+          placeholder="Pesquisar por placa do ônibus ou data (dd/mm/aaaa)..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10"
@@ -120,7 +157,6 @@ export default function TripsPage() {
                   })}
                 </TableCell>
                 <TableCell>{trip.onibus.placa}</TableCell>
-                
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     <Button

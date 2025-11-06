@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react'; 
-// ÍCONE DE BUSCA ADICIONADO
+// Importa o Search e o Input
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
+import { Input } from './ui/input'; 
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-// INPUT ADICIONADO
-import { Input } from './ui/input'; 
 import BusModal from './BusModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api';
@@ -44,12 +43,49 @@ export default function FleetPage() {
     fetchBuses();
   }, []);
 
-  // --- Funções de CRUD (sem mudanças) ---
-  const handleCreateBus = async (busData: BusDto) => { /* ... */ };
-  const handleUpdateBus = async (busData: BusDto) => { /* ... */ };
-  const handleDeleteBus = async () => { /* ... */ };
-  const openEditModal = (bus: Bus) => { /* ... */ };
-  const openCreateModal = () => { /* ... */ };
+  const handleCreateBus = async (busData: BusDto) => {
+    try {
+      await api.post('/onibus', busData);
+      setIsModalOpen(false);
+      await fetchBuses(); 
+    } catch (error) {
+      console.error("Erro ao criar ônibus:", error);
+    }
+  };
+
+  const handleUpdateBus = async (busData: BusDto) => {
+    if (!selectedBus) return;
+    try {
+      await api.put(`/onibus/${selectedBus.idOnibus}`, busData);
+      setSelectedBus(null);
+      setIsModalOpen(false);
+      await fetchBuses(); 
+    } catch (error) {
+      console.error("Erro ao atualizar ônibus:", error);
+    }
+  };
+
+  const handleDeleteBus = async () => {
+    if (!deleteBus) return;
+    try {
+      await api.delete(`/onibus/${deleteBus.idOnibus}`);
+      setDeleteBus(null);
+      await fetchBuses(); 
+    } catch (error) {
+      console.error("Erro ao deletar ônibus:", error);
+    }
+  };
+
+  // --- FUNÇÕES DO MODAL (CORRETAS) ---
+  const openEditModal = (bus: Bus) => {
+    setSelectedBus(bus);
+    setIsModalOpen(true);
+  };
+
+  const openCreateModal = () => {
+    setSelectedBus(null);
+    setIsModalOpen(true);
+  };
 
   // --- LÓGICA DE FILTRO ---
   const filteredBuses = buses.filter(bus => {

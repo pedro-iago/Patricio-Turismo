@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-// ÍCONE DE BUSCA ADICIONADO
+// Importa o Search e o Input
 import { Plus, Trash2, Search } from 'lucide-react';
+import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-// INPUT ADICIONADO
-import { Input } from './ui/input'; 
 import AffiliateModal from './AffiliateModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api'; 
@@ -20,7 +19,7 @@ interface Person {
 
 interface Affiliate {
   id: number;
-  pessoa: Person; 
+  pessoa: Person;
 }
 
 type AffiliateType = 'taxista' | 'comisseiro';
@@ -35,14 +34,38 @@ export default function AffiliatesPage() {
   
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; type: AffiliateType; name: string } | null>(null);
 
-  // --- NOVOS ESTADOS PARA AS BUSCAS (UM PARA CADA ABA) ---
+  // --- NOVOS ESTADOS PARA AS BUSCAS ---
   const [taxistaSearchTerm, setTaxistaSearchTerm] = useState('');
   const [comisseiroSearchTerm, setComisseiroSearchTerm] = useState('');
 
-  // --- Funções de Busca (sem mudanças) ---
-  const fetchTaxistas = async () => { /* ... */ };
-  const fetchComisseiros = async () => { /* ... */ };
-  const fetchPeople = async () => { /* ... */ };
+
+  // --- Funções de Busca ---
+  const fetchTaxistas = async () => {
+    try {
+      const response = await api.get('/api/v1/affiliates/taxistas'); 
+      setTaxistas(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar taxistas:", error);
+    }
+  };
+  
+  const fetchComisseiros = async () => {
+    try {
+      const response = await api.get('/api/v1/affiliates/comisseiros'); 
+      setComisseiros(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar comisseiros:", error);
+    }
+  };
+
+  const fetchPeople = async () => {
+    try {
+      const response = await api.get('/pessoa'); 
+      setPeopleList(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar pessoas:", error);
+    }
+  };
 
   useEffect(() => {
     fetchTaxistas();
@@ -50,32 +73,71 @@ export default function AffiliatesPage() {
     fetchPeople();
   }, []);
 
-  // --- Funções de Ação (sem mudanças) ---
-  const handleSaveAffiliate = async (pessoaId: string) => { /* ... */ };
-  const handleDeleteAffiliate = async () => { /* ... */ };
-  const openCreateModal = (type: AffiliateType) => { /* ... */ };
-  const openDeleteModal = (affiliate: Affiliate, type: AffiliateType) => { /* ... */ };
+  // --- Funções de Ação (Salvar/Deletar) ---
+  const handleSaveAffiliate = async (pessoaId: string) => {
+    try {
+      const payload = { pessoaId: parseInt(pessoaId, 10) };
+      
+      if (currentAffiliateType === 'taxista') {
+        await api.post('/api/v1/affiliates/taxistas', payload);
+        await fetchTaxistas(); 
+      } else {
+        await api.post('/api/v1/affiliates/comisseiros', payload);
+        await fetchComisseiros(); 
+      }
+      
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error(`Erro ao criar ${currentAffiliateType}:`, error);
+    }
+  };
 
-  // --- LÓGICA DE FILTRO (SEPARADA) ---
-  const filteredTaxistas = taxistas.filter(affiliate => {
-    const searchLower = taxistaSearchTerm.toLowerCase();
-    return (
-      affiliate.pessoa.nome.toLowerCase().includes(searchLower) ||
-      affiliate.pessoa.cpf.toLowerCase().includes(searchLower) ||
-      (affiliate.pessoa.telefone && affiliate.pessoa.telefone.toLowerCase().includes(searchLower))
+  const handleDeleteAffiliate = async () => {
+    if (!deleteTarget) return;
+    
+    try {
+      if (deleteTarget.type === 'taxista') {
+        await api.delete(`/api/v1/affiliates/taxistas/${deleteTarget.id}`);
+        await fetchTaxistas(); 
+      } else {
+        await api.delete(`/api/v1/affiliates/comisseiros/${deleteTarget.id}`);
+        await fetchComisseiros(); 
+      }
+      setDeleteTarget(null);
+    } catch (error) {
+      console.error(`Erro ao deletar ${deleteTarget.type}:`, error);
+    }
+  };
+
+  // --- FUNÇÕES DO MODAL (CORRETAS) ---
+  const openCreateModal = (type: AffiliateType) => {
+    setCurrentAffiliateType(type);
+    setIsModalOpen(true);
+  };
+  
+  const openDeleteModal = (affiliate: Affiliate, type: AffiliateType) => {
+    setDeleteTarget({
+      id: affiliate.id,
+      type: type,
+      name: affiliate.pessoa.nome
+    });
+  };
+
+  // --- LÓGICA DE FILTRO ---
+  const filterAffiliates = (affiliates: Affiliate[], searchTerm: string) => {
+    if (!Array.isArray(affiliates)) return []; // Garante que é um array
+    const searchLower = searchTerm.toLowerCase();
+    return affiliates.filter(affiliate => 
+      (affiliate.pessoa.nome && affiliate.pessoa.nome.toLowerCase().includes(searchLower)) ||
+      (affiliate.pessoa.cpf && affiliate.pessoa.cpf.toLowerCase().includes(searchLower))
     );
-  });
+  };
 
-  const filteredComisseiros = comisseiros.filter(affiliate => {
-    const searchLower = comisseiroSearchTerm.toLowerCase();
-    return (
-      affiliate.pessoa.nome.toLowerCase().includes(searchLower) ||
-      affiliate.pessoa.cpf.toLowerCase().includes(searchLower) ||
-      (affiliate.pessoa.telefone && affiliate.pessoa.telefone.toLowerCase().includes(searchLower))
-    );
-  });
+  const filteredTaxistas = filterAffiliates(taxistas, taxistaSearchTerm);
+  const filteredComisseiros = filterAffiliates(comisseiros, comisseiroSearchTerm);
 
-  // --- Componente de Tabela Reutilizável (agora usa 'data' filtrada) ---
+
+  // Componente de Tabela Reutilizável
   const AffiliateTable = ({ data, type }: { data: Affiliate[]; type: AffiliateType }) => (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <Table>
@@ -88,7 +150,6 @@ export default function AffiliatesPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {/* O 'data' que chega aqui já está filtrado */}
           {Array.isArray(data) && data.map((affiliate) => (
             <TableRow key={affiliate.id}>
               <TableCell>{affiliate.pessoa.nome}</TableCell>
@@ -128,13 +189,13 @@ export default function AffiliatesPage() {
 
         {/* --- Aba de Taxistas --- */}
         <TabsContent value="taxistas" className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            {/* BARRA DE BUSCA (TAXISTAS) */}
-            <div className="relative flex-1">
+          <div className="flex justify-between items-center">
+            {/* --- BARRA DE BUSCA (TAXISTAS) --- */}
+            <div className="relative w-1/2 sm:w-1/3">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Pesquisar taxistas..."
+                placeholder="Pesquisar por nome ou CPF..."
                 value={taxistaSearchTerm}
                 onChange={(e) => setTaxistaSearchTerm(e.target.value)}
                 className="pl-10"
@@ -145,19 +206,19 @@ export default function AffiliatesPage() {
               Novo Taxista
             </Button>
           </div>
-          {/* Tabela agora usa 'filteredTaxistas' */}
+          {/* --- MUDANÇA: Passa os dados filtrados --- */}
           <AffiliateTable data={filteredTaxistas} type="taxista" />
         </TabsContent>
 
         {/* --- Aba de Comisseiros --- */}
         <TabsContent value="comisseiros" className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            {/* BARRA DE BUSCA (COMISSEIROS) */}
-            <div className="relative flex-1">
+          <div className="flex justify-between items-center">
+            {/* --- BARRA DE BUSCA (COMISSEIROS) --- */}
+            <div className="relative w-1/2 sm:w-1/3">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Pesquisar comisseiros..."
+                placeholder="Pesquisar por nome ou CPF..."
                 value={comisseiroSearchTerm}
                 onChange={(e) => setComisseiroSearchTerm(e.target.value)}
                 className="pl-10"
@@ -168,12 +229,12 @@ export default function AffiliatesPage() {
               Novo Comisseiro
             </Button>
           </div>
-          {/* Tabela agora usa 'filteredComisseiros' */}
+          {/* --- MUDANÇA: Passa os dados filtrados --- */}
           <AffiliateTable data={filteredComisseiros} type="comisseiro" />
         </TabsContent>
       </Tabs>
 
-      {/* --- Modais (sem mudanças) --- */}
+      {/* --- Modais --- */}
       <AffiliateModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
