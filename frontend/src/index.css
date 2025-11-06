@@ -2424,3 +2424,89 @@ html {
     transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0) scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), var(--tw-exit-scale, 1)) rotate(var(--tw-exit-rotate, 0));
   }
 }
+
+/* --- INÍCIO DO CÓDIGO DE IMPRESSÃO (V-FINAL) --- */
+@media print {
+  
+  /* 1. Esconde tudo que não é o relatório */
+  aside, header, .no-print, [role="tablist"] {
+    display: none !important;
+  }
+  
+  /* 2. Mostra a seção que é SÓ para impressão */
+  .print-only {
+    display: block !important;
+  }
+
+  /* 3. Reseta o layout principal para impressão */
+  body, #root, .flex, .flex-1, [class*="flex-1"], main {
+    display: block !important; /* Quebra o layout flex */
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* 4. Limpa bordas e sombras */
+  .print-clean, [class*="shadow-"] {
+    border: none !important;
+    box-shadow: none !important;
+  }
+  
+  /* 5. Estilos da Tabela (para evitar cortar) */
+  table {
+    width: 100% !important;
+    table-layout: fixed !important; /* Força as larguras das colunas */
+    font-size: 9px !important;  /* Reduz a fonte */
+    page-break-inside: auto !important; 
+  }
+  tr {
+    page-break-inside: avoid !important; 
+  }
+  
+  /* 6. CORREÇÃO DE QUEBRA DE LINHA (MAIS FORTE) */
+  th, td {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    word-break: break-all !important; /* A "opção nuclear" */
+    white-space: normal !important; /* Impede 'whitespace-nowrap' */
+  }
+  td > div {
+     word-break: break-all !important;
+     overflow-wrap: break-word !important;
+     white-space: normal !important;
+  }
+  
+  /* 7. Regras de Largura das Colunas */
+  .print-col-passageiro { width: 22% !important; }
+  .print-col-endereco   { width: 30% !important; }
+  .print-col-afiliado   { width: 20% !important; }
+  .print-col-valor      { width: 10% !important; }
+  .print-col-status     { width: 8% !important; }
+  .print-col-bagagem    { width: 10% !important; }
+  .print-col-descricao  { width: 22% !important; }
+  .print-col-remetente  { width: 30% !important; }
+  
+  /* 8. Títulos de Relatório */
+  .print-title {
+    display: block !important;
+    margin-top: 1.5rem; 
+    font-size: 1.25rem; 
+    font-weight: 600;
+    page-break-after: avoid; 
+  }
+}
+
+/* Esconde a seção de impressão na tela */
+.print-only {
+  display: none;
+}
+
+/* Esconde o título de impressão na tela */
+.print-title {
+  display: none;
+}
+/* --- FIM DO CÓDIGO DE IMPRESSÃO --- */

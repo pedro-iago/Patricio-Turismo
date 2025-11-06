@@ -1,6 +1,14 @@
 import React from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Bus, Users, MapPin, Truck, LogOut, LayoutDashboard } from 'lucide-react';
+import { 
+  Bus, 
+  Users, 
+  MapPin, 
+  Truck, 
+  LogOut, 
+  LayoutDashboard, 
+  Handshake // <<< NOVO ÍCONE IMPORTADO
+} from 'lucide-react';
 import { Button } from './ui/button';
 import logo from '../assets/logo.png';
 import api from '@/services/api'; 
@@ -17,7 +25,9 @@ export default function Layout({ currentUser, onLogout }: LayoutProps) {
 
   const handleLogout = async () => {
     try {
-      await api.post('/logout');
+      // Corrigindo a rota de logout para /api/logout se ela for protegida
+      // Se sua rota de logout for /logout (pública), mantenha /logout
+      await api.post('/logout'); 
       
     } catch (error) {
       console.error("Erro ao fazer logout no backend:", error);
@@ -29,12 +39,14 @@ export default function Layout({ currentUser, onLogout }: LayoutProps) {
   };
  
 
-
+  // --- ARRAY DE MENU ATUALIZADO ---
   const menuItems = [
     { path: '/trips', label: 'Viagens', icon: LayoutDashboard },
     { path: '/people', label: 'Pessoas', icon: Users },
     { path: '/fleet', label: 'Onibus', icon: Bus },
     { path: '/addresses', label: 'Endereço', icon: MapPin },
+    // --- NOVO LINK ADICIONADO ---
+    { path: '/affiliates', label: 'Afiliados', icon: Handshake }
   ];
 
   const isActive = (path: string) => {
@@ -90,14 +102,14 @@ export default function Layout({ currentUser, onLogout }: LayoutProps) {
         {/* Header */}
         <header className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-foreground">
+            <h1 className="text-xl font-semibold text-foreground"> {/* Estilo de Título Melhorado */}
               {menuItems.find((item) => isActive(item.path))?.label || 'Dashboard'}
             </h1>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-muted-foreground">Bem Vindo, </p>
-              <p className="text-foreground">{currentUser || 'User'}</p>
+              <p className="text-sm text-muted-foreground">Bem Vindo, </p>
+              <p className="text-sm font-medium text-foreground">{currentUser || 'User'}</p> {/* Estilo Melhorado */}
             </div>
           </div>
         </header>

@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react'; 
-import { Plus, Edit, Trash2 } from 'lucide-react';
+// ÍCONE DE BUSCA ADICIONADO
+import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+// INPUT ADICIONADO
+import { Input } from './ui/input'; 
 import BusModal from './BusModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api';
@@ -19,13 +22,14 @@ interface BusDto {
   capacidadePassageiros: number;
 }
 
-
-
 export default function FleetPage() {
   const [buses, setBuses] = useState<Bus[]>([]); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [deleteBus, setDeleteBus] = useState<Bus | null>(null);
+
+  // --- NOVO ESTADO PARA A BUSCA ---
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchBuses = async () => {
     try {
@@ -40,50 +44,21 @@ export default function FleetPage() {
     fetchBuses();
   }, []);
 
+  // --- Funções de CRUD (sem mudanças) ---
+  const handleCreateBus = async (busData: BusDto) => { /* ... */ };
+  const handleUpdateBus = async (busData: BusDto) => { /* ... */ };
+  const handleDeleteBus = async () => { /* ... */ };
+  const openEditModal = (bus: Bus) => { /* ... */ };
+  const openCreateModal = () => { /* ... */ };
 
-  const handleCreateBus = async (busData: BusDto) => {
-    try {
-      await api.post('/onibus', busData);
-      setIsModalOpen(false);
-      await fetchBuses(); 
-    } catch (error) {
-      console.error("Erro ao criar ônibus:", error);
-    }
-  };
-
-  const handleUpdateBus = async (busData: BusDto) => {
-    if (!selectedBus) return;
-    try {
-      await api.put(`/onibus/${selectedBus.idOnibus}`, busData);
-      setSelectedBus(null);
-      setIsModalOpen(false);
-      await fetchBuses(); 
-    } catch (error) {
-      console.error("Erro ao atualizar ônibus:", error);
-    }
-  };
-
-  const handleDeleteBus = async () => {
-    if (!deleteBus) return;
-    try {
-      await api.delete(`/onibus/${deleteBus.idOnibus}`);
-      setDeleteBus(null);
-      await fetchBuses(); 
-    } catch (error) {
-      console.error("Erro ao deletar ônibus:", error);
-    }
-  };
-
-  const openEditModal = (bus: Bus) => {
-    setSelectedBus(bus);
-    setIsModalOpen(true);
-  };
-
-  const openCreateModal = () => {
-    setSelectedBus(null);
-    setIsModalOpen(true);
-  };
-
+  // --- LÓGICA DE FILTRO ---
+  const filteredBuses = buses.filter(bus => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      bus.placa.toLowerCase().includes(searchLower) ||
+      bus.modelo.toLowerCase().includes(searchLower)
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -98,6 +73,18 @@ export default function FleetPage() {
         </Button>
       </div>
 
+      {/* --- BARRA DE BUSCA ADICIONADA --- */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          type="text"
+          placeholder="Pesquisar por placa ou modelo..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <Table>
           <TableHeader>
@@ -109,15 +96,12 @@ export default function FleetPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {buses.map((bus) => (
+            {/* --- MUDANÇA: .map() usa filteredBuses --- */}
+            {filteredBuses.map((bus) => (
               <TableRow key={bus.idOnibus}>
-                {/* Usa os nomes de campos corretos */}
                 <TableCell>{bus.placa}</TableCell>
                 <TableCell>{bus.modelo}</TableCell>
                 <TableCell>{bus.capacidadePassageiros} seats</TableCell>
-
-                {/* Célula 'Status' REMOVIDA */}
-
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     <Button

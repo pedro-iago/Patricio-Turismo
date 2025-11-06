@@ -80,28 +80,37 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http, CookieAuthenticationFilter cookieAuthenticationFilter) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
+                        // ... (regras de /login, /assets, etc. continuam iguais) ...
                         .requestMatchers(HttpMethod.POST, "/login").permitAll()
                         .requestMatchers(
-                                "/",
-                                "/index.html",
-                                "/assets/**",
-                                "/*.png",
-                                "/*.ico",
-                                "/*.svg"
+                                "/", "/index.html", "/assets/**",
+                                "/*.png", "/*.ico", "/*.svg"
                         ).permitAll()
                         .requestMatchers(
                                 "/{path:[^\\.]*}",
                                 "/**/{path:(?!api|assets)[^\\.]*}"
                         ).permitAll()
-                        .requestMatchers("/api/**").authenticated()
+
+                        // --- REGRAS ESPECÍFICAS DA API ---
+
+                        // <<< MUDANÇA AQUI
+                        // Exige que o usuário tenha (pelo menos) a role "USER" para gerenciar afiliados
+                        .requestMatchers("/api/v1/affiliates/**").hasRole("USER")
+
+                        // --- REGRA GERAL DA API ---
+                        // Garante que todo o resto da API também exija "USER"
+                        .requestMatchers("/api/**").hasRole("USER")
+
                         .anyRequest().denyAll()
                 )
+                // ... (resto do arquivo: .csrf(), .sessionManagement(), etc.) ...
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .cors(Customizer.withDefaults())
                 .addFilterBefore(cookieAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .logout(logout -> logout
                         .logoutUrl("/logout")
+                        // ... (resto do logout handler) ...
                         .logoutSuccessHandler((request, response, authentication) -> {
                             ResponseCookie cookie = ResponseCookie.from("authToken", "")
                                     .httpOnly(true)

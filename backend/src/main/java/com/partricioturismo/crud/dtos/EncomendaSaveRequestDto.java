@@ -2,21 +2,20 @@ package com.partricioturismo.crud.dtos;
 
 import java.math.BigDecimal;
 
-public record PassageiroViagemDto(
-        Long id,
-        Long pessoaId,
+// Este é o DTO para CRIAR ou ATUALIZAR uma Encomenda
+public record EncomendaSaveRequestDto(
+        String descricao,
+        BigDecimal peso,
         Long viagemId,
+        Long remetenteId,
+        Long destinatarioId,
         Long enderecoColetaId,
         Long enderecoEntregaId,
-
-
-        // Funcionalidade 1 (IDs dos Afiliados)
+        Long responsavelId,
         Long taxistaId,
         Long comisseiroId,
-
-        // Funcionalidade 2 (Pagamentos)
         BigDecimal valor,
         String metodoPagamento,
-        Boolean pago // Usamos Boolean (objeto) para que possa ser nulo se não for enviado no JSON
+        Boolean pago
 ) {
 }

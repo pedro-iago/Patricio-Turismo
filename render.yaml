@@ -3,14 +3,5 @@ services:
     name: patricio-turismo
     env: docker
     plan: free
-    envVars:
-      - key: POSTGRES_HOST
-        value: dpg-d3vnll75r7bs738clal0-a.oregon-postgres.render.com
-      - key: POSTGRES_PORT
-        value: 5432
-      - key: POSTGRES_DATABASE
-        value: patricioturismo_db
-      - key: POSTGRES_USER
-        value: patricioturismo_db
-      - key: POSTGRES_PASSWORD
-        value: 15b5hmV5kBicBSn0ycldjgIKergPSdx4
+
+    

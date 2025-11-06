@@ -1,49 +1,64 @@
 package com.partricioturismo.crud.model;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.util.Objects;
+// Adicionei esta importação
+import java.util.List;
 
 @Entity
-@Table(name = "passageiro_viagem")
+@Table(name = "passageiro_viagem") // Nome da tabela como definido em V2
 public class PassageiroViagem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Muitas associações "PassageiroViagem" podem pertencer a UMA Pessoa
-    @ManyToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "pessoa_id", nullable = false)
     private Pessoa pessoa;
 
-    // Muitas associações "PassageiroViagem" podem pertencer a UMA Viagem
-    @ManyToOne
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "viagem_id", nullable = false)
     private Viagem viagem;
 
-    // Muitas associações podem usar o MESMO Endereco de coleta
-    @ManyToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "endereco_coleta_id", nullable = false)
     private Endereco enderecoColeta;
 
-    // Muitas associações podem usar o MESMO Endereco de entrega
-    @ManyToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "endereco_entrega_id", nullable = false)
     private Endereco enderecoEntrega;
 
-    // Construtor padrão (vazio)
+    // Relacionamento com Bagagem (como estava no V1)
+    // Assumindo que você já tinha isso mapeado
+    @OneToMany(mappedBy = "passageiroViagem")
+    private List<Bagagem> bagagens;
+
+    // --- NOVOS CAMPOS (FUNCIONALIDADE 1) ---
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "taxista_id")
+    private Taxista taxista;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "comisseiro_id")
+    private Comisseiro comisseiro;
+
+    // --- NOVOS CAMPOS (FUNCIONALIDADE 2) ---
+    @Column(name = "valor", precision = 10, scale = 2)
+    private BigDecimal valor;
+
+    @Column(name = "metodo_pagamento", length = 50)
+    private String metodoPagamento;
+
+    @Column(name = "pago", nullable = false)
+    private boolean pago = false; // Garante o 'DEFAULT false'
+
+    // Construtores
     public PassageiroViagem() {
     }
 
-    // Construtor com todos os campos
-    public PassageiroViagem(Long id, Pessoa pessoa, Viagem viagem, Endereco enderecoColeta, Endereco enderecoEntrega) {
-        this.id = id;
-        this.pessoa = pessoa;
-        this.viagem = viagem;
-        this.enderecoColeta = enderecoColeta;
-        this.enderecoEntrega = enderecoEntrega;
-    }
-
-    // --- Getters e Setters ---
+    // Getters e Setters (para todos os campos, incluindo os novos)
 
     public Long getId() {
         return id;
@@ -83,5 +98,69 @@ public class PassageiroViagem {
 
     public void setEnderecoEntrega(Endereco enderecoEntrega) {
         this.enderecoEntrega = enderecoEntrega;
+    }
+
+    public List<Bagagem> getBagagens() {
+        return bagagens;
+    }
+
+    public void setBagagens(List<Bagagem> bagagens) {
+        this.bagagens = bagagens;
+    }
+
+    // --- GETTERS E SETTERS (NOVOS CAMPOS) ---
+
+    public Taxista getTaxista() {
+        return taxista;
+    }
+
+    public void setTaxista(Taxista taxista) {
+        this.taxista = taxista;
+    }
+
+    public Comisseiro getComisseiro() {
+        return comisseiro;
+    }
+
+    public void setComisseiro(Comisseiro comisseiro) {
+        this.comisseiro = comisseiro;
+    }
+
+    public BigDecimal getValor() {
+        return valor;
+    }
+
+    public void setValor(BigDecimal valor) {
+        this.valor = valor;
+    }
+
+    public String getMetodoPagamento() {
+        return metodoPagamento;
+    }
+
+    public void setMetodoPagamento(String metodoPagamento) {
+        this.metodoPagamento = metodoPagamento;
+    }
+
+    public boolean isPago() {
+        return pago;
+    }
+
+    public void setPago(boolean pago) {
+        this.pago = pago;
+    }
+
+    // hashCode e equals
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        PassageiroViagem that = (PassageiroViagem) o;
+        return Objects.equals(id, that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 }

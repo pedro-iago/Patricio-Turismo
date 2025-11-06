@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'; // <-- IMPORTAR useEffect e useCallback
+import React, { useState, useEffect, useCallback } from 'react'; 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './components/LoginPage';
 import Layout from './components/Layout';
@@ -9,37 +9,41 @@ import FleetPage from './components/FleetPage';
 import AddressesPage from './components/AddressesPage';
 import api from './services/api'; 
 
+// --- NOVO COMPONENTE IMPORTADO ---
+// (Este arquivo ainda não existe, vamos criá-lo a seguir)
+import AffiliatesPage from './components/AffiliatesPage';
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true); 
+  const [isLoading, setIsLoading] = useState(true);
 
   const handleLogin = useCallback((username: string) => {
     setIsAuthenticated(true);
     setCurrentUser(username);
-  }, []); 
+  }, []);
 
   const handleLogout = useCallback(() => {
     setIsAuthenticated(false);
     setCurrentUser(null);
-  }, []); 
+  }, []);
 
   useEffect(() => {
     (async () => {
       try {
         const response = await api.get('/api/me');
         
-        handleLogin(response.data); 
+        handleLogin(response.data);
       } catch (error) {
         handleLogout();
       } finally {
         setIsLoading(false);
       }
     })();
-  }, [handleLogin, handleLogout]); 
+  }, [handleLogin, handleLogout]);
 
   if (isLoading) {
-    return <div>Carregando...</div>; 
+    return <div className="flex h-screen items-center justify-center">Carregando...</div>;
   }
 
   return (
@@ -71,6 +75,10 @@ export default function App() {
           <Route path="people" element={<PeoplePage />} />
           <Route path="fleet" element={<FleetPage />} />
           <Route path="addresses" element={<AddressesPage />} />
+
+          {/* --- NOVA ROTA ADICIONADA --- */}
+          <Route path="affiliates" element={<AffiliatesPage />} />
+
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

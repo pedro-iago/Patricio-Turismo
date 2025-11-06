@@ -1,8 +1,9 @@
 package com.partricioturismo.crud.controllers;
 
-import com.partricioturismo.crud.dtos.EncomendaDto;
-import com.partricioturismo.crud.model.Encomenda;
+import com.partricioturismo.crud.dtos.EncomendaSaveRequestDto;
+import com.partricioturismo.crud.dtos.EncomendaResponseDto;
 import com.partricioturismo.crud.service.EncomendaService;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,19 +20,19 @@ public class EncomendaController {
     EncomendaService service;
 
     @GetMapping
-    public ResponseEntity<List<Encomenda>> getAll() {
+    public ResponseEntity<List<EncomendaResponseDto>> getAll() {
         return ResponseEntity.status(HttpStatus.OK).body(service.findAll());
     }
 
     @GetMapping("/viagem/{viagemId}")
-    public ResponseEntity<List<Encomenda>> getByViagemId(@PathVariable Long viagemId) {
-        List<Encomenda> encomendas = service.findByViagemId(viagemId);
+    public ResponseEntity<List<EncomendaResponseDto>> getByViagemId(@PathVariable Long viagemId) {
+        List<EncomendaResponseDto> encomendas = service.findByViagemId(viagemId);
         return ResponseEntity.status(HttpStatus.OK).body(encomendas);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Object> getById(@PathVariable(value = "id") Long id) {
-        Optional<Encomenda> encomenda = service.findById(id);
+        Optional<EncomendaResponseDto> encomenda = service.findById(id);
         if (encomenda.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Encomenda não encontrada");
         }
@@ -39,10 +40,12 @@ public class EncomendaController {
     }
 
     @PostMapping
-    public ResponseEntity<Object> save(@RequestBody EncomendaDto dto) {
+    public ResponseEntity<Object> save(@RequestBody EncomendaSaveRequestDto dto) {
         try {
-            var encomandaSalva = service.save(dto);
+            EncomendaResponseDto encomandaSalva = service.save(dto);
             return ResponseEntity.status(HttpStatus.CREATED).body(encomandaSalva);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
@@ -58,15 +61,32 @@ public class EncomendaController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Object> update(@PathVariable(value = "id") Long id, @RequestBody EncomendaDto dto) {
+    public ResponseEntity<Object> update(@PathVariable(value = "id") Long id, @RequestBody EncomendaSaveRequestDto dto) {
         try {
-            Optional<Encomenda> encomendaAtualizada = service.update(id, dto);
+            Optional<EncomendaResponseDto> encomendaAtualizada = service.update(id, dto);
             if (encomendaAtualizada.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Encomenda não encontrada");
             }
             return ResponseEntity.status(HttpStatus.OK).body(encomendaAtualizada.get());
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @PatchMapping("/{id}/marcar-pago")
+    public ResponseEntity<Object> markAsPaid(@PathVariable(value = "id") Long id) {
+        try {
+            Optional<EncomendaResponseDto> encAtualizada = service.markAsPaid(id);
+            if (encAtualizada.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Encomenda não encontrada");
+            }
+            return ResponseEntity.status(HttpStatus.OK).body(encAtualizada.get());
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 }

@@ -1,10 +1,32 @@
-
-  <!DOCTYPE html>
+<!DOCTYPE html>
   <html lang="en">
     <head>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Transportation Management System Prototype</title>
+      <title>Patricio Turismo</title>
+
+      <style>
+        @media print {
+          /* Esta regra esconde qualquer coisa com a classe .no-print */
+          .no-print {
+            display: none !important;
+          }
+
+          /* --- REGRAS DE SEGURANÇA --- */
+          /* Estas regras forçam o menu e o cabeçalho a sumir */
+          
+          /* Esconde o menu lateral (aside) */
+          body > #root > div > aside {
+            display: none !important;
+          }
+          
+          /* Esconde o cabeçalho (header) */
+          body > #root > div > div > header {
+            display: none !important;
+          }
+        }
+      </style>
+
     </head>
 
     <body>
@@ -12,4 +34,3 @@
       <script type="module" src="/src/main.tsx"></script>
     </body>
   </html>
-  

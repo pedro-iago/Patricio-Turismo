@@ -2,62 +2,70 @@ package com.partricioturismo.crud.model;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.util.Objects;
 
 @Entity
-@Table(name = "Encomenda")
+@Table(name = "encomenda")
 public class Encomenda {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(length = 255)
+    @Column(name = "descricao")
     private String descricao;
 
-    @Column(precision = 10, scale = 2) // Para DECIMAL(10, 2)
+    @Column(name = "peso", precision = 10, scale = 2)
     private BigDecimal peso;
 
-    @ManyToOne
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "viagem_id", nullable = false)
     private Viagem viagem;
 
-    @ManyToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "remetente_id", nullable = false)
     private Pessoa remetente;
 
-    @ManyToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "destinatario_id", nullable = false)
     private Pessoa destinatario;
 
-    @ManyToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "endereco_coleta_id", nullable = false)
     private Endereco enderecoColeta;
 
-    @ManyToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "endereco_entrega_id", nullable = false)
     private Endereco enderecoEntrega;
 
     @ManyToOne
-    @JoinColumn(name = "responsavel_id", nullable = true) // Pode ser nulo
+    @JoinColumn(name = "responsavel_id") // Pessoa responsável (pode ser nulo)
     private Pessoa responsavel;
 
-    // Construtor padrão
+    // --- NOVOS CAMPOS (FUNCIONALIDADE 1) ---
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "taxista_id")
+    private Taxista taxista;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "comisseiro_id")
+    private Comisseiro comisseiro;
+
+    // --- NOVOS CAMPOS (FUNCIONALIDADE 2) ---
+    @Column(name = "valor", precision = 10, scale = 2)
+    private BigDecimal valor;
+
+    @Column(name = "metodo_pagamento", length = 50)
+    private String metodoPagamento;
+
+    @Column(name = "pago", nullable = false)
+    private boolean pago = false; // Garante o 'DEFAULT false'
+
+     // Construtores
     public Encomenda() {
     }
 
-    // Construtor
-    public Encomenda(String descricao, BigDecimal peso, Viagem viagem, Pessoa remetente, Pessoa destinatario, Endereco enderecoColeta, Endereco enderecoEntrega, Pessoa responsavel) {
-        this.descricao = descricao;
-        this.peso = peso;
-        this.viagem = viagem;
-        this.remetente = remetente;
-        this.destinatario = destinatario;
-        this.enderecoColeta = enderecoColeta;
-        this.enderecoEntrega = enderecoEntrega;
-        this.responsavel = responsavel;
-    }
-
-    // --- Getters e Setters ---
+    // Getters e Setters (para todos os campos, incluindo os novos)
 
     public Long getId() {
         return id;
@@ -129,5 +137,61 @@ public class Encomenda {
 
     public void setResponsavel(Pessoa responsavel) {
         this.responsavel = responsavel;
+    }
+
+    // --- GETTERS E SETTERS (NOVOS CAMPOS) ---
+
+    public Taxista getTaxista() {
+        return taxista;
+    }
+
+    public void setTaxista(Taxista taxista) {
+        this.taxista = taxista;
+    }
+
+    public Comisseiro getComisseiro() {
+        return comisseiro;
+    }
+
+    public void setComisseiro(Comisseiro comisseiro) {
+        this.comisseiro = comisseiro;
+    }
+
+    public BigDecimal getValor() {
+        return valor;
+    }
+
+    public void setValor(BigDecimal valor) {
+        this.valor = valor;
+    }
+
+    public String getMetodoPagamento() {
+        return metodoPagamento;
+    }
+
+    public void setMetodoPagamento(String metodoPagamento) {
+        this.metodoPagamento = metodoPagamento;
+    }
+
+    public boolean isPago() {
+        return pago;
+    }
+
+    public void setPago(boolean pago) {
+        this.pago = pago;
+    }
+
+    // hashCode e equals
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Encomenda encomenda = (Encomenda) o;
+        return Objects.equals(id, encomenda.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 }
