@@ -1,3 +1,9 @@
+/* 1. DIRETIVAS DO TAILWIND (NO TOPO) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 2. SEU TEMA (VARIÁVEIS, ETC) */
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -14,8 +20,11 @@
   --secondary-foreground: #030213;
   --muted: #ececf0;
   --muted-foreground: #717182;
-  --accent: #FFF5E6;
+  
+  /* Cor de seleção (item da lista) */
+  --accent: #FFF5E6; 
   --accent-foreground: #030213;
+  
   --destructive: #d4183d;
   --destructive-foreground: #ffffff;
   --border: rgba(0, 0, 0, 0.1);
@@ -24,7 +33,10 @@
   --switch-background: #cbced4;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: #F7931E;
+
+  /* Cor do anel de foco (borda da caixa de pesquisa) */
+  --ring: transparent; 
+
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -60,7 +72,7 @@
   --destructive-foreground: oklch(0.637 0.237 25.331);
   --border: oklch(0.269 0 0);
   --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
+  --ring: transparent; 
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --chart-1: oklch(0.488 0.243 264.376);
@@ -79,108 +91,18 @@
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-input-background: var(--input-background);
-  --color-switch-background: var(--switch-background);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
+  /* ... (todo o seu bloco @theme) ... */
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
-/**
- * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
- */
-@layer base {
+  /* ... (seus blocos @layer base) ... */
   :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
-    h1 {
-      font-size: var(--text-2xl);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h2 {
-      font-size: var(--text-xl);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h3 {
-      font-size: var(--text-lg);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h4 {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    p {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-normal);
-      line-height: 1.5;
-    }
-
-    label {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    button {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
+    /* ... (suas regras de tipografia) ... */
     input {
       font-size: var(--text-base);
       font-weight: var(--font-weight-normal);
       line-height: 1.5;
-      
     }
   }
 }
@@ -189,3 +111,100 @@ html {
   font-size: var(--font-size);
 }
 
+
+/* --- 3. BLOCO DE IMPRESSÃO (COM NOMES pt-) --- */
+
+/* REGRAS DE TELA: Esconde o que é só para impressão */
+.pt-print-only {
+  display: none;
+}
+.pt-print-title {
+  display: none;
+}
+
+/* REGRAS DE IMPRESSÃO: O que acontece ao clicar em "Imprimir" */
+@media print {
+  
+  /* 1. Esconde o layout e tudo com a classe .pt-no-print */
+  aside, header, .pt-no-print, [role="tablist"] {
+    display: none !important;
+  }
+  
+  /* 2. Mostra o que é só para impressão */
+  .pt-print-only {
+    display: block !important;
+  }
+
+  /* 3. Reseta o layout do body/main para impressão */
+  body, #root, .flex, .flex-1, [class*="flex-1"], main, .pt-print-container {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* 4. Limpa cards e sombras */
+  .pt-print-clean, [class*="shadow-"] {
+    border: none !important;
+    box-shadow: none !important;
+  }
+  
+  /* 5. Estilos da Tabela (fonte geral de 9px) */
+  table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    font-size: 9px !important;
+    page-break-inside: auto !important; 
+  }
+  tr {
+    page-break-inside: avoid !important; 
+  }
+  
+  /* 6. Quebra de linha em células */
+  th, td {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    word-break: break-all !important;
+    white-space: normal !important;
+  }
+  td > div {
+     word-break: break-all !important;
+     overflow-wrap: break-word !important;
+     white-space: normal !important;
+  }
+  
+  /* 7. Largura das Colunas (com prefixo pt-) */
+  .pt-print-col-passageiro { width: 22% !important; }
+  .pt-print-col-endereco   { width: 30% !important; }
+  .pt-print-col-afiliado   { width: 20% !important; }
+  .pt-print-col-valor      { width: 10% !important; }
+  .pt-print-col-status     { width: 8% !important; }
+  .pt-print-col-bagagem    { width: 10% !important; }
+  .pt-print-col-descricao  { width: 22% !important; }
+  .pt-print-col-remetente  { width: 30% !important; }
+  
+  /* 8. Títulos do Relatório */
+  .pt-print-title {
+    display: block !important;
+    margin-top: 1.5rem; 
+    font-size: 1.25rem; 
+    font-weight: 600;
+    page-break-after: avoid; 
+  }
+
+  /* --- [NOVO BLOCO] --- */
+  /* 9. Reduz a fonte de colunas específicas */
+  /* Alvo: Coluna 2 (Coleta/Entrega OU Remetente) e Coluna 5 (Status) */
+  table th:nth-child(2),
+  table td:nth-child(2),
+  table th:nth-child(5),
+  table td:nth-child(5) {
+    font-size: 8px !important; /* Mais pequeno que os 9px do resto da tabela */
+  }
+  /* --- [FIM DO NOVO BLOCO] --- */
+
+}

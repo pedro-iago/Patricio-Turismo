@@ -8,16 +8,17 @@ import PeoplePage from './components/PeoplePage';
 import FleetPage from './components/FleetPage';
 import AddressesPage from './components/AddressesPage';
 import api from './services/api'; 
-
-// --- NOVO COMPONENTE IMPORTADO ---
-// (Este arquivo ainda não existe, vamos criá-lo a seguir)
 import AffiliatesPage from './components/AffiliatesPage';
+
+// --- IMPORTE A NOVA PÁGINA ---
+import PrintReportPage from './components/PrintReportPage'; 
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // ... (handleLogin, handleLogout, useEffect de verificação - sem alteração) ...
   const handleLogin = useCallback((username: string) => {
     setIsAuthenticated(true);
     setCurrentUser(username);
@@ -32,7 +33,6 @@ export default function App() {
     (async () => {
       try {
         const response = await api.get('/api/me');
-        
         handleLogin(response.data);
       } catch (error) {
         handleLogout();
@@ -45,6 +45,7 @@ export default function App() {
   if (isLoading) {
     return <div className="flex h-screen items-center justify-center">Carregando...</div>;
   }
+
 
   return (
     <BrowserRouter>
@@ -59,6 +60,8 @@ export default function App() {
             )
           }
         />
+        
+        {/* --- ROTAS DENTRO DO LAYOUT PRINCIPAL --- */}
         <Route
           path="/"
           element={
@@ -75,11 +78,21 @@ export default function App() {
           <Route path="people" element={<PeoplePage />} />
           <Route path="fleet" element={<FleetPage />} />
           <Route path="addresses" element={<AddressesPage />} />
-
-          {/* --- NOVA ROTA ADICIONADA --- */}
           <Route path="affiliates" element={<AffiliatesPage />} />
-
         </Route>
+        
+        {/* --- NOVA ROTA DE IMPRESSÃO (SEM LAYOUT) --- */}
+        <Route
+          path="/trips/:id/print"
+          element={
+            isAuthenticated ? (
+              <PrintReportPage />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
