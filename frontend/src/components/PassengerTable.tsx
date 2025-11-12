@@ -3,8 +3,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Button } from './ui/button';
 import { Edit, Trash2, Briefcase, DollarSign } from 'lucide-react';
 
-// Recriando as interfaces e funções necessárias que estavam no TripDetailsPage
-interface Person { id: number; nome: string; cpf: string; }
+// --- INTERFACE ALTERADA ---
+interface Person { 
+  id: number; 
+  nome: string; 
+  cpf: string; 
+  telefone?: string | null; // <-- ADICIONADO
+}
 interface Address { id: number; logradouro: string; numero: string; bairro: string; cidade: string; }
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
@@ -81,9 +86,12 @@ export default function PassengerTable({
           ) : (
             passengers.map((passenger) => (
               <TableRow key={passenger.id}>
+                {/* --- CÉLULA ALTERADA --- */}
                 <TableCell className="pt-print-col-passageiro">
                   <div className="font-medium">{passenger.pessoa.nome}</div>
                   <div className="text-xs text-muted-foreground">{passenger.pessoa.cpf}</div>
+                  {/* --- LINHA ADICIONADA --- */}
+                  <div className="text-xs text-muted-foreground">{passenger.pessoa.telefone || ''}</div>
                 </TableCell>
                 <TableCell className="pt-print-col-endereco">
                   <div className="text-xs"><b>C:</b> {formatAddress(passenger.enderecoColeta)}</div>

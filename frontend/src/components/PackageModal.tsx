@@ -255,7 +255,7 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle>{pkg ? 'Editar Encomenda' : 'Adicionar Encomenda'}</DialogTitle>
             <DialogDescription>
@@ -274,7 +274,8 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* --- DIV ALTERADA --- */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* --- Combobox Remetente (Refatorado) --- */}
               <div className="space-y-2">
                 <Label htmlFor="sender">Remetente (Obrigatório)</Label>

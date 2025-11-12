@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // <-- IMPORT ADICIONADO
-// ✅ ÍCONES IMPORTADOS (Eye ADICIONADO)
+import { useNavigate } from 'react-router-dom';
+// ✅ ÍCONES IMPORTADOS
 import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -8,7 +8,16 @@ import PersonModal from './PersonModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api';
 import { Input } from './ui/input';
-import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from './ui/pagination';
+// ✅ IMPORTS DA PAGINAÇÃO (COM ELLIPSIS)
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationItem, 
+  PaginationPrevious, 
+  PaginationNext, 
+  PaginationLink, 
+  PaginationEllipsis // <-- ADICIONADO
+} from './ui/pagination';
 import { cn } from './ui/utils';
 
 interface Person {
@@ -33,7 +42,7 @@ interface Page<T> {
 }
 
 export default function PeoplePage() {
-  const navigate = useNavigate(); // <-- HOOK ADICIONADO
+  const navigate = useNavigate(); 
   const [people, setPeople] = useState<Person[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -115,6 +124,51 @@ export default function PeoplePage() {
       setCurrentPage(newPage);
     }
   };
+  
+  // ✅ FUNÇÃO HELPER DA PAGINAÇÃO
+  const getPaginationItems = (currentPage: number, totalPages: number) => {
+    const items: (number | string)[] = [];
+    const maxPageNumbers = 5; // Máximo de números visíveis (ex: 1, ..., 5, 6, 7, ..., 10)
+    const pageRangeDisplayed = 1; // Quantos números antes/depois do atual
+
+    if (totalPages <= maxPageNumbers) {
+      for (let i = 0; i < totalPages; i++) {
+        items.push(i);
+      }
+    } else {
+      // Sempre mostrar a primeira página
+      items.push(0);
+
+      // Elipse ou números no início
+      if (currentPage > pageRangeDisplayed + 1) {
+        items.push('...');
+      } else if (currentPage === pageRangeDisplayed + 1) {
+        items.push(1);
+      }
+
+      // Páginas ao redor da atual
+      for (let i = Math.max(1, currentPage - pageRangeDisplayed); i <= Math.min(totalPages - 2, currentPage + pageRangeDisplayed); i++) {
+        if (i !== 0) {
+          items.push(i);
+        }
+      }
+
+      // Elipse ou números no final
+      if (currentPage < totalPages - pageRangeDisplayed - 2) {
+        items.push('...');
+      } else if (currentPage === totalPages - pageRangeDisplayed - 2) {
+        items.push(totalPages - 2);
+      }
+
+      // Sempre mostrar a última página
+      if (totalPages > 1) {
+         items.push(totalPages - 1);
+      }
+    }
+    
+    // Remove duplicatas (caso a primeira/última página apareça na lógica do meio)
+    return [...new Set(items)];
+  };
 
   return (
     <div className="space-y-6">
@@ -161,7 +215,7 @@ export default function PeoplePage() {
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     
-                    {/* --- BOTÃO DE HISTÓRICO ADICIONADO --- */}
+                    {/* --- BOTÃO DE HISTÓRICO --- */}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -198,42 +252,49 @@ export default function PeoplePage() {
         </Table>
       </div>
 
-      {/* --- PAGINAÇÃO --- */}
-      <Pagination>
-        <PaginationContent>
-          <PaginationItem key="prev">
-            <PaginationPrevious
-              href="#"
-              onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }}
-              className={cn(
-                currentPage === 0 ? "pointer-events-none opacity-50" : "",
-                "[&>span]:hidden"
-              )}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </PaginationPrevious>
-          </PaginationItem>
-          
-          <PaginationItem key="page">
-             <PaginationLink href="#" onClick={(e) => e.preventDefault()} className="font-medium text-muted-foreground">
-               Página {currentPage + 1} de {totalPages}
-             </PaginationLink>
-          </PaginationItem>
-          
-          <PaginationItem key="next">
-            <PaginationNext
-              href="#"
-              onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }}
-              className={cn(
-                currentPage >= totalPages - 1 ? "pointer-events-none opacity-50" : "",
-                "[&>span]:hidden"
-              )}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </PaginationNext>
-          </PaginationItem>
-        </PaginationContent>
-      </Pagination>
+      {/* --- PAGINAÇÃO ATUALIZADA --- */}
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            {/* Botão Anterior */}
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }}
+                className={cn(currentPage === 0 ? "pointer-events-none opacity-50" : "")}
+              />
+            </PaginationItem>
+
+            {/* Números de Página e Elipses */}
+            {getPaginationItems(currentPage, totalPages).map((pageItem, index) => (
+              <PaginationItem key={index}>
+                {typeof pageItem === 'string' ? (
+                  <PaginationEllipsis />
+                ) : (
+                  <PaginationLink
+                    href="#"
+                    isActive={pageItem === currentPage}
+                    onClick={(e) => { e.preventDefault(); handlePageChange(pageItem as number); }}
+                  >
+                    {(pageItem as number) + 1}
+                  </PaginationLink>
+                )}
+              </PaginationItem>
+            ))}
+
+            {/* Botão Próximo */}
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }}
+                className={cn(currentPage >= totalPages - 1 ? "pointer-events-none opacity-50" : "")}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+      {/* --- FIM DA PAGINAÇÃO --- */}
+
 
       {/* --- MODAIS --- */}
       <PersonModal

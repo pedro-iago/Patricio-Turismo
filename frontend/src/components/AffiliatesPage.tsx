@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // 1. IMPORTADO O useNavigate
-// ✅ ÍCONES IMPORTADOS (COM O 'Eye' ADICIONADO)
+import { useNavigate } from 'react-router-dom'; 
+// ✅ ÍCONES IMPORTADOS
 import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -9,7 +9,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import AffiliateModal from './AffiliateModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api';
-import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from './ui/pagination';
+// ✅ IMPORTS DA PAGINAÇÃO (COM ELLIPSIS)
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationItem, 
+  PaginationPrevious, 
+  PaginationNext, 
+  PaginationLink, 
+  PaginationEllipsis // <-- ADICIONADO
+} from './ui/pagination';
 import { cn } from './ui/utils';
 
 
@@ -35,7 +44,7 @@ interface Page<T> {
 }
 
 export default function AffiliatesPage() {
-  const navigate = useNavigate(); // 2. INICIALIZADO O navigate
+  const navigate = useNavigate(); 
   const [taxistas, setTaxistas] = useState<Affiliate[]>([]);
   const [comisseiros, setComisseiros] = useState<Affiliate[]>([]);
   const [peopleList, setPeopleList] = useState<Person[]>([]);
@@ -53,7 +62,7 @@ export default function AffiliatesPage() {
   const [comisseiroPage, setComisseiroPage] = useState(0);
   const [comisseiroTotalPages, setComisseiroTotalPages] = useState(0);
 
-  // --- Funções de Busca (Corrigidas) ---
+  // --- Funções de Busca ---
   const fetchTaxistas = async (page = 0) => {
     try {
       const response = await api.get<Page<Affiliate>>(`/api/v1/affiliates/taxistas?page=${page}&size=10`);
@@ -98,7 +107,7 @@ export default function AffiliatesPage() {
     fetchPeople();
   }, []);
 
-  // --- Funções de Ação (Corrigidas) ---
+  // --- Funções de Ação ---
   const handleSaveAffiliate = async (pessoaId: string) => {
     try {
       const payload = { pessoaId: parseInt(pessoaId, 10) };
@@ -160,8 +169,66 @@ export default function AffiliatesPage() {
   const filteredTaxistas = filterAffiliates(taxistas, taxistaSearchTerm);
   const filteredComisseiros = filterAffiliates(comisseiros, comisseiroSearchTerm);
 
+  // --- HANDLERS DE PAGINAÇÃO (NOVOS) ---
+  const handleTaxistaPageChange = (newPage: number) => {
+    if (newPage >= 0 && newPage < taxistaTotalPages) {
+      setTaxistaPage(newPage);
+    }
+  };
 
-  // --- Componente de Tabela Reutilizável (MODIFICADO) ---
+  const handleComisseiroPageChange = (newPage: number) => {
+    if (newPage >= 0 && newPage < comisseiroTotalPages) {
+      setComisseiroPage(newPage);
+    }
+  };
+
+  // --- FUNÇÃO HELPER DA PAGINAÇÃO (NOVA) ---
+  const getPaginationItems = (currentPage: number, totalPages: number) => {
+    const items: (number | string)[] = [];
+    const maxPageNumbers = 5; // Máximo de números visíveis (ex: 1, ..., 5, 6, 7, ..., 10)
+    const pageRangeDisplayed = 1; // Quantos números antes/depois do atual
+
+    if (totalPages <= maxPageNumbers) {
+      for (let i = 0; i < totalPages; i++) {
+        items.push(i);
+      }
+    } else {
+      // Sempre mostrar a primeira página
+      items.push(0);
+
+      // Elipse ou números no início
+      if (currentPage > pageRangeDisplayed + 1) {
+        items.push('...');
+      } else if (currentPage === pageRangeDisplayed + 1) {
+        items.push(1);
+      }
+
+      // Páginas ao redor da atual
+      for (let i = Math.max(1, currentPage - pageRangeDisplayed); i <= Math.min(totalPages - 2, currentPage + pageRangeDisplayed); i++) {
+        if (i !== 0) {
+          items.push(i);
+        }
+      }
+
+      // Elipse ou números no final
+      if (currentPage < totalPages - pageRangeDisplayed - 2) {
+        items.push('...');
+      } else if (currentPage === totalPages - pageRangeDisplayed - 2) {
+        items.push(totalPages - 2);
+      }
+
+      // Sempre mostrar a última página
+      if (totalPages > 1) {
+         items.push(totalPages - 1);
+      }
+    }
+    
+    // Remove duplicatas (caso a primeira/última página apareça na lógica do meio)
+    return [...new Set(items)];
+  };
+
+
+  // --- Componente de Tabela Reutilizável ---
   const AffiliateTable = ({ data, type }: { data: Affiliate[]; type: AffiliateType }) => (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <Table>
@@ -181,7 +248,7 @@ export default function AffiliatesPage() {
               <TableCell>{affiliate.pessoa.telefone || '-'}</TableCell>
               <TableCell className="text-right">
                 
-                {/* 3. BOTÃO DE DETALHES ADICIONADO */}
+                {/* BOTÃO DE DETALHES */}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -248,40 +315,44 @@ export default function AffiliatesPage() {
           </div>
           <AffiliateTable data={filteredTaxistas} type="taxista" />
 
-          {/* --- PAGINAÇÃO CORRIGIDA --- */}
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  href="#"
-                  onClick={(e) => { e.preventDefault(); setTaxistaPage(p => Math.max(0, p - 1)); }}
-                  className={cn(
-                    taxistaPage === 0 ? "pointer-events-none opacity-50" : "",
-                    "[&>span]:hidden" // Esconde o texto "Previous"
-                  )}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </PaginationPrevious>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink href="#" onClick={(e) => e.preventDefault()} className="font-medium text-muted-foreground">
-                  Página {taxistaPage + 1} de {taxistaTotalPages}
-                </PaginationLink>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext
-                  href="#"
-                  onClick={(e) => { e.preventDefault(); setTaxistaPage(p => Math.min(taxistaTotalPages - 1, p + 1)); }}
-                  className={cn(
-                    taxistaPage >= taxistaTotalPages - 1 ? "pointer-events-none opacity-50" : "",
-                    "[&>span]:hidden" // Esconde o texto "Next"
-                  )}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </PaginationNext>
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+          {/* --- PAGINAÇÃO ATUALIZADA (TAXISTAS) --- */}
+          {taxistaTotalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); handleTaxistaPageChange(taxistaPage - 1); }}
+                    className={cn(taxistaPage === 0 ? "pointer-events-none opacity-50" : "")}
+                  />
+                </PaginationItem>
+
+                {getPaginationItems(taxistaPage, taxistaTotalPages).map((pageItem, index) => (
+                  <PaginationItem key={index}>
+                    {typeof pageItem === 'string' ? (
+                      <PaginationEllipsis />
+                    ) : (
+                      <PaginationLink
+                        href="#"
+                        isActive={pageItem === taxistaPage}
+                        onClick={(e) => { e.preventDefault(); handleTaxistaPageChange(pageItem as number); }}
+                      >
+                        {(pageItem as number) + 1}
+                      </PaginationLink>
+                    )}
+                  </PaginationItem>
+                ))}
+                
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); handleTaxistaPageChange(taxistaPage + 1); }}
+                    className={cn(taxistaPage >= taxistaTotalPages - 1 ? "pointer-events-none opacity-50" : "")}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
         </TabsContent>
 
         {/* --- Aba de Comisseiros --- */}
@@ -304,40 +375,44 @@ export default function AffiliatesPage() {
           </div>
           <AffiliateTable data={filteredComisseiros} type="comisseiro" />
 
-          {/* --- PAGINAÇÃO CORRIGIDA --- */}
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  href="#"
-                  onClick={(e) => { e.preventDefault(); setComisseiroPage(p => Math.max(0, p - 1)); }}
-                  className={cn(
-                    comisseiroPage === 0 ? "pointer-events-none opacity-50" : "",
-                    "[&>span]:hidden" // Esconde o texto "Previous"
-                  )}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </PaginationPrevious>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink href="#" onClick={(e) => e.preventDefault()} className="font-medium text-muted-foreground">
-                  Página {comisseiroPage + 1} de {comisseiroTotalPages}
-                </PaginationLink>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext
-                  href="#"
-                  onClick={(e) => { e.preventDefault(); setComisseiroPage(p => Math.min(comisseiroTotalPages - 1, p + 1)); }}
-                  className={cn(
-                    comisseiroPage >= comisseiroTotalPages - 1 ? "pointer-events-none opacity-50" : "",
-                    "[&>span]:hidden" // Esconde o texto "Next"
-                  )}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </PaginationNext>
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+          {/* --- PAGINAÇÃO ATUALIZADA (COMISSEIROS) --- */}
+          {comisseiroTotalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); handleComisseiroPageChange(comisseiroPage - 1); }}
+                    className={cn(comisseiroPage === 0 ? "pointer-events-none opacity-50" : "")}
+                  />
+                </PaginationItem>
+
+                {getPaginationItems(comisseiroPage, comisseiroTotalPages).map((pageItem, index) => (
+                  <PaginationItem key={index}>
+                    {typeof pageItem === 'string' ? (
+                      <PaginationEllipsis />
+                    ) : (
+                      <PaginationLink
+                        href="#"
+                        isActive={pageItem === comisseiroPage}
+                        onClick={(e) => { e.preventDefault(); handleComisseiroPageChange(pageItem as number); }}
+                      >
+                        {(pageItem as number) + 1}
+                      </PaginationLink>
+                    )}
+                  </PaginationItem>
+                ))}
+                
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); handleComisseiroPageChange(comisseiroPage + 1); }}
+                    className={cn(comisseiroPage >= comisseiroTotalPages - 1 ? "pointer-events-none opacity-50" : "")}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
         </TabsContent>
       </Tabs>
 

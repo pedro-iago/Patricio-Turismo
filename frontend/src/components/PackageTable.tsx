@@ -3,8 +3,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Button } from './ui/button';
 import { Edit, Trash2, DollarSign } from 'lucide-react';
 
-// Recriando as interfaces e funções necessárias
-interface Person { id: number; nome: string; }
+// --- INTERFACE ALTERADA ---
+interface Person { 
+  id: number; 
+  nome: string; 
+  telefone?: string | null; // <-- ADICIONADO
+}
 interface Address { id: number; logradouro: string; numero: string; bairro: string; cidade: string; }
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
@@ -70,9 +74,15 @@ export default function PackageTable({
             packages.map((pkg) => (
               <TableRow key={pkg.id}>
                 <TableCell>{pkg.descricao}</TableCell>
+                {/* --- CÉLULA ALTERADA --- */}
                 <TableCell>
-                  <div className="text-xs"><b>De:</b> {pkg.remetente.nome}</div>
-                  <div className="text-xs"><b>Para:</b> {pkg.destinatario.nome}</div>
+                  {/* --- LINHAS ALTERADAS --- */}
+                  <div className="text-xs">
+                    <b>De:</b> {pkg.remetente.nome} ({pkg.remetente.telefone || 'N/A'})
+                  </div>
+                  <div className="text-xs">
+                    <b>Para:</b> {pkg.destinatario.nome} ({pkg.destinatario.telefone || 'N/A'})
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="text-xs"><b>T:</b> {pkg.taxista?.pessoa.nome || '-'}</div>

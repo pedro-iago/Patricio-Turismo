@@ -7,8 +7,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import AddressModal from './AddressModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api'; 
-import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from './ui/pagination';
-import { cn } from './ui/utils'; // ✅ IMPORTAR CN (ClassNames)
+// ✅ IMPORTS DA PAGINAÇÃO (COM ELLIPSIS)
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationItem, 
+  PaginationPrevious, 
+  PaginationNext, 
+  PaginationLink, 
+  PaginationEllipsis // <-- ADICIONADO
+} from './ui/pagination';
+import { cn } from './ui/utils'; 
 
 // --- Interfaces ---
 interface Address {
@@ -65,7 +74,7 @@ export default function AddressesPage() {
     fetchAddresses(currentPage);
   }, [currentPage, fetchAddresses]); 
 
-  // --- ✅ LÓGICA DO CRUD (PREENCHIDA) ---
+  // --- LÓGICA DO CRUD ---
   const handleCreateAddress = async (addressData: AddressDto) => {
     try {
       await api.post('/api/endereco', addressData);
@@ -114,7 +123,7 @@ export default function AddressesPage() {
     return `${address.logradouro}, ${address.numero}`;
   };
   
-  // --- ✅ LÓGICA DE FILTRO (PREENCHIDA) ---
+  // --- LÓGICA DE FILTRO ---
   const filteredAddresses = addresses.filter(address => {
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -129,6 +138,51 @@ export default function AddressesPage() {
     if (newPage >= 0 && newPage < totalPages) {
       setCurrentPage(newPage);
     }
+  };
+  
+  // ✅ FUNÇÃO HELPER DA PAGINAÇÃO
+  const getPaginationItems = (currentPage: number, totalPages: number) => {
+    const items: (number | string)[] = [];
+    const maxPageNumbers = 5; // Máximo de números visíveis (ex: 1, ..., 5, 6, 7, ..., 10)
+    const pageRangeDisplayed = 1; // Quantos números antes/depois do atual
+
+    if (totalPages <= maxPageNumbers) {
+      for (let i = 0; i < totalPages; i++) {
+        items.push(i);
+      }
+    } else {
+      // Sempre mostrar a primeira página
+      items.push(0);
+
+      // Elipse ou números no início
+      if (currentPage > pageRangeDisplayed + 1) {
+        items.push('...');
+      } else if (currentPage === pageRangeDisplayed + 1) {
+        items.push(1);
+      }
+
+      // Páginas ao redor da atual
+      for (let i = Math.max(1, currentPage - pageRangeDisplayed); i <= Math.min(totalPages - 2, currentPage + pageRangeDisplayed); i++) {
+        if (i !== 0) {
+          items.push(i);
+        }
+      }
+
+      // Elipse ou números no final
+      if (currentPage < totalPages - pageRangeDisplayed - 2) {
+        items.push('...');
+      } else if (currentPage === totalPages - pageRangeDisplayed - 2) {
+        items.push(totalPages - 2);
+      }
+
+      // Sempre mostrar a última página
+      if (totalPages > 1) {
+         items.push(totalPages - 1);
+      }
+    }
+    
+    // Remove duplicatas (caso a primeira/última página apareça na lógica do meio)
+    return [...new Set(items)];
   };
 
   return (
@@ -184,7 +238,7 @@ export default function AddressesPage() {
                     <TableCell>{address.estado}</TableCell>
                     <TableCell>{address.cep}</TableCell>
                     <TableCell className="text-right">
-                      {/* ✅ BOTÕES DE AÇÃO FUNCIONAIS --- */}
+                      {/* --- BOTÕES DE AÇÃO --- */}
                       <div className="flex items-center justify-end gap-2">
                         <Button
                           variant="ghost"
@@ -216,43 +270,49 @@ export default function AddressesPage() {
         </Table>
       </div>
       
-      {/* --- PAGINAÇÃO CORRIGIDA --- */}
-      <Pagination>
-        <PaginationContent>
-          <PaginationItem key="prev">
-            <PaginationPrevious
-              href="#"
-              onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }}
-              className={cn(
-                currentPage === 0 ? "pointer-events-none opacity-50" : "",
-                "[&>span]:hidden" // Esconde o texto "Previous"
-              )}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </PaginationPrevious>
-          </PaginationItem>
-          
-          <PaginationItem key="page">
-             <PaginationLink href="#" onClick={(e) => e.preventDefault()} className="font-medium text-muted-foreground">
-               Página {currentPage + 1} de {totalPages}
-             </PaginationLink>
-          </PaginationItem>
-          
-          <PaginationItem key="next">
-            <PaginationNext
-              href="#"
-              onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }}
-              className={cn(
-                currentPage >= totalPages - 1 ? "pointer-events-none opacity-50" : "",
-                "[&>span]:hidden" // Esconde o texto "Next"
-              )}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </PaginationNext>
-          </PaginationItem>
-        </PaginationContent>
-      </Pagination>
-      {/* --- FIM DA CORREÇÃO --- */}
+      {/* --- PAGINAÇÃO ATUALIZADA --- */}
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            {/* Botão Anterior */}
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }}
+                className={cn(currentPage === 0 ? "pointer-events-none opacity-50" : "")}
+              />
+            </PaginationItem>
+
+            {/* Números de Página e Elipses */}
+            {getPaginationItems(currentPage, totalPages).map((pageItem, index) => (
+              <PaginationItem key={index}>
+                {typeof pageItem === 'string' ? (
+                  <PaginationEllipsis />
+                ) : (
+                  <PaginationLink
+                    href="#"
+                    isActive={pageItem === currentPage}
+                    onClick={(e) => { e.preventDefault(); handlePageChange(pageItem as number); }}
+                  >
+                    {(pageItem as number) + 1}
+                  </PaginationLink>
+                )}
+              </PaginationItem>
+            ))}
+
+            {/* Botão Próximo */}
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }}
+                className={cn(currentPage >= totalPages - 1 ? "pointer-events-none opacity-50" : "")}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+      {/* --- FIM DA PAGINAÇÃO --- */}
+
 
       {/* --- Modais --- */}
        <AddressModal
