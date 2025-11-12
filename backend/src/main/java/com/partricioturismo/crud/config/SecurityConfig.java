@@ -131,12 +131,14 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // CORREÇÃO CORS FINAL: Incluindo o domínio de produção da Render e os locais de desenvolvimento.
+        // ****** ESTA É A ALTERAÇÃO FEITA ******
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "http://localhost:3001",
-                "https://patricio-turismo.onrender.com" // DOMÍNIO DE PRODUÇÃO
+                "https://patricio-turismo.onrender.com", // Domínio antigo (pode manter)
+                "https://patricioturismo.cloud" // SEU NOVO DOMÍNIO DE PRODUÇÃO
         ));
+        // ***************************************
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 
