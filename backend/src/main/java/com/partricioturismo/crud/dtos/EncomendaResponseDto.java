@@ -2,6 +2,7 @@ package com.partricioturismo.crud.dtos;
 
 import com.partricioturismo.crud.model.Encomenda;
 import java.math.BigDecimal;
+import java.time.LocalDateTime; // <-- IMPORT NECESSÁRIO
 
 // Este é o DTO para RETORNAR uma Encomenda (evita o bug de Lazy Loading)
 public record EncomendaResponseDto(
@@ -17,7 +18,8 @@ public record EncomendaResponseDto(
         AffiliateResponseDto comisseiro,
         BigDecimal valor,
         String metodoPagamento,
-        boolean pago
+        boolean pago,
+        ViagemDto viagem // <-- CAMPO NOVO
 ) {
     // Construtor de conveniência para converter da Entidade
     public EncomendaResponseDto(Encomenda e) {
@@ -25,8 +27,6 @@ public record EncomendaResponseDto(
                 e.getId(),
                 e.getDescricao(),
                 e.getPeso(),
-
-                // --- CORREÇÃO AQUI (REMETENTE) ---
                 new PessoaDto(
                         e.getRemetente().getId(),
                         e.getRemetente().getNome(),
@@ -34,8 +34,6 @@ public record EncomendaResponseDto(
                         e.getRemetente().getTelefone(),
                         e.getRemetente().getIdade()
                 ),
-
-                // --- CORREÇÃO AQUI (DESTINATÁRIO) ---
                 new PessoaDto(
                         e.getDestinatario().getId(),
                         e.getDestinatario().getNome(),
@@ -43,11 +41,8 @@ public record EncomendaResponseDto(
                         e.getDestinatario().getTelefone(),
                         e.getDestinatario().getIdade()
                 ),
-
                 new EnderecoDto(e.getEnderecoColeta()),
                 new EnderecoDto(e.getEnderecoEntrega()),
-
-                // --- CORREÇÃO AQUI (RESPONSÁVEL) ---
                 e.getResponsavel() != null ? new PessoaDto(
                         e.getResponsavel().getId(),
                         e.getResponsavel().getNome(),
@@ -55,12 +50,20 @@ public record EncomendaResponseDto(
                         e.getResponsavel().getTelefone(),
                         e.getResponsavel().getIdade()
                 ) : null,
-
                 e.getTaxista() != null ? new AffiliateResponseDto(e.getTaxista()) : null,
                 e.getComisseiro() != null ? new AffiliateResponseDto(e.getComisseiro()) : null,
                 e.getValor(),
                 e.getMetodoPagamento(),
-                e.isPago()
+                e.isPago(),
+
+                e.getViagem() != null ? new ViagemDto(
+                        e.getViagem().getId(),
+                        e.getViagem().getDataHoraPartida(),
+                        e.getViagem().getDataHoraChegada(),
+                        // === CORREÇÃO AQUI ===
+                        // Chamando .getIdOnibus() em vez de .getId()
+                        (e.getViagem().getOnibus() != null) ? e.getViagem().getOnibus().getIdOnibus() : null
+                ) : null
         );
     }
 }

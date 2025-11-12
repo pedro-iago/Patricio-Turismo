@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # ==========================================================
+  # 🧩 APP (Spring Boot + React)
+  # ==========================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: patricio-app-prod
+    restart: always
+    ports:
+      # Expõe a porta 80 da VPS (HTTP) e a mapeia para a 8080 do contêiner
+      - "80:8080"
+    environment:
+      # Define o perfil de produção
+      SPRING_PROFILES_ACTIVE: prod
+      
+      # Conecta no serviço 'db' na rede interna do Docker
+      # As senhas vêm do arquivo .env que criaremos na VPS
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      
+      # Mais seguro: Deixa o Flyway gerenciar o banco
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate 
+      
+      # Aponta para as chaves de segurança que virão dos volumes
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_PUBLIC_KEY: file:/run/certs/public.pem
+      JWT_PRIVATE_KEY: file:/run/certs/private.pem
+      
+    volumes:
+      # Mapeia a pasta de certificados da VPS para dentro do contêiner
+      # :ro = read-only (somente leitura), mais seguro
+      - /opt/patricio-turismo/certs:/run/certs:ro
+      
+    depends_on:
+      - db
+
+  # ==========================================================
+  # 🗃️ Banco de Dados (PostgreSQL)
+  # ==========================================================
+  db:
+    image: postgres:16-alpine
+    container_name: patricio-db-prod
+    restart: always
+    environment:
+      # Carrega as senhas do arquivo .env
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Persiste os dados do banco em um volume no host
+      - db_data_prod:/var/lib/postgresql/data
+    # SEM 'ports' - O banco NÃO fica exposto à internet!
+
+volumes:
+  db_data_prod:

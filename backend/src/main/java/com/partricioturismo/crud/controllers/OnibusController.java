@@ -1,8 +1,7 @@
 package com.partricioturismo.crud.controllers;
 
 import com.partricioturismo.crud.dtos.OnibusDto;
-import com.partricioturismo.crud.model.Onibus;
-import com.partricioturismo.crud.service.OnibusService; // <-- MUDOU
+import com.partricioturismo.crud.service.OnibusService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,48 +11,41 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/onibus")
+@RequestMapping("/api/onibus") // Caminho correto
 public class OnibusController {
 
     @Autowired
-    OnibusService service; // <-- MUDOU (Injeta o SERVICE)
+    OnibusService service;
 
     @GetMapping
-    public ResponseEntity<List<Onibus>> getAll() {
-        List<Onibus> listOnibus = service.findAll();
-        return ResponseEntity.status(HttpStatus.OK).body(listOnibus);
+    public ResponseEntity<List<OnibusDto>> getAll() {
+        // Retorna JSON: [{"id": 1, "placa": "...", ...}]
+        return ResponseEntity.ok(service.findAll());
     }
 
-    @GetMapping("/{idOnibus}")
-    public ResponseEntity<Object> getById(@PathVariable(value = "idOnibus") Long idOnibus) { // <-- MUDOU (Long)
-        Optional<Onibus> onibus = service.findById(idOnibus);
-        if (onibus.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Onibus não existente");
-        }
-        return ResponseEntity.status(HttpStatus.OK).body(onibus.get()); // <-- MUDOU (Status OK)
+    @GetMapping("/{id}")
+    public ResponseEntity<Object> getById(@PathVariable Long id) {
+        Optional<OnibusDto> onibus = service.findById(id);
+        if (onibus.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Onibus não existente");
+        return ResponseEntity.ok(onibus.get());
     }
 
     @PostMapping
-    public ResponseEntity<Onibus> save(@RequestBody OnibusDto onibusDto) {
-        var onibusSalvo = service.save(onibusDto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(onibusSalvo);
+    public ResponseEntity<OnibusDto> save(@RequestBody OnibusDto onibusDto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.save(onibusDto));
     }
 
-    @DeleteMapping("/{idOnibus}")
-    public ResponseEntity<Object> delete(@PathVariable(value = "idOnibus") Long idOnibus) { // <-- MUDOU (Long)
-        boolean deletado = service.delete(idOnibus);
-        if (!deletado) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Onibus não existente");
-        }
-        return ResponseEntity.status(HttpStatus.OK).body("Onibus deletado com sucesso"); // <-- MUDOU
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Object> delete(@PathVariable Long id) {
+        boolean deletado = service.delete(id);
+        if (!deletado) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Onibus não existente");
+        return ResponseEntity.ok("Onibus deletado com sucesso");
     }
 
-    @PutMapping("/{idOnibus}")
-    public ResponseEntity<Object> update(@PathVariable(value = "idOnibus") Long idOnibus, @RequestBody OnibusDto onibusDto) { // <-- MUDOU (Long)
-        Optional<Onibus> onibusAtualizado = service.update(idOnibus, onibusDto);
-        if (onibusAtualizado.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Onibus não existente"); // <-- MUDOU
-        }
-        return ResponseEntity.status(HttpStatus.OK).body(onibusAtualizado.get());
+    @PutMapping("/{id}")
+    public ResponseEntity<Object> update(@PathVariable Long id, @RequestBody OnibusDto onibusDto) {
+        Optional<OnibusDto> onibusAtualizado = service.update(id, onibusDto);
+        if (onibusAtualizado.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Onibus não existente");
+        return ResponseEntity.ok(onibusAtualizado.get());
     }
 }

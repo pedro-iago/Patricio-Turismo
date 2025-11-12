@@ -1,7 +1,6 @@
 package com.partricioturismo.crud.controllers;
 
 import com.partricioturismo.crud.dtos.PassengerSaveRequestDto;
-// --- MUDANÇA ---
 import com.partricioturismo.crud.dtos.PassengerResponseDto;
 import com.partricioturismo.crud.service.PassageiroViagemService;
 
@@ -15,26 +14,23 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/passageiroviagem")
+@RequestMapping("/api/passageiroviagem") // <-- MUDANÇA AQUI
 public class PassageiroViagemController {
 
     @Autowired
     PassageiroViagemService service;
 
-    // --- GET ALL ATUALIZADO ---
     @GetMapping
     public ResponseEntity<List<PassengerResponseDto>> getAll() {
         return ResponseEntity.status(HttpStatus.OK).body(service.findAll());
     }
 
-    // --- GET BY VIAGEM ATUALIZADO ---
     @GetMapping("/viagem/{viagemId}")
     public ResponseEntity<List<PassengerResponseDto>> getByViagemId(@PathVariable Long viagemId) {
         List<PassengerResponseDto> passageiros = service.findByViagemId(viagemId);
         return ResponseEntity.status(HttpStatus.OK).body(passageiros);
     }
 
-    // --- GET BY ID ATUALIZADO ---
     @GetMapping("/{id}")
     public ResponseEntity<Object> getById(@PathVariable(value = "id") Long id) {
         Optional<PassengerResponseDto> pv = service.findById(id);
@@ -44,16 +40,14 @@ public class PassageiroViagemController {
         return ResponseEntity.status(HttpStatus.OK).body(pv.get());
     }
 
-    // --- POST ATUALIZADO ---
     @PostMapping
     public ResponseEntity<Object> save(@RequestBody PassengerSaveRequestDto dto) {
         try {
-            PassengerResponseDto pvSalvo = service.save(dto); // Agora retorna DTO
+            PassengerResponseDto pvSalvo = service.save(dto);
             return ResponseEntity.status(HttpStatus.CREATED).body(pvSalvo);
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
-            // Pega outros erros (como violação de constraint)
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
@@ -67,7 +61,6 @@ public class PassageiroViagemController {
         return ResponseEntity.status(HttpStatus.OK).body("Registro deletado com sucesso");
     }
 
-    // --- PUT ATUALIZADO ---
     @PutMapping("/{id}")
     public ResponseEntity<Object> update(@PathVariable(value = "id") Long id, @RequestBody PassengerSaveRequestDto dto) {
         try {
@@ -83,7 +76,6 @@ public class PassageiroViagemController {
         }
     }
 
-    // --- PATCH ATUALIZADO ---
     @PatchMapping("/{id}/marcar-pago")
     public ResponseEntity<Object> markAsPaid(@PathVariable(value = "id") Long id) {
         try {

@@ -1,9 +1,13 @@
 package com.partricioturismo.crud.controllers;
 
+import com.partricioturismo.crud.dtos.AssentoDto;
 import com.partricioturismo.crud.dtos.ViagemDto;
-import com.partricioturismo.crud.model.Viagem;
-import com.partricioturismo.crud.service.ViagemService; // <-- MUDOU
+import com.partricioturismo.crud.dtos.ViagemSaveRequestDto; // <-- IMPORT NOVO
+import com.partricioturismo.crud.service.AssentoService;
+import com.partricioturismo.crud.service.ViagemService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,40 +16,43 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/viagem")
+@RequestMapping("/api/viagem")
 public class ViagemController {
 
     @Autowired
-    ViagemService service; // <-- MUEndereco
+    ViagemService service;
+
+    @Autowired
+    AssentoService assentoService;
 
     @GetMapping
-    public ResponseEntity<List<Viagem>> getAll() {
-        List<Viagem> listViagem = service.findAll();
+    public ResponseEntity<Page<ViagemDto>> getAll(Pageable pageable) {
+        Page<ViagemDto> listViagem = service.findAll(pageable);
         return ResponseEntity.status(HttpStatus.OK).body(listViagem);
     }
 
     @GetMapping("/{idViagem}")
-    public ResponseEntity<Object> getById(@PathVariable(value = "idViagem") Long idViagem) { // <-- MUDOU (Long)
-        Optional<Viagem> viagem = service.findById(idViagem);
+    public ResponseEntity<Object> getById(@PathVariable(value = "idViagem") Long idViagem) {
+        Optional<ViagemDto> viagem = service.findById(idViagem);
         if (viagem.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Viagem não existente");
         }
-        return ResponseEntity.status(HttpStatus.OK).body(viagem.get()); // <-- MUDOU (Status OK)
+        return ResponseEntity.status(HttpStatus.OK).body(viagem.get());
     }
 
     @PostMapping
-    public ResponseEntity<Object> save(@RequestBody ViagemDto viagemDto) {
+    // --- MUDANÇA AQUI: Usa ViagemSaveRequestDto ---
+    public ResponseEntity<Object> save(@RequestBody ViagemSaveRequestDto viagemDto) {
         try {
             var viagemSalva = service.save(viagemDto);
             return ResponseEntity.status(HttpStatus.CREATED).body(viagemSalva);
         } catch (RuntimeException e) {
-            // Captura o "Ônibus não encontrado!" do service
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 
     @DeleteMapping("/{idViagem}")
-    public ResponseEntity<Object> delete(@PathVariable(value = "idViagem") Long idViagem) { // <-- MUDOU (Long)
+    public ResponseEntity<Object> delete(@PathVariable(value = "idViagem") Long idViagem) {
         boolean deletado = service.delete(idViagem);
         if (!deletado) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Viagem não existente");
@@ -54,16 +61,22 @@ public class ViagemController {
     }
 
     @PutMapping("/{idViagem}")
-    public ResponseEntity<Object> update(@PathVariable(value = "idViagem") Long idViagem, @RequestBody ViagemDto viagemDto) { // <-- MUDOU (Long)
+    // --- MUDANÇA AQUI: Usa ViagemSaveRequestDto ---
+    public ResponseEntity<Object> update(@PathVariable(value = "idViagem") Long idViagem, @RequestBody ViagemSaveRequestDto viagemDto) {
         try {
-            Optional<Viagem> viagemAtualizada = service.update(idViagem, viagemDto);
+            Optional<ViagemDto> viagemAtualizada = service.update(idViagem, viagemDto);
             if (viagemAtualizada.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Viagem não existente");
             }
             return ResponseEntity.status(HttpStatus.OK).body(viagemAtualizada.get());
         } catch (RuntimeException e) {
-            // Captura o "Ônibus não encontrado!" do service
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
+    }
+
+    @GetMapping("/{idViagem}/assentos")
+    public ResponseEntity<List<AssentoDto>> getAssentosDaViagem(@PathVariable Long idViagem) {
+        List<AssentoDto> assentos = assentoService.findByViagemId(idViagem);
+        return ResponseEntity.ok(assentos);
     }
 }

@@ -1,72 +1,104 @@
 package com.partricioturismo.crud.service;
 
 import com.partricioturismo.crud.dtos.ViagemDto;
+import com.partricioturismo.crud.dtos.ViagemSaveRequestDto;
+import com.partricioturismo.crud.model.Assento;
+// import com.partricioturismo.crud.model.AssentoStatus; // <-- REMOVIDO
 import com.partricioturismo.crud.model.Onibus;
 import com.partricioturismo.crud.model.Viagem;
+import com.partricioturismo.crud.repositories.AssentoRepository;
 import com.partricioturismo.crud.repositories.OnibusRepository;
 import com.partricioturismo.crud.repositories.ViagemRepository;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class ViagemService {
+    // ... (injeções) ...
+
+    // ... (método toDto, findAll, findById, update, delete permanecem iguais) ...
 
     @Autowired
     private ViagemRepository viagemRepository;
-
     @Autowired
     private OnibusRepository onibusRepository;
+    @Autowired
+    private AssentoRepository assentoRepository;
 
-    public List<Viagem> findAll() {
-        return viagemRepository.findAll();
-    }
-
-    public Optional<Viagem> findById(Long id) {
-        return viagemRepository.findById(id);
-    }
+    // (Resto do service, incluindo toDto, findById, findAll, update, delete)
 
     @Transactional
-    public Viagem save(ViagemDto viagemDto) {
+    public ViagemDto save(ViagemSaveRequestDto viagemDto) {
         Onibus onibus = onibusRepository.findById(viagemDto.onibusId())
                 .orElseThrow(() -> new RuntimeException("Ônibus não encontrado!"));
 
         var viagem = new Viagem();
         BeanUtils.copyProperties(viagemDto, viagem);
         viagem.setOnibus(onibus);
-        return viagemRepository.save(viagem);
+        var viagemSalva = viagemRepository.save(viagem);
+
+        // --- LÓGICA CORRIGIDA: CRIA ASSENTOS COM BOOLEAN ---
+        int capacidade = onibus.getCapacidadePassageiros();
+        List<Assento> novosAssentos = new ArrayList<>();
+        for (int i = 1; i <= capacidade; i++) {
+            Assento assento = new Assento();
+            assento.setNumero(String.valueOf(i));
+            assento.setOcupado(false); // <-- MUDANÇA: Agora é FALSE (Livre)
+            assento.setViagem(viagemSalva);
+            novosAssentos.add(assento);
+        }
+        assentoRepository.saveAll(novosAssentos);
+
+        return toDto(viagemSalva);
+    }
+
+    public ViagemDto toDto(Viagem viagem) {
+        return new ViagemDto(
+                viagem.getId(),
+                viagem.getDataHoraPartida(),
+                viagem.getDataHoraChegada(),
+                viagem.getOnibus().getIdOnibus()
+        );
+    }
+
+    public Page<ViagemDto> findAll(Pageable pageable) {
+        return viagemRepository.findAll(pageable).map(this::toDto);
+    }
+
+    public Optional<ViagemDto> findById(Long id) {
+        return viagemRepository.findById(id).map(this::toDto);
     }
 
     @Transactional
-    public Optional<Viagem> update(Long id, ViagemDto viagemDto) {
+    public Optional<ViagemDto> update(Long id, ViagemSaveRequestDto viagemDto) {
+        // ... (lógica de update permanece a mesma) ...
         Optional<Viagem> viagemOptional = viagemRepository.findById(id);
-        if (viagemOptional.isEmpty()) {
-            return Optional.empty();
-        }
+        if (viagemOptional.isEmpty()) { return Optional.empty(); }
 
         Onibus onibus = onibusRepository.findById(viagemDto.onibusId())
                 .orElseThrow(() -> new RuntimeException("Ônibus não encontrado!"));
 
         var viagemModel = viagemOptional.get();
-
-        // Ignora o campo 'id' ao copiar as propriedades do DTO para a entidade
         BeanUtils.copyProperties(viagemDto, viagemModel, "id");
+        viagemModel.setOnibus(onibus);
 
-        viagemModel.setOnibus(onibus); // Seta o objeto Onibus (pode ter mudado)
-
-        return Optional.of(viagemRepository.save(viagemModel));
+        var viagemAtualizada = viagemRepository.save(viagemModel);
+        return Optional.of(toDto(viagemAtualizada));
     }
 
     @Transactional
     public boolean delete(Long id) {
         Optional<Viagem> viagemOptional = viagemRepository.findById(id);
-        if (viagemOptional.isEmpty()) {
-            return false;
-        }
+        if (viagemOptional.isEmpty()) { return false; }
         viagemRepository.delete(viagemOptional.get());
         return true;
     }

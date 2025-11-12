@@ -11,7 +11,7 @@ interface BusDto {
 }
 
 interface Bus {
-  idOnibus: number;
+  id: number; // <-- MUDOU DE idOnibus PARA id
   placa: string;
   modelo: string;
   capacidadePassageiros: number;
@@ -100,8 +100,6 @@ export default function BusModal({ isOpen, onClose, onSave, bus }: BusModalProps
                 required
               />
           </div>
-
-          {/* Campo 'Status' REMOVIDO */}
 
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="outline" onClick={onClose}>

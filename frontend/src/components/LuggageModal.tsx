@@ -7,7 +7,6 @@ import { Plus, Trash2 } from 'lucide-react';
 import api from '../services/api';
 import axios from 'axios';
 
-// --- Interfaces do Backend ---
 interface Luggage {
   id: number;
   descricao: string;
@@ -42,8 +41,8 @@ export default function LuggageModal({
     if (!passenger) return;
     setLoading(true);
     try {
-      const response = await api.get(`/bagagem/passageiro/${passenger.id}`);
-      console.log(`Dados recebidos em fetchLuggage para passageiro ${passenger.id}:`, response.data);
+      // --- CORREÇÃO DE CAMINHO ---
+      const response = await api.get(`/api/bagagem/passageiro/${passenger.id}`);
       setItems(response.data);
     } catch (error) {
       console.error("Erro ao buscar bagagens:", error);
@@ -66,9 +65,6 @@ export default function LuggageModal({
       alert("Erro: Não foi possível identificar o passageiro ou a pessoa responsável.");
       return;
     }
-    console.log("Tentando adicionar bagagem para:");
-    console.log("PassageiroViagem ID (passenger.id):", passenger.id);
-    console.log("Pessoa Responsável ID (passenger.pessoa.id):", passenger.pessoa.id);
 
     const newLuggageDto = {
       descricao: "Nova Bagagem",
@@ -76,15 +72,14 @@ export default function LuggageModal({
       passageiroViagemId: passenger.id,
       responsavelId: passenger.pessoa.id
     };
-    console.log("Enviando DTO:", newLuggageDto);
 
     try {
-      await api.post('/bagagem', newLuggageDto);
+      // --- CORREÇÃO DE CAMINHO ---
+      await api.post('/api/bagagem', newLuggageDto);
       await fetchLuggage();
     } catch (error) {
       console.error("Erro ao adicionar bagagem:", error);
       if (axios.isAxiosError(error) && error.response && error.response.data) {
-         console.error("Detalhes do erro do backend:", error.response.data);
          const backendMessage = typeof error.response.data === 'string' ? error.response.data : error.response.data?.message || 'Erro desconhecido do servidor.';
          alert(`Falha ao adicionar bagagem: ${backendMessage}`);
       } else {
@@ -95,12 +90,12 @@ export default function LuggageModal({
 
   const handleRemoveItem = async (id: number) => {
     try {
-      await api.delete(`/bagagem/${id}`);
+      // --- CORREÇÃO DE CAMINHO ---
+      await api.delete(`/api/bagagem/${id}`);
       setItems(items.filter((item) => item.id !== id));
     } catch (error) {
       console.error("Erro ao remover bagagem:", error);
       if (axios.isAxiosError(error) && error.response && error.response.data) {
-         console.error("Detalhes do erro do backend:", error.response.data);
          alert(`Falha ao remover bagagem: ${error.response.data?.message || 'Erro desconhecido.'}`);
       } else {
          alert("Falha ao remover bagagem.");
@@ -130,11 +125,11 @@ export default function LuggageModal({
       };
 
       try {
-        console.log(`Enviando PUT /bagagem/${id} com DTO:`, luggageDto); // Log
-        await api.put(`/bagagem/${id}`, luggageDto);
+        // --- CORREÇÃO DE CAMINHO ---
+        await api.put(`/api/bagagem/${id}`, luggageDto);
       } catch (error) {
         console.error(`Erro ao atualizar bagagem ${id}:`, error);
-        alert("Falha ao salvar alteração da bagagem."); // Mensagem para o usuário
+        alert("Falha ao salvar alteração da bagagem."); 
         if (axios.isAxiosError(error) && error.response && error.response.data) {
            console.error("Detalhes do erro do backend:", error.response.data);
         }
@@ -174,7 +169,7 @@ export default function LuggageModal({
                       id={`desc-${item.id}`}
                       value={item.descricao || ''}
                       onChange={(e) =>
-                        handleUpdateItem(item.id, 'descricao', e.target.value) // Chama a função atualizada
+                        handleUpdateItem(item.id, 'descricao', e.target.value)
                       }
                       placeholder="e.g., Suitcase, Backpack"
                       required
@@ -187,10 +182,9 @@ export default function LuggageModal({
                       type="number"
                       value={item.peso ?? ''}
                       onChange={(e) =>
-                        handleUpdateItem( // Chama a função atualizada
+                        handleUpdateItem(
                           item.id,
                           'peso',
-                          // Mantém a lógica de conversão para null ou float
                           e.target.value === '' ? null : parseFloat(e.target.value) || 0
                         )
                       }

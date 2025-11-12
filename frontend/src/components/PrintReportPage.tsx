@@ -7,9 +7,19 @@ import PackageTable from './PackageTable';
 import { Skeleton } from './ui/skeleton';
 import logo from '../assets/logo.png';
 
-// Interfaces
-interface Bus { idOnibus: number; modelo: string; placa: string; }
-interface Trip { id: number; dataHoraPartida: string; dataHoraChegada: string; onibus: Bus; }
+// --- Interfaces Corrigidas ---
+interface Bus { 
+  idOnibus: number; 
+  modelo: string; 
+  placa: string; 
+  capacidadePassageiros: number; 
+}
+interface TripDto { 
+  id: number; 
+  dataHoraPartida: string; 
+  dataHoraChegada: string; 
+  onibusId: number; 
+}
 interface PassengerData { [key: string]: any; } 
 interface PackageData { [key: string]: any; }
 
@@ -17,7 +27,8 @@ export default function PrintReportPage() {
   const { id: tripId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [trip, setTrip] = useState<Trip | null>(null);
+  const [trip, setTrip] = useState<TripDto | null>(null);
+  const [bus, setBus] = useState<Bus | null>(null); // Estado para guardar o autocarro (ônibus)
   const [passengers, setPassengers] = useState<PassengerData[]>([]);
   const [packages, setPackages] = useState<PackageData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,27 +38,41 @@ export default function PrintReportPage() {
     const fetchAllData = async () => {
       if (!tripId) { setLoading(false); return; }
       setLoading(true);
+      
+      let fetchedTrip: TripDto | null = null;
+
       try {
-        const [tripRes, passengersRes, packagesRes] = await Promise.all([
-          api.get(`/viagem/${tripId}`),
-          api.get(`/api/v1/reports/passageiros/viagem/${tripId}`),
-          api.get(`/api/v1/reports/encomendas/viagem/${tripId}`)
-        ]);
-        
+        // 1. Busca a viagem
+        // --- CAMINHO CORRIGIDO ---
+        const tripRes = await api.get<TripDto>(`/api/viagem/${tripId}`);
         setTrip(tripRes.data);
+        fetchedTrip = tripRes.data; // Guarda para usar já
         
-        const passengersData: PassengerData[] = passengersRes.data;
-        const passengersWithLuggage = await Promise.all(
-          passengersData.map(async (passenger) => {
-            if (!passenger || typeof passenger.id === 'undefined') {
-              return passenger;
-            }
-            const luggageResponse = await api.get(`/bagagem/passageiro/${passenger.id}`);
-            return { ...passenger, luggageCount: luggageResponse.data.length };
-          })
-        );
-        setPassengers(passengersWithLuggage);
-        setPackages(packagesRes.data);
+        if (fetchedTrip) {
+          // 2. Busca os dados em paralelo (incluindo o autocarro/ônibus)
+          const [passengersRes, packagesRes, busRes] = await Promise.all([
+            api.get(`/api/v1/reports/passageiros/viagem/${tripId}`),
+            api.get(`/api/v1/reports/encomendas/viagem/${tripId}`),
+            api.get<Bus>(`/api/onibus/${fetchedTrip.onibusId}`) // Busca o autocarro (ônibus)
+          ]);
+          
+          setBus(busRes.data); // Guarda o autocarro (ônibus)
+
+          // 3. Processa passageiros e bagagens
+          const passengersData: PassengerData[] = passengersRes.data;
+          const passengersWithLuggage = await Promise.all(
+            passengersData.map(async (passenger) => {
+              if (!passenger || typeof passenger.id === 'undefined') {
+                return passenger;
+              }
+              // --- CAMINHO CORRIGIDO ---
+              const luggageResponse = await api.get(`/api/bagagem/passageiro/${passenger.id}`);
+              return { ...passenger, luggageCount: luggageResponse.data.length };
+            })
+          );
+          setPassengers(passengersWithLuggage);
+          setPackages(packagesRes.data);
+        }
 
       } catch (error) { console.error('Erro ao buscar dados para impressão:', error); }
       finally { setLoading(false); }
@@ -57,12 +82,12 @@ export default function PrintReportPage() {
 
   // Efeito para disparar a impressão
   useEffect(() => {
-    if (loading === false && trip) {
+    if (loading === false && trip && bus) { // Espera também pelo autocarro (ônibus)
       setTimeout(() => {
         window.print();
       }, 500);
     }
-  }, [loading, trip]);
+  }, [loading, trip, bus]);
 
   // Efeito para voltar à página anterior após imprimir
   useEffect(() => {
@@ -85,8 +110,8 @@ export default function PrintReportPage() {
     );
   }
 
-  if (!trip) {
-    return <div className="p-10">Viagem não encontrada.</div>;
+  if (!trip || !bus) {
+    return <div className="p-10">Viagem ou Ônibus não encontrado.</div>;
   }
 
   return (
@@ -100,7 +125,7 @@ export default function PrintReportPage() {
         </div>
       </div>
       
-      {/* Card de Informações da Viagem */}
+      {/* Card de Informações da Viagem (Corrigido) */}
       <Card>
         <CardHeader>
           <CardTitle>Informações de viagem</CardTitle>
@@ -110,8 +135,9 @@ export default function PrintReportPage() {
             <div><p className="text-sm text-muted-foreground">Data</p><p>{new Date(trip.dataHoraPartida).toLocaleDateString()}</p></div>
             <div><p className="text-sm text-muted-foreground">Partida</p><p>{new Date(trip.dataHoraPartida).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
             <div><p className="text-sm text-muted-foreground">Chegada</p><p>{new Date(trip.dataHoraChegada).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
-            <div><p className="text-sm text-muted-foreground">Ônibus</p><p>{trip.onibus.placa}</p></div>
-            <div><p className="text-sm text-muted-foreground">Modelo</p><p>{trip.onibus.modelo}</p></div>
+            {/* --- CORREÇÃO AQUI --- */}
+            <div><p className="text-sm text-muted-foreground">Ônibus</p><p>{bus.placa}</p></div>
+            <div><p className="text-sm text-muted-foreground">Modelo</p><p>{bus.modelo}</p></div>
           </div>
         </CardContent>
       </Card>

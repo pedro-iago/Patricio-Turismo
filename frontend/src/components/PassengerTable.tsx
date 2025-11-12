@@ -21,6 +21,7 @@ interface PassengerData {
   valor?: number;
   metodoPagamento?: string;
   pago?: boolean;
+  numeroAssento?: string; // Adicionado para impressão
 }
 const formatAddress = (addr: Address) => {
   if (!addr) return 'Endereço inválido';
@@ -51,8 +52,12 @@ export default function PassengerTable({
   onEdit,
   onDelete,
 }: PassengerTableProps) {
+  
+  // Colspan atualizado para 8 colunas (com Ações) ou 7 (sem Ações/impressão)
+  const colSpan = isPrintView ? 7 : 8;
+
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 pt-print-clean">
       <Table>
         <TableHeader>
           <TableRow>
@@ -61,41 +66,45 @@ export default function PassengerTable({
             <TableHead className="pt-print-col-afiliado">Taxista / Comisseiro</TableHead>
             <TableHead className="pt-print-col-valor">Valor</TableHead>
             <TableHead className="pt-print-col-status">Status</TableHead>
+            <TableHead className="pt-print-col-assento">Assento</TableHead>
             <TableHead className="pt-print-col-bagagem">Bagagem</TableHead>
-            {!isPrintView && <TableHead className="text-right">Ações</TableHead>}
+            {!isPrintView && <TableHead className="text-right pt-no-print">Ações</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {loading ? (
-            <TableRow><TableCell colSpan={isPrintView ? 6 : 7} className="text-center text-muted-foreground py-8">Buscando dados...</TableCell></TableRow>
-          ) : passengers.length === 0 ? (
-            <TableRow><TableCell colSpan={isPrintView ? 6 : 7} className="text-center text-muted-foreground py-8">Nenhum passageiro encontrado</TableCell></TableRow>
+            <TableRow><TableCell colSpan={colSpan} className="text-center text-muted-foreground py-8">Buscando dados...</TableCell></TableRow>
+            
+          /* ✅ CORREÇÃO: Adiciona uma verificação para 'passengers' (ou um array padrão) */
+          ) : !passengers || passengers.length === 0 ? (
+            <TableRow><TableCell colSpan={colSpan} className="text-center text-muted-foreground py-8">Nenhum passageiro encontrado</TableCell></TableRow>
           ) : (
             passengers.map((passenger) => (
               <TableRow key={passenger.id}>
-                <TableCell>
+                <TableCell className="pt-print-col-passageiro">
                   <div className="font-medium">{passenger.pessoa.nome}</div>
                   <div className="text-xs text-muted-foreground">{passenger.pessoa.cpf}</div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="pt-print-col-endereco">
                   <div className="text-xs"><b>C:</b> {formatAddress(passenger.enderecoColeta)}</div>
                   <div className="text-xs"><b>E:</b> {formatAddress(passenger.enderecoEntrega)}</div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="pt-print-col-afiliado">
                   <div className="text-xs"><b>T:</b> {passenger.taxista?.pessoa.nome || '-'}</div>
                   <div className="text-xs"><b>C:</b> {passenger.comisseiro?.pessoa.nome || '-'}</div>
                 </TableCell>
-                <TableCell>{formatCurrency(passenger.valor)}</TableCell>
-                <TableCell>
+                <TableCell className="pt-print-col-valor">{formatCurrency(passenger.valor)}</TableCell>
+                <TableCell className="pt-print-col-status">
                   {passenger.pago ? (
                     <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Pago</span>
                   ) : (
                     <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Pendente</span>
                   )}
                 </TableCell>
-                <TableCell>{passenger.luggageCount} items</TableCell>
+                <TableCell className="pt-print-col-assento">{passenger.numeroAssento || '-'}</TableCell>
+                <TableCell className="pt-print-col-bagagem">{passenger.luggageCount} items</TableCell>
                 {!isPrintView && (
-                  <TableCell className="text-right">
+                  <TableCell className="text-right pt-no-print">
                     <div className="flex items-center justify-end gap-1">
                       {!passenger.pago && (
                         <Button variant="ghost" size="icon" onClick={() => onMarkAsPaid?.(passenger.id)} className="hover:bg-green-100 hover:text-green-800">

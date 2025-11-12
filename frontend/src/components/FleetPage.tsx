@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'; 
-// Importa o Search e o Input
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { Input } from './ui/input'; 
 import { Button } from './ui/button';
@@ -9,7 +8,7 @@ import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api';
 
 interface Bus {
-  idOnibus: number; 
+  id: number; // <-- MUDOU DE idOnibus PARA id
   placa: string;
   modelo: string;
   capacidadePassageiros: number;
@@ -26,13 +25,11 @@ export default function FleetPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [deleteBus, setDeleteBus] = useState<Bus | null>(null);
-
-  // --- NOVO ESTADO PARA A BUSCA ---
   const [searchTerm, setSearchTerm] = useState('');
-
+  
   const fetchBuses = async () => {
     try {
-      const response = await api.get('/onibus'); 
+      const response = await api.get<Bus[]>(`/api/onibus`); 
       setBuses(response.data);
     } catch (error) {
       console.error("Erro ao buscar ônibus:", error);
@@ -41,11 +38,11 @@ export default function FleetPage() {
 
   useEffect(() => {
     fetchBuses();
-  }, []);
+  }, []); 
 
   const handleCreateBus = async (busData: BusDto) => {
     try {
-      await api.post('/onibus', busData);
+      await api.post('/api/onibus', busData);
       setIsModalOpen(false);
       await fetchBuses(); 
     } catch (error) {
@@ -56,7 +53,8 @@ export default function FleetPage() {
   const handleUpdateBus = async (busData: BusDto) => {
     if (!selectedBus) return;
     try {
-      await api.put(`/onibus/${selectedBus.idOnibus}`, busData);
+      // --- CORREÇÃO: Usa selectedBus.id ---
+      await api.put(`/api/onibus/${selectedBus.id}`, busData);
       setSelectedBus(null);
       setIsModalOpen(false);
       await fetchBuses(); 
@@ -68,7 +66,8 @@ export default function FleetPage() {
   const handleDeleteBus = async () => {
     if (!deleteBus) return;
     try {
-      await api.delete(`/onibus/${deleteBus.idOnibus}`);
+      // --- CORREÇÃO: Usa deleteBus.id ---
+      await api.delete(`/api/onibus/${deleteBus.id}`);
       setDeleteBus(null);
       await fetchBuses(); 
     } catch (error) {
@@ -76,7 +75,6 @@ export default function FleetPage() {
     }
   };
 
-  // --- FUNÇÕES DO MODAL (CORRETAS) ---
   const openEditModal = (bus: Bus) => {
     setSelectedBus(bus);
     setIsModalOpen(true);
@@ -87,7 +85,6 @@ export default function FleetPage() {
     setIsModalOpen(true);
   };
 
-  // --- LÓGICA DE FILTRO ---
   const filteredBuses = buses.filter(bus => {
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -95,7 +92,7 @@ export default function FleetPage() {
       bus.modelo.toLowerCase().includes(searchLower)
     );
   });
-
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -109,7 +106,6 @@ export default function FleetPage() {
         </Button>
       </div>
 
-      {/* --- BARRA DE BUSCA ADICIONADA --- */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
@@ -124,7 +120,7 @@ export default function FleetPage() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow key="header-row"> 
               <TableHead>Placa</TableHead>
               <TableHead>Modelo</TableHead>
               <TableHead>Capacidade</TableHead>
@@ -132,12 +128,11 @@ export default function FleetPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {/* --- MUDANÇA: .map() usa filteredBuses --- */}
             {filteredBuses.map((bus) => (
-              <TableRow key={bus.idOnibus}>
+              <TableRow key={bus.id}> 
                 <TableCell>{bus.placa}</TableCell>
                 <TableCell>{bus.modelo}</TableCell>
-                <TableCell>{bus.capacidadePassageiros} seats</TableCell>
+                <TableCell>{bus.capacidadePassageiros} assentos</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     <Button
@@ -163,7 +158,7 @@ export default function FleetPage() {
           </TableBody>
         </Table>
       </div>
-
+      
       <BusModal
         isOpen={isModalOpen}
         onClose={() => {

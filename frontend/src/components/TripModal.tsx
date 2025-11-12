@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import api from '../services/api'; 
 
 interface Bus {
-  idOnibus: number;
+  id: number;
   placa: string;
   modelo: string;
 }
@@ -34,9 +34,7 @@ interface TripFormData {
 
 const formatDateTimeForInput = (isoString: string | undefined) => {
   if (!isoString) return '';
-  if (isoString.length >= 16) {
-    return isoString.slice(0, 16); 
-  }
+  if (isoString.length >= 16) return isoString.slice(0, 16); 
   return isoString; 
 };
 
@@ -55,7 +53,7 @@ export default function TripModal({ isOpen, onClose, onSave, trip }: TripModalPr
       const fetchBuses = async () => {
         setLoadingBuses(true);
         try {
-          const response = await api.get('/onibus');
+          const response = await api.get<Bus[]>('/api/onibus');
           setBuses(response.data);
         } catch (error) {
           console.error("Erro ao buscar ônibus:", error);
@@ -71,7 +69,7 @@ export default function TripModal({ isOpen, onClose, onSave, trip }: TripModalPr
       setFormData({
         dataHoraPartida: formatDateTimeForInput(trip.dataHoraPartida),
         dataHoraChegada: formatDateTimeForInput(trip.dataHoraChegada),
-        onibusId: trip.onibus?.idOnibus?.toString() || '', 
+        onibusId: trip.onibus?.id?.toString() || '', 
       });
     } else {
       setFormData({
@@ -93,16 +91,17 @@ export default function TripModal({ isOpen, onClose, onSave, trip }: TripModalPr
         return;
     }
 
-    const formattedPartida = dataHoraPartida.length === 16 ? `${dataHoraPartida}:00` : dataHoraPartida;
-    const formattedChegada = dataHoraChegada.length === 16 ? `${dataHoraChegada}:00` : dataHoraChegada;
-
-    const tripDataToSave = {
-      dataHoraPartida: formattedPartida, 
-      dataHoraChegada: formattedChegada, 
-      onibusId: parseInt(onibusId, 10), 
+    // Garante o formato ISO8601 completo, essencial para o Spring LocalDateTime
+    const formatToIso = (dateStr: string) => {
+        return dateStr.length === 16 ? `${dateStr}:00` : dateStr;
     };
 
-    console.log("Enviando DTO para onSave (Update/Create):", tripDataToSave); 
+    const tripDataToSave = {
+      // Campos do ViagemSaveRequestDto
+      dataHoraPartida: formatToIso(dataHoraPartida), 
+      dataHoraChegada: formatToIso(dataHoraChegada), 
+      onibusId: parseInt(onibusId, 10), 
+    };
 
     onSave(tripDataToSave);
   };
@@ -119,7 +118,6 @@ export default function TripModal({ isOpen, onClose, onSave, trip }: TripModalPr
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
 
-          {/* Inputs de Data/Hora */}
           <div className="space-y-2">
             <Label htmlFor="dataHoraPartida">Data e hora de partida</Label>
             <Input
@@ -142,7 +140,6 @@ export default function TripModal({ isOpen, onClose, onSave, trip }: TripModalPr
             />
           </div>
 
-          {/* Dropdown de Ônibus */}
           <div className="space-y-2">
             <Label htmlFor="bus">Ônibus</Label>
             <Select
@@ -154,9 +151,8 @@ export default function TripModal({ isOpen, onClose, onSave, trip }: TripModalPr
                 <SelectValue placeholder={loadingBuses ? "Carregando ônibus..." : "Selecione o ônibus"} />
               </SelectTrigger>
               <SelectContent>
-                {/* Adicionado filter para garantir que bus.idOnibus existe */}
-                {buses.filter(bus => bus && bus.idOnibus).map((bus) => (
-                  <SelectItem key={bus.idOnibus} value={bus.idOnibus.toString()}>
+                {buses.filter(bus => bus && bus.id).map((bus) => (
+                  <SelectItem key={bus.id} value={bus.id.toString()}>
                     {bus.placa} - {bus.modelo}
                   </SelectItem>
                 ))}

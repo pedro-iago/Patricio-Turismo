@@ -1,69 +1,105 @@
 import React, { useState, useEffect } from 'react'; 
 import { useNavigate } from 'react-router-dom';
-// Importa o Search e o Input
-import { Plus, Edit, Trash2, Eye, Search } from 'lucide-react';
+// ✅ ÍCONES IMPORTADOS
+import { Plus, Edit, Trash2, Eye, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import TripModal from './TripModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import  api  from '../services/api'; 
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from './ui/pagination';
+import axios from 'axios';
+import { cn } from './ui/utils'; // ✅ IMPORTAR CN (ClassNames)
 
-interface Bus {
-  idOnibus: number; 
-  modelo: string;
-  placa: string;
-  capacidadePassageiros: number;
-}
-
-interface Trip {
+// ... (O resto das suas interfaces: TripDto, Bus, TripComOnibus, Page) ...
+interface TripDto {
   id: number;
   dataHoraPartida: string;
   dataHoraChegada: string; 
-  onibus: Bus; 
+  onibusId: number;
 }
+interface Bus {
+  id: number; 
+  placa: string;
+  modelo: string;
+}
+interface TripComOnibus extends TripDto {
+  onibus: Bus | undefined; 
+}
+interface Page<T> {
+  content: T[];
+  totalPages: number;
+  number: number;
+}
+
 
 export default function TripsPage() {
   const navigate = useNavigate();
-  const [trips, setTrips] = useState<Trip[]>([]); 
+  const [trips, setTrips] = useState<TripComOnibus[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
-  const [deleteTrip, setDeleteTrip] = useState<Trip | null>(null);
-  
-  // --- NOVO ESTADO PARA A BUSCA ---
+  const [selectedTrip, setSelectedTrip] = useState<TripComOnibus | null>(null);
+  const [deleteTrip, setDeleteTrip] = useState<TripComOnibus | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const [busMap, setBusMap] = useState<Map<number, Bus>>(new Map());
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  const fetchTrips = async () => {
+  // ... (Toda a sua lógica de fetch, handle, filter, etc. continua igual) ...
+  const fetchTripsAndBuses = async (page = 0) => {
     try {
-      const response = await api.get('/viagem'); 
-      setTrips(response.data);
+      const [tripsResponse, busesResponse] = await Promise.all([
+        api.get<Page<TripDto>>(`/api/viagem?page=${page}&size=10`),
+        api.get<Bus[]>('/api/onibus')
+      ]);
+      
+      const busData = busesResponse.data;
+      const newBusMap = new Map<number, Bus>();
+      busData.forEach(bus => {
+        newBusMap.set(bus.id, bus); // Usa bus.id
+      });
+      setBusMap(newBusMap);
+
+      const combinedTrips = tripsResponse.data.content.map(tripDto => ({
+        ...tripDto,
+        onibus: newBusMap.get(tripDto.onibusId)
+      }));
+      
+      setTrips(combinedTrips);
+      setTotalPages(tripsResponse.data.totalPages);
+      setCurrentPage(tripsResponse.data.number);
+
     } catch (error) {
-      console.error('Erro ao buscar viagens:', error);
+      console.error('Erro ao buscar viagens ou ônibus:', error);
     }
   };
 
   useEffect(() => {
-    fetchTrips();
-  }, []); 
+    fetchTripsAndBuses(currentPage);
+  }, [currentPage]); 
 
   const handleCreateTrip = async (tripData: any) => {
     try {
-      await api.post('/viagem', tripData);
+      await api.post('/api/viagem', tripData);
       setIsModalOpen(false); 
-      fetchTrips(); 
+      fetchTripsAndBuses(currentPage); 
     } catch (error) {
       console.error("Erro ao criar viagem:", error);
+      if (axios.isAxiosError(error) && error.response && error.response.data) {
+        const backendMessage = typeof error.response.data === 'string' ? error.response.data : error.response.data?.message || 'Erro de validação no servidor.';
+        alert(`Falha ao criar viagem: ${backendMessage}`);
+      }
     }
   };
 
   const handleUpdateTrip = async (tripData: any) => {
     if (!selectedTrip) return; 
-
     try {
-      await api.put(`/viagem/${selectedTrip.id}`, tripData);
+      await api.put(`/api/viagem/${selectedTrip.id}`, tripData);
       setSelectedTrip(null);
       setIsModalOpen(false);
-      fetchTrips();
+      fetchTripsAndBuses(currentPage);
     } catch (error) {
       console.error("Erro ao atualizar viagem:", error);
     }
@@ -72,16 +108,15 @@ export default function TripsPage() {
   const handleDeleteTrip = async () => { 
       if (!deleteTrip) return; 
       try {
-        await api.delete(`/viagem/${deleteTrip.id}`);
-        setTrips(trips.filter((trip) => trip.id !== deleteTrip.id));
+        await api.delete(`/api/viagem/${deleteTrip.id}`);
         setDeleteTrip(null);
+        fetchTripsAndBuses(currentPage);
       } catch (error) {
         console.error('Erro ao deletar viagem:', error);
       }
     };
 
-  // --- FUNÇÕES DO MODAL (CORRETAS) ---
-  const openEditModal = (trip: Trip) => {
+  const openEditModal = (trip: TripComOnibus) => {
     setSelectedTrip(trip);
     setIsModalOpen(true);
   };
@@ -91,19 +126,27 @@ export default function TripsPage() {
     setIsModalOpen(true);
   };
 
-  // --- LÓGICA DE FILTRO ---
   const filteredTrips = trips.filter(trip => {
     const searchLower = searchTerm.toLowerCase();
     const partidaDate = new Date(trip.dataHoraPartida).toLocaleDateString();
+    const busPlaca = trip.onibus?.placa || ''; 
+    
     return (
-      (trip.onibus && trip.onibus.placa.toLowerCase().includes(searchLower)) ||
+      busPlaca.toLowerCase().includes(searchLower) ||
       partidaDate.includes(searchLower)
     );
   });
+  
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 0 && newPage < totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* ... (Cabeçalho da página e Input de Busca) ... */}
+       <div className="flex items-center justify-between">
         <div>
           <h2>Todas as viagens</h2>
           <p className="text-muted-foreground mt-1">Gerencie sua programação de transporte</p>
@@ -114,7 +157,6 @@ export default function TripsPage() {
         </Button>
       </div>
 
-      {/* --- BARRA DE BUSCA ADICIONADA --- */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
@@ -126,10 +168,11 @@ export default function TripsPage() {
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      {/* ... (Sua Tabela) ... */}
+       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow key="header-row">
               <TableHead>Data</TableHead>
               <TableHead>Partida</TableHead>
               <TableHead>Chegada</TableHead>
@@ -138,7 +181,6 @@ export default function TripsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {/* --- MUDANÇA: .map() usa filteredTrips --- */}
             {filteredTrips.map((trip) => (
               <TableRow key={trip.id}>
                 <TableCell>
@@ -156,7 +198,7 @@ export default function TripsPage() {
                     minute: '2-digit',
                   })}
                 </TableCell>
-                <TableCell>{trip.onibus.placa}</TableCell>
+                <TableCell>{trip.onibus?.placa || 'N/A'}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     <Button
@@ -191,14 +233,56 @@ export default function TripsPage() {
         </Table>
       </div>
 
-      <TripModal
+      {/* --- PAGINAÇÃO CORRIGIDA --- */}
+      <Pagination>
+        <PaginationContent>
+          <PaginationItem key="prev">
+            <PaginationPrevious
+              href="#"
+              onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }}
+              // ✅ CORREÇÃO: Adiciona 'cn' e a classe para esconder o span
+              className={cn(
+                currentPage === 0 ? "pointer-events-none opacity-50" : "",
+                "[&>span]:hidden" 
+              )}
+            >
+              <ChevronLeft className="h-4 w-4" /> {/* Ícone */}
+            </PaginationPrevious>
+          </PaginationItem>
+          
+          <PaginationItem key="page">
+             {/* ✅ CORREÇÃO: Remove 'isActive' para parecer texto */}
+             <PaginationLink href="#" onClick={(e) => e.preventDefault()} className="font-medium text-muted-foreground">
+               Página {currentPage + 1} de {totalPages}
+             </PaginationLink>
+          </PaginationItem>
+          
+          <PaginationItem key="next">
+            <PaginationNext
+              href="#"
+              onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }}
+              // ✅ CORREÇÃO: Adiciona 'cn' e a classe para esconder o span
+              className={cn(
+                currentPage >= totalPages - 1 ? "pointer-events-none opacity-50" : "",
+                "[&>span]:hidden"
+              )}
+            >
+              <ChevronRight className="h-4 w-4" /> {/* Ícone */}
+            </PaginationNext>
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+      {/* --- FIM DA CORREÇÃO --- */}
+
+      {/* ... (Seus Modais) ... */}
+       <TripModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setSelectedTrip(null);
         }}
         onSave={selectedTrip ? handleUpdateTrip : handleCreateTrip}
-        trip={selectedTrip}
+        trip={selectedTrip} 
       />
 
       <DeleteConfirmModal
