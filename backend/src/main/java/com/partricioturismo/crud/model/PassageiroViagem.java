@@ -3,7 +3,6 @@ package com.partricioturismo.crud.model;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.util.Objects;
-// Adicionei esta importação
 import java.util.List;
 
 @Entity
@@ -30,8 +29,6 @@ public class PassageiroViagem {
     @JoinColumn(name = "endereco_entrega_id", nullable = false)
     private Endereco enderecoEntrega;
 
-    // Relacionamento com Bagagem (como estava no V1)
-    // Assumindo que você já tinha isso mapeado
     @OneToMany(mappedBy = "passageiroViagem")
     private List<Bagagem> bagagens;
 
@@ -53,6 +50,11 @@ public class PassageiroViagem {
 
     @Column(name = "pago", nullable = false)
     private boolean pago = false; // Garante o 'DEFAULT false'
+
+    // --- CAMPO NOVO (PASSO 2) ---
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assento_id", unique = true) // 'unique = true' é crucial
+    private Assento assento;
 
     // Construtores
     public PassageiroViagem() {
@@ -148,6 +150,15 @@ public class PassageiroViagem {
 
     public void setPago(boolean pago) {
         this.pago = pago;
+    }
+
+    // --- GETTER E SETTER NOVOS (PASSO 2) ---
+    public Assento getAssento() {
+        return assento;
+    }
+
+    public void setAssento(Assento assento) {
+        this.assento = assento;
     }
 
     // hashCode e equals

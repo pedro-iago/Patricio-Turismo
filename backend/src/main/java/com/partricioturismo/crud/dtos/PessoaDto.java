@@ -9,4 +9,15 @@ public record PessoaDto(
         String telefone,
         Integer idade
 ) {
+    // --- CONSTRUTOR NOVO ---
+    // Construtor de conveniência para converter da Entidade
+    public PessoaDto(Pessoa pessoa) {
+        this(
+                pessoa.getId(),
+                pessoa.getNome(),
+                pessoa.getCpf(),
+                pessoa.getTelefone(),
+                pessoa.getIdade()
+        );
+    }
 }

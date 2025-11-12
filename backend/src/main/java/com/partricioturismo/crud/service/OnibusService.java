@@ -1,4 +1,4 @@
-package com.partricioturismo.crud.service; // (Crie este pacote se não existir)
+package com.partricioturismo.crud.service;
 
 import com.partricioturismo.crud.dtos.OnibusDto;
 import com.partricioturismo.crud.model.Onibus;
@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class OnibusService {
@@ -17,38 +18,52 @@ public class OnibusService {
     @Autowired
     private OnibusRepository repository;
 
-    public List<Onibus> findAll() {
-        return repository.findAll();
+    // Converte Entidade -> DTO
+    private OnibusDto toDto(Onibus onibus) {
+        // IMPORTANTE: Mapeia o getIdOnibus() da entidade para o id do DTO
+        return new OnibusDto(
+                onibus.getIdOnibus(),
+                onibus.getModelo(),
+                onibus.getPlaca(),
+                onibus.getCapacidadePassageiros()
+        );
     }
 
-    public Optional<Onibus> findById(Long id) {
-        return repository.findById(id);
+    // Retorna List<OnibusDto> (JSON terá campo 'id')
+    public List<OnibusDto> findAll() {
+        return repository.findAll()
+                .stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    public Optional<OnibusDto> findById(Long id) {
+        return repository.findById(id).map(this::toDto);
     }
 
     @Transactional
-    public Onibus save(OnibusDto onibusDto) {
+    public OnibusDto save(OnibusDto onibusDto) {
         var onibus = new Onibus();
         BeanUtils.copyProperties(onibusDto, onibus);
-        return repository.save(onibus);
+        var onibusSalvo = repository.save(onibus);
+        return toDto(onibusSalvo);
     }
 
     @Transactional
-    public Optional<Onibus> update(Long id, OnibusDto onibusDto) {
+    public Optional<OnibusDto> update(Long id, OnibusDto onibusDto) {
         Optional<Onibus> onibusOptional = repository.findById(id);
-        if (onibusOptional.isEmpty()) {
-            return Optional.empty();
-        }
+        if (onibusOptional.isEmpty()) return Optional.empty();
+
         var onibusModel = onibusOptional.get();
         BeanUtils.copyProperties(onibusDto, onibusModel);
-        return Optional.of(repository.save(onibusModel));
+        var onibusAtualizado = repository.save(onibusModel);
+        return Optional.of(toDto(onibusAtualizado));
     }
 
     @Transactional
     public boolean delete(Long id) {
         Optional<Onibus> onibusOptional = repository.findById(id);
-        if (onibusOptional.isEmpty()) {
-            return false;
-        }
+        if (onibusOptional.isEmpty()) return false;
         repository.delete(onibusOptional.get());
         return true;
     }

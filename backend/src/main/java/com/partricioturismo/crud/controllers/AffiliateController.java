@@ -1,6 +1,7 @@
 package com.partricioturismo.crud.controllers;
 
 import com.partricioturismo.crud.dtos.AffiliateDto;
+import com.partricioturismo.crud.dtos.AffiliateResponseDto; // <-- IMPORT NOVO
 import com.partricioturismo.crud.dtos.CreateAffiliateRequestDto;
 import com.partricioturismo.crud.service.AffiliateService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,10 +9,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+// --- IMPORTS NOVOS ---
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @RestController
-@RequestMapping("/api/v1/affiliates") // Endpoint base para afiliados
+@RequestMapping("/api/v1/affiliates")
 public class AffiliateController {
 
     @Autowired
@@ -19,9 +22,10 @@ public class AffiliateController {
 
     // --- ENDPOINTS DE TAXISTA ---
 
+    // --- ENDPOINT ATUALIZADO (Passo 4) ---
     @GetMapping("/taxistas")
-    public ResponseEntity<List<AffiliateDto>> getAllTaxistas() {
-        return ResponseEntity.ok(affiliateService.getAllTaxistas());
+    public ResponseEntity<Page<AffiliateResponseDto>> getAllTaxistas(Pageable pageable) {
+        return ResponseEntity.ok(affiliateService.getAllTaxistas(pageable));
     }
 
     @PostMapping("/taxistas")
@@ -38,9 +42,10 @@ public class AffiliateController {
 
     // --- ENDPOINTS DE COMISSEIRO ---
 
+    // --- ENDPOINT ATUALIZADO (Passo 4) ---
     @GetMapping("/comisseiros")
-    public ResponseEntity<List<AffiliateDto>> getAllComisseiros() {
-        return ResponseEntity.ok(affiliateService.getAllComisseiros());
+    public ResponseEntity<Page<AffiliateResponseDto>> getAllComisseiros(Pageable pageable) {
+        return ResponseEntity.ok(affiliateService.getAllComisseiros(pageable));
     }
 
     @PostMapping("/comisseiros")

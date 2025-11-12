@@ -1,9 +1,7 @@
 package com.partricioturismo.crud.controllers;
 
-// --- Imports Adicionados ---
 import com.partricioturismo.crud.dtos.EncomendaResponseDto;
 import com.partricioturismo.crud.dtos.PassengerResponseDto;
-
 import com.partricioturismo.crud.model.Encomenda;
 import com.partricioturismo.crud.model.PassageiroViagem;
 import com.partricioturismo.crud.repositories.EncomendaRepository;
@@ -15,13 +13,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.stream.Collectors; // <<< NECESSÁRIO PARA A CONVERSÃO
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.transaction.annotation.Transactional; // <-- IMPORT NOVO
 
-/**
- * Controller focado em fornecer dados brutos para relatórios no frontend.
- * Converte todas as Entidades em DTOs para evitar erros de Lazy Loading.
- */
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
 @RestController
 @RequestMapping("/api/v1/reports")
 public class ReportController {
@@ -32,28 +31,25 @@ public class ReportController {
     @Autowired
     private EncomendaRepository encomendaRepository;
 
-    // --- RELATÓRIOS DE PASSAGEIROS (Retornando DTOs) ---
+    // --- RELATÓRIOS DE PASSAGEIROS (Existentes) ---
 
     @GetMapping("/passageiros/viagem/{viagemId}")
+    @Transactional(readOnly = true) // <-- ADICIONADO
     public ResponseEntity<List<PassengerResponseDto>> getPassageirosPorViagem(
             @PathVariable Long viagemId) {
-
         List<PassageiroViagem> listaEntidade = passageiroViagemRepository.findByViagemId(viagemId);
-        // --- CORREÇÃO ---
-        // Converte a lista de Entidades para uma lista de DTOs
         List<PassengerResponseDto> listaDto = listaEntidade.stream()
-                .map(PassengerResponseDto::new) // Usa o construtor do DTO
+                .map(PassengerResponseDto::new)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(listaDto);
     }
 
     @GetMapping("/passageiros/viagem/{viagemId}/taxista/{taxistaId}")
+    @Transactional(readOnly = true) // <-- ADICIONADO
     public ResponseEntity<List<PassengerResponseDto>> getPassageirosPorViagemETaxista(
             @PathVariable Long viagemId,
             @PathVariable Long taxistaId) {
-
         List<PassageiroViagem> listaEntidade = passageiroViagemRepository.findByViagemIdAndTaxistaId(viagemId, taxistaId);
-        // --- CORREÇÃO ---
         List<PassengerResponseDto> listaDto = listaEntidade.stream()
                 .map(PassengerResponseDto::new)
                 .collect(Collectors.toList());
@@ -61,39 +57,36 @@ public class ReportController {
     }
 
     @GetMapping("/passageiros/viagem/{viagemId}/comisseiro/{comisseiroId}")
+    @Transactional(readOnly = true) // <-- ADICIONADO
     public ResponseEntity<List<PassengerResponseDto>> getPassageirosPorViagemEComisseiro(
             @PathVariable Long viagemId,
             @PathVariable Long comisseiroId) {
-
         List<PassageiroViagem> listaEntidade = passageiroViagemRepository.findByViagemIdAndComisseiroId(viagemId, comisseiroId);
-        // --- CORREÇÃO ---
         List<PassengerResponseDto> listaDto = listaEntidade.stream()
                 .map(PassengerResponseDto::new)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(listaDto);
     }
 
-    // --- RELATÓRIOS DE ENCOMENDAS (Retornando DTOs) ---
+    // --- RELATÓRIOS DE ENCOMENDAS (Existentes) ---
 
     @GetMapping("/encomendas/viagem/{viagemId}")
+    @Transactional(readOnly = true) // <-- ADICIONADO
     public ResponseEntity<List<EncomendaResponseDto>> getEncomendasPorViagem(
             @PathVariable Long viagemId) {
-
         List<Encomenda> listaEntidade = encomendaRepository.findByViagemId(viagemId);
-        // --- CORREÇÃO ---
         List<EncomendaResponseDto> listaDto = listaEntidade.stream()
-                .map(EncomendaResponseDto::new) // Usa o construtor do DTO
+                .map(EncomendaResponseDto::new)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(listaDto);
     }
 
     @GetMapping("/encomendas/viagem/{viagemId}/taxista/{taxistaId}")
+    @Transactional(readOnly = true) // <-- ADICIONADO
     public ResponseEntity<List<EncomendaResponseDto>> getEncomendasPorViagemETaxista(
             @PathVariable Long viagemId,
             @PathVariable Long taxistaId) {
-
         List<Encomenda> listaEntidade = encomendaRepository.findByViagemIdAndTaxistaId(viagemId, taxistaId);
-        // --- CORREÇÃO ---
         List<EncomendaResponseDto> listaDto = listaEntidade.stream()
                 .map(EncomendaResponseDto::new)
                 .collect(Collectors.toList());
@@ -101,13 +94,115 @@ public class ReportController {
     }
 
     @GetMapping("/encomendas/viagem/{viagemId}/comisseiro/{comisseiroId}")
+    @Transactional(readOnly = true) // <-- ADICIONADO
     public ResponseEntity<List<EncomendaResponseDto>> getEncomendasPorViagemEComisseiro(
             @PathVariable Long viagemId,
             @PathVariable Long comisseiroId) {
-
         List<Encomenda> listaEntidade = encomendaRepository.findByViagemIdAndComisseiroId(viagemId, comisseiroId);
-        // --- CORREÇÃO ---
         List<EncomendaResponseDto> listaDto = listaEntidade.stream()
+                .map(EncomendaResponseDto::new)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(listaDto);
+    }
+
+    // --- RELATÓRIOS DE PASSAGEIROS POR PERÍODO (Passo 3) ---
+
+    @GetMapping("/taxista/{taxistaId}/passageiros")
+    @Transactional(readOnly = true) // <-- ADICIONADO
+    public ResponseEntity<List<PassengerResponseDto>> getPassageirosPorTaxistaEPeriodo(
+            @PathVariable Long taxistaId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fim
+    ) {
+        List<PassageiroViagem> entidade = passageiroViagemRepository.findByTaxistaIdAndViagemDataHoraPartidaBetween(taxistaId, inicio, fim);
+
+        List<PassengerResponseDto> listaDto = entidade.stream()
+                .map(PassengerResponseDto::new)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(listaDto);
+    }
+
+    @GetMapping("/comisseiro/{comisseiroId}/passageiros")
+    @Transactional(readOnly = true) // <-- ADICIONADO
+    public ResponseEntity<List<PassengerResponseDto>> getPassageirosPorComisseiroEPeriodo(
+            @PathVariable Long comisseiroId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fim
+    ) {
+        List<PassageiroViagem> entidade = passageiroViagemRepository.findByComisseiroIdAndViagemDataHoraPartidaBetween(comisseiroId, inicio, fim);
+
+        List<PassengerResponseDto> listaDto = entidade.stream()
+                .map(PassengerResponseDto::new)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(listaDto);
+    }
+
+    // --- ENDPOINTS NOVOS (Passo 3.B) ---
+
+    @GetMapping("/taxista/{taxistaId}/encomendas")
+    @Transactional(readOnly = true) // <-- ADICIONADO
+    public ResponseEntity<List<EncomendaResponseDto>> getEncomendasPorTaxistaEPeriodo(
+            @PathVariable Long taxistaId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fim
+    ) {
+        List<Encomenda> entidade = encomendaRepository.findByTaxistaIdAndViagemDataHoraPartidaBetween(taxistaId, inicio, fim);
+
+        List<EncomendaResponseDto> listaDto = entidade.stream()
+                .map(EncomendaResponseDto::new)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(listaDto);
+    }
+
+    @GetMapping("/comisseiro/{comisseiroId}/encomendas")
+    @Transactional(readOnly = true) // <-- ADICIONADO
+    public ResponseEntity<List<EncomendaResponseDto>> getEncomendasPorComisseiroEPeriodo(
+            @PathVariable Long comisseiroId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fim
+    ) {
+        List<Encomenda> entidade = encomendaRepository.findByComisseiroIdAndViagemDataHoraPartidaBetween(comisseiroId, inicio, fim);
+
+        List<EncomendaResponseDto> listaDto = entidade.stream()
+                .map(EncomendaResponseDto::new)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(listaDto);
+    }
+
+
+    // --- RELATÓRIOS POR PESSOA (HISTÓRICO) ---
+
+    @GetMapping("/pessoa/{pessoaId}/passageiros")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<PassengerResponseDto>> getHistoricoPassageiro(
+            @PathVariable Long pessoaId
+    ) {
+        List<PassageiroViagem> entidade = passageiroViagemRepository.findByPessoaIdWithHistory(pessoaId);
+        List<PassengerResponseDto> listaDto = entidade.stream()
+                .map(PassengerResponseDto::new)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(listaDto);
+    }
+
+    @GetMapping("/pessoa/{pessoaId}/encomendas/enviadas")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<EncomendaResponseDto>> getHistoricoEncomendasEnviadas(
+            @PathVariable Long pessoaId
+    ) {
+        List<Encomenda> entidade = encomendaRepository.findByRemetenteIdWithHistory(pessoaId);
+        List<EncomendaResponseDto> listaDto = entidade.stream()
+                .map(EncomendaResponseDto::new)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(listaDto);
+    }
+
+    @GetMapping("/pessoa/{pessoaId}/encomendas/recebidas")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<EncomendaResponseDto>> getHistoricoEncomendasRecebidas(
+            @PathVariable Long pessoaId
+    ) {
+        List<Encomenda> entidade = encomendaRepository.findByDestinatarioIdWithHistory(pessoaId);
+        List<EncomendaResponseDto> listaDto = entidade.stream()
                 .map(EncomendaResponseDto::new)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(listaDto);

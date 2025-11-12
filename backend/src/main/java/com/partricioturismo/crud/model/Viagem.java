@@ -2,27 +2,33 @@ package com.partricioturismo.crud.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List; // <-- IMPORT NOVO
 
 @Entity
-@Table(name = "Viagem")
+@Table(name = "viagem")
 public class Viagem {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "data_hora_partida", nullable = false)
+    @Column(nullable = false)
     private LocalDateTime dataHoraPartida;
 
-    @Column(name = "data_hora_chegada", nullable = false)
+    @Column(nullable = false)
     private LocalDateTime dataHoraChegada;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "onibus_id", nullable = false)
     private Onibus onibus;
 
+    // --- CAMPO NOVO ---
+    // CascadeType.ALL: Se deletar a viagem, deleta os assentos.
+    @OneToMany(mappedBy = "viagem", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Assento> assentos;
 
-    public Viagem() {
-    }
+    // --- Getters e Setters Existentes ---
+    // (Mantenha os seus getters/setters para id, dataHoraPartida, etc.)
 
     public Long getId() {
         return id;
@@ -54,5 +60,14 @@ public class Viagem {
 
     public void setOnibus(Onibus onibus) {
         this.onibus = onibus;
+    }
+
+    // --- GETTER E SETTER NOVOS ---
+    public List<Assento> getAssentos() {
+        return assentos;
+    }
+
+    public void setAssentos(List<Assento> assentos) {
+        this.assentos = assentos;
     }
 }

@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-// Importa o Search e o Input
-import { Plus, Trash2, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // 1. IMPORTADO O useNavigate
+// ✅ ÍCONES IMPORTADOS (COM O 'Eye' ADICIONADO)
+import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import AffiliateModal from './AffiliateModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
-import api from '../services/api'; 
+import api from '../services/api';
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from './ui/pagination';
+import { cn } from './ui/utils';
+
 
 interface Person {
-  id: number; 
+  id: number;
   nome: string;
   cpf: string;
   telefone: string;
@@ -24,35 +28,49 @@ interface Affiliate {
 
 type AffiliateType = 'taxista' | 'comisseiro';
 
+interface Page<T> {
+  content: T[];
+  totalPages: number;
+  number: number;
+}
+
 export default function AffiliatesPage() {
+  const navigate = useNavigate(); // 2. INICIALIZADO O navigate
   const [taxistas, setTaxistas] = useState<Affiliate[]>([]);
   const [comisseiros, setComisseiros] = useState<Affiliate[]>([]);
-  const [peopleList, setPeopleList] = useState<Person[]>([]); 
-  
+  const [peopleList, setPeopleList] = useState<Person[]>([]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentAffiliateType, setCurrentAffiliateType] = useState<AffiliateType>('taxista');
-  
+
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; type: AffiliateType; name: string } | null>(null);
 
-  // --- NOVOS ESTADOS PARA AS BUSCAS ---
   const [taxistaSearchTerm, setTaxistaSearchTerm] = useState('');
   const [comisseiroSearchTerm, setComisseiroSearchTerm] = useState('');
 
+  const [taxistaPage, setTaxistaPage] = useState(0);
+  const [taxistaTotalPages, setTaxistaTotalPages] = useState(0);
+  const [comisseiroPage, setComisseiroPage] = useState(0);
+  const [comisseiroTotalPages, setComisseiroTotalPages] = useState(0);
 
-  // --- Funções de Busca ---
-  const fetchTaxistas = async () => {
+  // --- Funções de Busca (Corrigidas) ---
+  const fetchTaxistas = async (page = 0) => {
     try {
-      const response = await api.get('/api/v1/affiliates/taxistas'); 
-      setTaxistas(response.data);
+      const response = await api.get<Page<Affiliate>>(`/api/v1/affiliates/taxistas?page=${page}&size=10`);
+      setTaxistas(response.data.content);
+      setTaxistaTotalPages(response.data.totalPages);
+      setTaxistaPage(response.data.number);
     } catch (error) {
       console.error("Erro ao buscar taxistas:", error);
     }
   };
-  
-  const fetchComisseiros = async () => {
+
+  const fetchComisseiros = async (page = 0) => {
     try {
-      const response = await api.get('/api/v1/affiliates/comisseiros'); 
-      setComisseiros(response.data);
+      const response = await api.get<Page<Affiliate>>(`/api/v1/affiliates/comisseiros?page=${page}&size=10`);
+      setComisseiros(response.data.content);
+      setComisseiroTotalPages(response.data.totalPages);
+      setComisseiroPage(response.data.number);
     } catch (error) {
       console.error("Erro ao buscar comisseiros:", error);
     }
@@ -60,32 +78,39 @@ export default function AffiliatesPage() {
 
   const fetchPeople = async () => {
     try {
-      const response = await api.get('/pessoa'); 
-      setPeopleList(response.data);
+      // Ajustado para buscar mais pessoas para o combobox
+      const response = await api.get<Page<Person>>('/api/pessoa?page=0&size=100'); 
+      setPeopleList(response.data.content);
     } catch (error) {
       console.error("Erro ao buscar pessoas:", error);
     }
   };
 
   useEffect(() => {
-    fetchTaxistas();
-    fetchComisseiros();
+    fetchTaxistas(taxistaPage);
+  }, [taxistaPage]);
+
+  useEffect(() => {
+    fetchComisseiros(comisseiroPage);
+  }, [comisseiroPage]);
+
+  useEffect(() => {
     fetchPeople();
   }, []);
 
-  // --- Funções de Ação (Salvar/Deletar) ---
+  // --- Funções de Ação (Corrigidas) ---
   const handleSaveAffiliate = async (pessoaId: string) => {
     try {
       const payload = { pessoaId: parseInt(pessoaId, 10) };
-      
+
       if (currentAffiliateType === 'taxista') {
         await api.post('/api/v1/affiliates/taxistas', payload);
-        await fetchTaxistas(); 
+        await fetchTaxistas(taxistaPage);
       } else {
         await api.post('/api/v1/affiliates/comisseiros', payload);
-        await fetchComisseiros(); 
+        await fetchComisseiros(comisseiroPage);
       }
-      
+
       setIsModalOpen(false);
     } catch (error) {
       console.error(`Erro ao criar ${currentAffiliateType}:`, error);
@@ -94,14 +119,14 @@ export default function AffiliatesPage() {
 
   const handleDeleteAffiliate = async () => {
     if (!deleteTarget) return;
-    
+
     try {
       if (deleteTarget.type === 'taxista') {
         await api.delete(`/api/v1/affiliates/taxistas/${deleteTarget.id}`);
-        await fetchTaxistas(); 
+        await fetchTaxistas(taxistaPage);
       } else {
         await api.delete(`/api/v1/affiliates/comisseiros/${deleteTarget.id}`);
-        await fetchComisseiros(); 
+        await fetchComisseiros(comisseiroPage);
       }
       setDeleteTarget(null);
     } catch (error) {
@@ -109,12 +134,11 @@ export default function AffiliatesPage() {
     }
   };
 
-  // --- FUNÇÕES DO MODAL (CORRETAS) ---
   const openCreateModal = (type: AffiliateType) => {
     setCurrentAffiliateType(type);
     setIsModalOpen(true);
   };
-  
+
   const openDeleteModal = (affiliate: Affiliate, type: AffiliateType) => {
     setDeleteTarget({
       id: affiliate.id,
@@ -123,11 +147,11 @@ export default function AffiliatesPage() {
     });
   };
 
-  // --- LÓGICA DE FILTRO ---
+  // --- LÓGICA DE FILTRO (no frontend) ---
   const filterAffiliates = (affiliates: Affiliate[], searchTerm: string) => {
-    if (!Array.isArray(affiliates)) return []; // Garante que é um array
+    if (!Array.isArray(affiliates)) return [];
     const searchLower = searchTerm.toLowerCase();
-    return affiliates.filter(affiliate => 
+    return affiliates.filter(affiliate =>
       (affiliate.pessoa.nome && affiliate.pessoa.nome.toLowerCase().includes(searchLower)) ||
       (affiliate.pessoa.cpf && affiliate.pessoa.cpf.toLowerCase().includes(searchLower))
     );
@@ -137,7 +161,7 @@ export default function AffiliatesPage() {
   const filteredComisseiros = filterAffiliates(comisseiros, comisseiroSearchTerm);
 
 
-  // Componente de Tabela Reutilizável
+  // --- Componente de Tabela Reutilizável (MODIFICADO) ---
   const AffiliateTable = ({ data, type }: { data: Affiliate[]; type: AffiliateType }) => (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <Table>
@@ -156,11 +180,27 @@ export default function AffiliatesPage() {
               <TableCell>{affiliate.pessoa.cpf}</TableCell>
               <TableCell>{affiliate.pessoa.telefone || '-'}</TableCell>
               <TableCell className="text-right">
+                
+                {/* 3. BOTÃO DE DETALHES ADICIONADO */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    const path = type === 'taxista' ? `/taxistas/${affiliate.id}` : `/comisseiros/${affiliate.id}`;
+                    navigate(path);
+                  }}
+                  className="hover:bg-primary/10 hover:text-primary"
+                  title="Ver Relatório"
+                >
+                  <Eye className="w-4 h-4" />
+                </Button>
+
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => openDeleteModal(affiliate, type)}
                   className="hover:bg-destructive/10 hover:text-destructive"
+                  title="Excluir Afiliado"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -171,6 +211,7 @@ export default function AffiliatesPage() {
       </Table>
     </div>
   );
+
 
   return (
     <div className="space-y-6">
@@ -190,7 +231,6 @@ export default function AffiliatesPage() {
         {/* --- Aba de Taxistas --- */}
         <TabsContent value="taxistas" className="space-y-4">
           <div className="flex justify-between items-center">
-            {/* --- BARRA DE BUSCA (TAXISTAS) --- */}
             <div className="relative w-1/2 sm:w-1/3">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -206,14 +246,47 @@ export default function AffiliatesPage() {
               Novo Taxista
             </Button>
           </div>
-          {/* --- MUDANÇA: Passa os dados filtrados --- */}
           <AffiliateTable data={filteredTaxistas} type="taxista" />
+
+          {/* --- PAGINAÇÃO CORRIGIDA --- */}
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); setTaxistaPage(p => Math.max(0, p - 1)); }}
+                  className={cn(
+                    taxistaPage === 0 ? "pointer-events-none opacity-50" : "",
+                    "[&>span]:hidden" // Esconde o texto "Previous"
+                  )}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </PaginationPrevious>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationLink href="#" onClick={(e) => e.preventDefault()} className="font-medium text-muted-foreground">
+                  Página {taxistaPage + 1} de {taxistaTotalPages}
+                </PaginationLink>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); setTaxistaPage(p => Math.min(taxistaTotalPages - 1, p + 1)); }}
+                  className={cn(
+                    taxistaPage >= taxistaTotalPages - 1 ? "pointer-events-none opacity-50" : "",
+                    "[&>span]:hidden" // Esconde o texto "Next"
+                  )}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </PaginationNext>
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </TabsContent>
 
         {/* --- Aba de Comisseiros --- */}
         <TabsContent value="comisseiros" className="space-y-4">
           <div className="flex justify-between items-center">
-            {/* --- BARRA DE BUSCA (COMISSEIROS) --- */}
             <div className="relative w-1/2 sm:w-1/3">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -229,8 +302,42 @@ export default function AffiliatesPage() {
               Novo Comisseiro
             </Button>
           </div>
-          {/* --- MUDANÇA: Passa os dados filtrados --- */}
           <AffiliateTable data={filteredComisseiros} type="comisseiro" />
+
+          {/* --- PAGINAÇÃO CORRIGIDA --- */}
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); setComisseiroPage(p => Math.max(0, p - 1)); }}
+                  className={cn(
+                    comisseiroPage === 0 ? "pointer-events-none opacity-50" : "",
+                    "[&>span]:hidden" // Esconde o texto "Previous"
+                  )}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </PaginationPrevious>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationLink href="#" onClick={(e) => e.preventDefault()} className="font-medium text-muted-foreground">
+                  Página {comisseiroPage + 1} de {comisseiroTotalPages}
+                </PaginationLink>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); setComisseiroPage(p => Math.min(comisseiroTotalPages - 1, p + 1)); }}
+                  className={cn(
+                    comisseiroPage >= comisseiroTotalPages - 1 ? "pointer-events-none opacity-50" : "",
+                    "[&>span]:hidden" // Esconde o texto "Next"
+                  )}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </PaginationNext>
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </TabsContent>
       </Tabs>
 

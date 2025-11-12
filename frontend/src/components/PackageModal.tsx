@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { Button } from './ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Checkbox } from './ui/checkbox';
+import api from '../services/api';
+
+// --- IMPORTS ADICIONADOS (Para Popovers de Afiliados) ---
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from './ui/utils';
-import { Button } from './ui/button';
 import {
   Command,
   CommandEmpty,
@@ -15,47 +23,55 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from './ui/popover';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'; // <<< Importado
-import { Checkbox } from './ui/checkbox'; // <<< Importado
-import api from '../services/api';
 
-// --- Interfaces ---
-interface Person {
+// --- IMPORTS NOVOS (Para Busca Inteligente) ---
+import { PessoaSearchCombobox } from './PessoaSearchCombobox';
+import { AddressSearchCombobox } from './AddressSearchCombobox';
+import PersonModal from './PersonModal';
+import AddressModal from './AddressModal';
+
+// --- Interfaces (Definidas para DTOs) ---
+interface PersonDto {
   id: number;
   nome: string;
   cpf: string;
+  telefone: string | null;
+  idade: number | null;
 }
-
-interface Address {
+interface PersonSaveDto {
+  nome: string;
+  cpf: string;
+  telefone: string | null;
+  idade: number | null;
+}
+interface AddressDto {
   id: number;
   logradouro: string;
   numero: string;
   bairro: string;
   cidade: string;
+  estado: string;
+  cep: string;
 }
-
-// --- NOVAS INTERFACES (AFILIADOS) ---
-interface AffiliatePerson {
-  id: number;
-  nome: string;
+interface AddressSaveDto {
+  logradouro: string;
+  numero: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  cep: string;
 }
-interface Affiliate {
-  id: number;
-  pessoa: AffiliatePerson;
-}
+interface AffiliatePerson { id: number; nome: string; }
+interface Affiliate { id: number; pessoa: AffiliatePerson; }
 
 // Interface dos dados recebidos (quando editando)
 interface PackageData {
   id: number;
   descricao: string;
-  remetente: Person;
-  destinatario: Person;
-  enderecoColeta: Address;
-  enderecoEntrega: Address;
-  // Novos campos
+  remetente: PersonDto;
+  destinatario: PersonDto;
+  enderecoColeta: AddressDto;
+  enderecoEntrega: AddressDto;
   taxista?: Affiliate;
   comisseiro?: Affiliate;
   valor?: number;
@@ -63,34 +79,25 @@ interface PackageData {
   pago?: boolean;
 }
 
-// Interface do FormData (estado local)
-interface PackageFormData {
-  description: string;
-  senderId: string;
-  recipientId: string;
-  pickupAddressId: string;
-  deliveryAddressId: string;
-  // Novos campos
-  taxistaId: string;
-  comisseiroId: string;
-  valor: string;
-  metodoPagamento: string;
-  pago: boolean;
-}
-
-// Interface do DTO que o backend espera (do EncomendaDto.java)
+// Interface do DTO que o backend espera
 interface PackageSaveDto {
   descricao: string;
   remetenteId: number;
   destinatarioId: number;
   enderecoColetaId: number;
   enderecoEntregaId: number;
-  // Novos campos
   taxistaId?: number;
   comisseiroId?: number;
   valor?: number;
   metodoPagamento?: string;
   pago?: boolean;
+}
+
+// --- INTERFACE NOVA (Paginação) ---
+interface Page<T> {
+  content: T[];
+  totalPages: number;
+  number: number;
 }
 
 interface PackageModalProps {
@@ -100,18 +107,13 @@ interface PackageModalProps {
   package: PackageData | null;
 }
 
-const formatAddress = (addr: Address) => {
-  if (!addr) return '';
-  return `${addr.logradouro}, ${addr.numero} - ${addr.cidade}`;
-};
-
 // Estado inicial limpo
-const initialFormData: PackageFormData = {
+const initialFormData = {
   description: '',
-  senderId: '',
-  recipientId: '',
-  pickupAddressId: '',
-  deliveryAddressId: '',
+  senderId: null as number | null,
+  recipientId: null as number | null,
+  pickupAddressId: null as number | null,
+  deliveryAddressId: null as number | null,
   taxistaId: '',
   comisseiroId: '',
   valor: '',
@@ -120,46 +122,44 @@ const initialFormData: PackageFormData = {
 };
 
 export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: PackageModalProps) {
-  const [formData, setFormData] = useState<PackageFormData>(initialFormData);
+  const [formData, setFormData] = useState(initialFormData);
 
-  // --- Listas de dados ---
-  const [people, setPeople] = useState<Person[]>([]);
-  const [addresses, setAddresses] = useState<Address[]>([]);
+  // --- Listas de dados (Apenas Afiliados) ---
   const [taxistas, setTaxistas] = useState<Affiliate[]>([]);
   const [comisseiros, setComisseiros] = useState<Affiliate[]>([]);
-  
-  const [loading, setLoading] = useState(false);
+  const [loadingAffiliates, setLoadingAffiliates] = useState(false);
 
-  // --- Controles de Popover ---
-  const [openSenderPopover, setOpenSenderPopover] = useState(false);
-  const [openRecipientPopover, setOpenRecipientPopover] = useState(false);
-  const [openPickupPopover, setOpenPickupPopover] = useState(false);
-  const [openDeliveryPopover, setOpenDeliveryPopover] = useState(false);
+  // --- Controles de Popover (Apenas Afiliados) ---
   const [openTaxistaPopover, setOpenTaxistaPopover] = useState(false);
   const [openComisseiroPopover, setOpenComisseiroPopover] = useState(false);
 
-  // Busca todos os dados para os Comboboxes
+  // --- Estados dos Modais Internos ---
+  const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  // Alvos para saber qual campo atualizar
+  const [personModalTarget, setPersonModalTarget] = useState<'senderId' | 'recipientId' | null>(null);
+  const [addressModalTarget, setAddressModalTarget] = useState<'pickupAddressId' | 'deliveryAddressId' | null>(null);
+
+
+  // Busca (apenas) afiliados quando o modal abre
   useEffect(() => {
     if (isOpen) {
-      const fetchData = async () => {
-        setLoading(true);
+      const fetchAffiliates = async () => {
+        setLoadingAffiliates(true);
         try {
-          const [peopleRes, addressesRes, taxistasRes, comisseirosRes] = await Promise.all([
-            api.get('/pessoa'),
-            api.get('/endereco'),
-            api.get('/api/v1/affiliates/taxistas'),
-            api.get('/api/v1/affiliates/comisseiros')
+          // --- CHAMADAS CORRIGIDAS (já usavam /api) ---
+          const [taxistasRes, comisseirosRes] = await Promise.all([
+            api.get<Page<Affiliate>>('/api/v1/affiliates/taxistas?size=100'), // Pega todos
+            api.get<Page<Affiliate>>('/api/v1/affiliates/comisseiros?size=100') // Pega todos
           ]);
-          setPeople(peopleRes.data);
-          setAddresses(addressesRes.data);
-          setTaxistas(taxistasRes.data);
-          setComisseiros(comisseirosRes.data);
+          setTaxistas(taxistasRes.data.content); // Paginação
+          setComisseiros(comisseirosRes.data.content); // Paginação
         } catch (error) {
-          console.error("Erro ao buscar dados para o modal:", error);
+          console.error("Erro ao buscar afiliados:", error);
         }
-        setLoading(false);
+        setLoadingAffiliates(false);
       };
-      fetchData();
+      fetchAffiliates();
     }
   }, [isOpen]);
 
@@ -168,11 +168,10 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
     if (pkg && isOpen) {
       setFormData({
         description: pkg.descricao || '',
-        senderId: pkg.remetente.id.toString(),
-        recipientId: pkg.destinatario.id.toString(),
-        pickupAddressId: pkg.enderecoColeta.id.toString(),
-        deliveryAddressId: pkg.enderecoEntrega.id.toString(),
-        // --- Popula novos campos ---
+        senderId: pkg.remetente?.id || null,
+        recipientId: pkg.destinatario?.id || null,
+        pickupAddressId: pkg.enderecoColeta?.id || null,
+        deliveryAddressId: pkg.enderecoEntrega?.id || null,
         taxistaId: pkg.taxista?.id?.toString() || '',
         comisseiroId: pkg.comisseiro?.id?.toString() || '',
         valor: pkg.valor?.toString() || '',
@@ -184,6 +183,45 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
     }
   }, [pkg, isOpen]);
 
+  // --- Handlers para os Modais Internos (Pessoa e Endereço) ---
+
+  const handleSaveNewPessoa = async (personDto: PersonSaveDto) => {
+    try {
+      // --- CAMINHO CORRIGIDO ---
+      const response = await api.post<PersonDto>('/api/pessoa', personDto);
+      const newPerson = response.data;
+
+      if (personModalTarget) {
+        setFormData(prev => ({ ...prev, [personModalTarget]: newPerson.id }));
+      }
+      
+      setIsPersonModalOpen(false);
+      setPersonModalTarget(null);
+    } catch (error) {
+      console.error("Erro ao criar nova pessoa:", error);
+      alert("Erro ao criar pessoa.");
+    }
+  };
+
+  const handleSaveNewEndereco = async (addressDto: AddressSaveDto) => {
+    try {
+      // --- CAMINHO CORRIGIDO ---
+      const response = await api.post<AddressDto>('/api/endereco', addressDto);
+      const newAddress = response.data;
+
+      if (addressModalTarget) {
+        setFormData(prev => ({ ...prev, [addressModalTarget]: newAddress.id }));
+      }
+      
+      setIsAddressModalOpen(false); 
+      setAddressModalTarget(null); 
+    } catch (error) {
+      console.error("Erro ao criar novo endereço:", error);
+      alert("Erro ao criar endereço.");
+    }
+  };
+
+  // --- Handler Principal (Submit) ---
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
      if (!formData.senderId || !formData.recipientId || !formData.pickupAddressId || !formData.deliveryAddressId) {
@@ -192,296 +230,249 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
     }
     onSave({
       descricao: formData.description,
-      remetenteId: parseInt(formData.senderId),
-      destinatarioId: parseInt(formData.recipientId),
-      enderecoColetaId: parseInt(formData.pickupAddressId),
-      enderecoEntregaId: parseInt(formData.deliveryAddressId),
-      // --- Envia novos campos ---
-      taxistaId: formData.taxistaId ? parseInt(formData.taxistaId) : undefined,
-      comisseiroId: formData.comisseiroId ? parseInt(formData.comisseiroId) : undefined,
+      remetenteId: Number(formData.senderId),
+      destinatarioId: Number(formData.recipientId),
+      enderecoColetaId: Number(formData.pickupAddressId),
+      enderecoEntregaId: Number(formData.deliveryAddressId),
+      taxistaId: formData.taxistaId ? Number(formData.taxistaId) : undefined,
+      comisseiroId: formData.comisseiroId ? Number(formData.comisseiroId) : undefined,
       valor: formData.valor ? parseFloat(formData.valor) : undefined,
       metodoPagamento: formData.metodoPagamento || undefined,
       pago: formData.pago,
     });
   };
 
-  // Funções auxiliares para mostrar o nome/endereço no botão do Combobox
-  const getSelectedPersonName = (id: string) => people.find(p => p.id.toString() === id)?.nome;
-  const getSelectedAddress = (id: string) => formatAddress(addresses.find(a => a.id.toString() === id) as Address);
+  // Funções auxiliares (apenas para afiliados)
   const getSelectedTaxistaName = () => taxistas.find(t => t.id.toString() === formData.taxistaId)?.pessoa.nome;
   const getSelectedComisseiroName = () => comisseiros.find(c => c.id.toString() === formData.comisseiroId)?.pessoa.nome;
   
-  const getPlaceholder = (type: 'person' | 'address' | 'taxista' | 'comisseiro') => {
-    if (loading) return `Carregando...`;
-    return `Selecione ${type}...`;
+  const getAffiliatePlaceholder = () => {
+    if (loadingAffiliates) return `Carregando...`;
+    return `Selecione...`;
   };
 
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]"> {/* Modal maior */}
-        <DialogHeader>
-          <DialogTitle>{pkg ? 'Editar Encomenda' : 'Adicionar Encomenda'}</DialogTitle>
-          <DialogDescription>
-             Insira as informações da encomenda, afiliados e pagamento.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="description">Descrição (Obrigatório)</Label>
-            <Input
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Descreva a encomenda"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {/* Combobox Remetente */}
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{pkg ? 'Editar Encomenda' : 'Adicionar Encomenda'}</DialogTitle>
+            <DialogDescription>
+              Insira as informações da encomenda, afiliados e pagamento.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="sender">Remetente (Obrigatório)</Label>
-               <Popover open={openSenderPopover} onOpenChange={setOpenSenderPopover}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                    {formData.senderId ? getSelectedPersonName(formData.senderId) : getPlaceholder('person')}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
-                  <Command>
-                    <CommandInput placeholder="Pesquisar remetente..." />
-                    <CommandList>
-                      <CommandEmpty>Nenhuma pessoa encontrada.</CommandEmpty>
-                      <CommandGroup>
-                        {people.filter(p => p && p.id).map((person) => (
-                          <CommandItem key={person.id} value={`${person.nome} ${person.cpf}`} onSelect={() => { setFormData({ ...formData, senderId: person.id.toString() }); setOpenSenderPopover(false); }}>
-                            <Check className={cn("mr-2 h-4 w-4", formData.senderId === person.id.toString() ? "opacity-100" : "opacity-0")} />
-                            {person.nome}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Combobox Destinatário */}
-            <div className="space-y-2">
-              <Label htmlFor="recipient">Destinatário (Obrigatório)</Label>
-              <Popover open={openRecipientPopover} onOpenChange={setOpenRecipientPopover}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                    {formData.recipientId ? getSelectedPersonName(formData.recipientId) : getPlaceholder('person')}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
-                  <Command>
-                    <CommandInput placeholder="Pesquisar destinatário..." />
-                    <CommandList>
-                      <CommandEmpty>Nenhuma pessoa encontrada.</CommandEmpty>
-                      <CommandGroup>
-                        {people.filter(p => p && p.id).map((person) => (
-                          <CommandItem key={person.id} value={`${person.nome} ${person.cpf}`} onSelect={() => { setFormData({ ...formData, recipientId: person.id.toString() }); setOpenRecipientPopover(false); }}>
-                            <Check className={cn("mr-2 h-4 w-4", formData.recipientId === person.id.toString() ? "opacity-100" : "opacity-0")} />
-                            {person.nome}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-
-          {/* Combobox Endereço Coleta */}
-          <div className="space-y-2">
-            <Label htmlFor="pickup">Endereço de Coleta (Obrigatório)</Label>
-             <Popover open={openPickupPopover} onOpenChange={setOpenPickupPopover}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                    {formData.pickupAddressId ? getSelectedAddress(formData.pickupAddressId) : getPlaceholder('address')}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
-                  <Command>
-                    <CommandInput placeholder="Pesquisar endereço..." />
-                    <CommandList>
-                      <CommandEmpty>Nenhum endereço encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {addresses.filter(a => a && a.id).map((address) => (
-                          <CommandItem key={address.id} value={formatAddress(address)} onSelect={() => { setFormData({ ...formData, pickupAddressId: address.id.toString() }); setOpenPickupPopover(false); }}>
-                            <Check className={cn("mr-2 h-4 w-4", formData.pickupAddressId === address.id.toString() ? "opacity-100" : "opacity-0")} />
-                            {formatAddress(address)}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-          </div>
-
-          {/* Combobox Endereço Entrega */}
-          <div className="space-y-2">
-            <Label htmlFor="delivery">Endereço de Entrega (Obrigatório)</Label>
-             <Popover open={openDeliveryPopover} onOpenChange={setOpenDeliveryPopover}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                    {formData.deliveryAddressId ? getSelectedAddress(formData.deliveryAddressId) : getPlaceholder('address')}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
-                  <Command>
-                    <CommandInput placeholder="Pesquisar endereço..." />
-                    <CommandList>
-                      <CommandEmpty>Nenhum endereço encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {addresses.filter(a => a && a.id).map((address) => (
-                          <CommandItem key={address.id} value={formatAddress(address)} onSelect={() => { setFormData({ ...formData, deliveryAddressId: address.id.toString() }); setOpenDeliveryPopover(false); }}>
-                            <Check className={cn("mr-2 h-4 w-4", formData.deliveryAddressId === address.id.toString() ? "opacity-100" : "opacity-0")} />
-                            {formatAddress(address)}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-          </div>
-          
-          <hr className="my-4" />
-
-          {/* --- NOVOS CAMPOS DO FORMULÁRIO ADICIONADOS --- */}
-          
-          <div className="grid grid-cols-2 gap-4">
-            {/* Combobox de Taxista (Opcional) */}
-            <div className="space-y-2">
-              <Label htmlFor="taxista">Taxista (Opcional)</Label>
-              <Popover open={openTaxistaPopover} onOpenChange={setOpenTaxistaPopover}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                    {formData.taxistaId ? getSelectedTaxistaName() : getPlaceholder('taxista')}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
-                  <Command>
-                    <CommandInput placeholder="Pesquisar taxista..." />
-                    <CommandList>
-                      <CommandEmpty>Nenhum taxista encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {taxistas.filter(t => t && t.id).map((taxista) => (
-                          <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
-                              setFormData({ ...formData, taxistaId: taxista.id.toString() });
-                              setOpenTaxistaPopover(false);
-                          }}>
-                            <Check className={cn("mr-2 h-4 w-4", formData.taxistaId === taxista.id.toString() ? "opacity-100" : "opacity-0")} />
-                            {taxista.pessoa.nome}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Combobox de Comisseiro (Opcional) */}
-            <div className="space-y-2">
-              <Label htmlFor="comisseiro">Comisseiro (Opcional)</Label>
-              <Popover open={openComisseiroPopover} onOpenChange={setOpenComisseiroPopover}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                    {formData.comisseiroId ? getSelectedComisseiroName() : getPlaceholder('comisseiro')}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
-                  <Command>
-                    <CommandInput placeholder="Pesquisar comisseiro..." />
-                    <CommandList>
-                      <CommandEmpty>Nenhum comisseiro encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {comisseiros.filter(c => c && c.id).map((comisseiro) => (
-                          <CommandItem key={comisseiro.id} value={comisseiro.pessoa.nome} onSelect={() => {
-                              setFormData({ ...formData, comisseiroId: comisseiro.id.toString() });
-                              setOpenComisseiroPopover(false);
-                          }}>
-                            <Check className={cn("mr-2 h-4 w-4", formData.comisseiroId === comisseiro.id.toString() ? "opacity-100" : "opacity-0")} />
-                            {comisseiro.pessoa.nome}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-          
-          {/* Grid para Valor e Método de Pagamento */}
-          <div className="grid grid-cols-2 gap-4">
-             <div className="space-y-2">
-              <Label htmlFor="valor">Valor (R$)</Label>
+              <Label htmlFor="description">Descrição (Obrigatório)</Label>
               <Input
-                id="valor"
-                type="number"
-                step="0.01"
-                placeholder="Ex: 50.00"
-                value={formData.valor}
-                onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Descreva a encomenda"
+                required
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="metodoPagamento">Método de Pagamento</Label>
-              <Select
-                value={formData.metodoPagamento}
-                onValueChange={(value) => setFormData({ ...formData, metodoPagamento: value })}
-              >
-                <SelectTrigger id="metodoPagamento">
-                  <SelectValue placeholder="Selecione o método" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PIX">PIX</SelectItem>
-                  <SelectItem value="Dinheiro">Dinheiro</SelectItem>
-                  <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
-                  <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              {/* --- Combobox Remetente (Refatorado) --- */}
+              <div className="space-y-2">
+                <Label htmlFor="sender">Remetente (Obrigatório)</Label>
+                <PessoaSearchCombobox
+                  value={formData.senderId}
+                  onSelect={(pessoaId) => setFormData({ ...formData, senderId: pessoaId })}
+                  onAddNew={() => {
+                    setPersonModalTarget('senderId');
+                    setIsPersonModalOpen(true);
+                  }}
+                  onClear={() => setFormData({ ...formData, senderId: null })}
+                />
+              </div>
+
+              {/* --- Combobox Destinatário (Refatorado) --- */}
+              <div className="space-y-2">
+                <Label htmlFor="recipient">Destinatário (Obrigatório)</Label>
+                <PessoaSearchCombobox
+                  value={formData.recipientId}
+                  onSelect={(pessoaId) => setFormData({ ...formData, recipientId: pessoaId })}
+                  onAddNew={() => {
+                    setPersonModalTarget('recipientId');
+                    setIsPersonModalOpen(true);
+                  }}
+                  onClear={() => setFormData({ ...formData, recipientId: null })}
+                />
+              </div>
             </div>
-          </div>
-          
-          {/* Campo Pago */}
-          <div className="flex items-center space-x-2 pt-2">
-            <Checkbox
-              id="pago"
-              checked={formData.pago}
-              onCheckedChange={(checked) => setFormData({ ...formData, pago: checked as boolean })}
-            />
-            <Label htmlFor="pago" className="font-medium">
-              Pagamento Efetuado?
-            </Label>
-          </div>
-          
-          {/* Botões */}
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">
-              {pkg ? 'Atualizar' : 'Adicionar'} Encomenda
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+
+            {/* --- Combobox Endereço Coleta (Refatorado) --- */}
+            <div className="space-y-2">
+              <Label htmlFor="pickup">Endereço de Coleta (Obrigatório)</Label>
+              <AddressSearchCombobox
+                value={formData.pickupAddressId}
+                placeholder="Selecione o endereço de coleta..."
+                onSelect={(addressId) => setFormData({ ...formData, pickupAddressId: addressId })}
+                onAddNew={() => {
+                  setAddressModalTarget('pickupAddressId');
+                  setIsAddressModalOpen(true);
+                }}
+                onClear={() => setFormData({ ...formData, pickupAddressId: null })}
+              />
+            </div>
+
+            {/* --- Combobox Endereço Entrega (Refatorado) --- */}
+            <div className="space-y-2">
+              <Label htmlFor="delivery">Endereço de Entrega (Obrigatório)</Label>
+              <AddressSearchCombobox
+                value={formData.deliveryAddressId}
+                placeholder="Selecione o endereço de entrega..."
+                onSelect={(addressId) => setFormData({ ...formData, deliveryAddressId: addressId })}
+                onAddNew={() => {
+                  setAddressModalTarget('deliveryAddressId');
+                  setIsAddressModalOpen(true);
+                }}
+                onClear={() => setFormData({ ...formData, deliveryAddressId: null })}
+              />
+            </div>
+            
+            <hr className="my-4" />
+
+            {/* --- Campos de Afiliados e Pagamento (Mantidos como estavam) --- */}
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="taxista">Taxista (Opcional)</Label>
+                <Popover open={openTaxistaPopover} onOpenChange={setOpenTaxistaPopover}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                      {formData.taxistaId ? getSelectedTaxistaName() : getAffiliatePlaceholder()}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
+                    <Command>
+                      <CommandInput placeholder="Pesquisar taxista..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum taxista encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {taxistas.map((taxista) => (
+                            <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
+                                setFormData({ ...formData, taxistaId: taxista.id.toString() });
+                                setOpenTaxistaPopover(false);
+                            }}>
+                              <Check className={cn("mr-2 h-4 w-4", formData.taxistaId === taxista.id.toString() ? "opacity-100" : "opacity-0")} />
+                              {taxista.pessoa.nome}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="comisseiro">Comisseiro (Opcional)</Label>
+                <Popover open={openComisseiroPopover} onOpenChange={setOpenComisseiroPopover}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                      {formData.comisseiroId ? getSelectedComisseiroName() : getAffiliatePlaceholder()}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
+                    <Command>
+                      <CommandInput placeholder="Pesquisar comisseiro..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum comisseiro encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {comisseiros.map((comisseiro) => (
+                            <CommandItem key={comisseiro.id} value={comisseiro.pessoa.nome} onSelect={() => {
+                                setFormData({ ...formData, comisseiroId: comisseiro.id.toString() });
+                                setOpenComisseiroPopover(false);
+                            }}>
+                              <Check className={cn("mr-2 h-4 w-4", formData.comisseiroId === comisseiro.id.toString() ? "opacity-100" : "opacity-0")} />
+                              {comisseiro.pessoa.nome}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="valor">Valor (R$)</Label>
+                <Input
+                  id="valor"
+                  type="number"
+                  step="0.01"
+                  placeholder="Ex: 50.00"
+                  value={formData.valor}
+                  onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="metodoPagamento">Método de Pagamento</Label>
+                <Select
+                  value={formData.metodoPagamento}
+                  onValueChange={(value) => setFormData({ ...formData, metodoPagamento: value })}
+                >
+                  <SelectTrigger id="metodoPagamento">
+                    <SelectValue placeholder="Selecione o método" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PIX">PIX</SelectItem>
+                    <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                    <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
+                    <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2 pt-2">
+              <Checkbox
+                id="pago"
+                checked={formData.pago}
+                onCheckedChange={(checked) => setFormData({ ...formData, pago: checked as boolean })}
+              />
+              <Label htmlFor="pago" className="font-medium">
+                Pagamento Efetuado?
+              </Label>
+            </div>
+            
+            <DialogFooter className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="bg-primary hover:bg-primary/90">
+                {pkg ? 'Atualizar' : 'Adicionar'} Encomenda
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* --- MODAIS INTERNOS --- */}
+      <PersonModal
+        isOpen={isPersonModalOpen}
+        onClose={() => setIsPersonModalOpen(false)}
+        onSave={handleSaveNewPessoa}
+        person={null} 
+      />
+      
+      <AddressModal
+        isOpen={isAddressModalOpen}
+        onClose={() => {
+          setIsAddressModalOpen(false);
+          setAddressModalTarget(null);
+        }}
+        onSave={handleSaveNewEndereco}
+        address={null}
+      />
+    </>
   );
 }
