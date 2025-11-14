@@ -30,13 +30,14 @@ public class EncomendaController {
         return ResponseEntity.status(HttpStatus.OK).body(encomendas);
     }
 
+    // --- MÉTODO ATUALIZADO ---
     @GetMapping("/{id}")
-    public ResponseEntity<Object> getById(@PathVariable(value = "id") Long id) {
+    public ResponseEntity<EncomendaResponseDto> getById(@PathVariable(value = "id") Long id) {
         Optional<EncomendaResponseDto> encomenda = service.findById(id);
         if (encomenda.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Encomenda não encontrada");
+            return ResponseEntity.notFound().build(); // Retorna 404
         }
-        return ResponseEntity.status(HttpStatus.OK).body(encomenda.get());
+        return ResponseEntity.status(HttpStatus.OK).body(encomenda.get()); // Retorna 200 com DTO
     }
 
     @PostMapping

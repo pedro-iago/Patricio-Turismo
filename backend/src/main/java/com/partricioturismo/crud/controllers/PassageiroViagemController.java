@@ -31,13 +31,13 @@ public class PassageiroViagemController {
         return ResponseEntity.status(HttpStatus.OK).body(passageiros);
     }
 
+    // --- MÉTODO ATUALIZADO ---
     @GetMapping("/{id}")
-    public ResponseEntity<Object> getById(@PathVariable(value = "id") Long id) {
-        Optional<PassengerResponseDto> pv = service.findById(id);
-        if (pv.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Registro não encontrado");
-        }
-        return ResponseEntity.status(HttpStatus.OK).body(pv.get());
+    public ResponseEntity<PassengerResponseDto> getById(@PathVariable(value = "id") Long id) {
+        // Agora usa o retorno direto do service (que foi corrigido)
+        return service.findById(id)
+                .map(dto -> ResponseEntity.ok(dto)) // Se encontrar, retorna 200 OK com o DTO
+                .orElse(ResponseEntity.notFound().build()); // Se não, retorna 404 Not Found
     }
 
     @PostMapping
