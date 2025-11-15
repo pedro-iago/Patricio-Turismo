@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
-import { Input } from './ui/input'; 
+import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+// ✅ 1. IMPORTE OS COMPONENTES DE CARD
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import BusModal from './BusModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api';
 
+// ... (Interfaces: Bus, BusDto - SEM ALTERAÇÃO) ...
 interface Bus {
-  id: number; // <-- MUDOU DE idOnibus PARA id
+  id: number;
   placa: string;
   modelo: string;
   capacidadePassageiros: number;
@@ -21,15 +24,16 @@ interface BusDto {
 }
 
 export default function FleetPage() {
-  const [buses, setBuses] = useState<Bus[]>([]); 
+  const [buses, setBuses] = useState<Bus[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [deleteBus, setDeleteBus] = useState<Bus | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
+  // ... (Lógica de fetch, CRUD, etc. - SEM ALTERAÇÃO) ...
   const fetchBuses = async () => {
     try {
-      const response = await api.get<Bus[]>(`/api/onibus`); 
+      const response = await api.get<Bus[]>(`/api/onibus`);
       setBuses(response.data);
     } catch (error) {
       console.error("Erro ao buscar ônibus:", error);
@@ -38,13 +42,13 @@ export default function FleetPage() {
 
   useEffect(() => {
     fetchBuses();
-  }, []); 
+  }, []);
 
   const handleCreateBus = async (busData: BusDto) => {
     try {
       await api.post('/api/onibus', busData);
       setIsModalOpen(false);
-      await fetchBuses(); 
+      await fetchBuses();
     } catch (error) {
       console.error("Erro ao criar ônibus:", error);
     }
@@ -53,11 +57,10 @@ export default function FleetPage() {
   const handleUpdateBus = async (busData: BusDto) => {
     if (!selectedBus) return;
     try {
-      // --- CORREÇÃO: Usa selectedBus.id ---
       await api.put(`/api/onibus/${selectedBus.id}`, busData);
       setSelectedBus(null);
       setIsModalOpen(false);
-      await fetchBuses(); 
+      await fetchBuses();
     } catch (error) {
       console.error("Erro ao atualizar ônibus:", error);
     }
@@ -66,10 +69,9 @@ export default function FleetPage() {
   const handleDeleteBus = async () => {
     if (!deleteBus) return;
     try {
-      // --- CORREÇÃO: Usa deleteBus.id ---
       await api.delete(`/api/onibus/${deleteBus.id}`);
       setDeleteBus(null);
-      await fetchBuses(); 
+      await fetchBuses();
     } catch (error) {
       console.error("Erro ao deletar ônibus:", error);
     }
@@ -92,9 +94,10 @@ export default function FleetPage() {
       bus.modelo.toLowerCase().includes(searchLower)
     );
   });
-  
+
   return (
     <div className="space-y-6">
+      {/* ... (Cabeçalho da página e Input de Busca - SEM ALTERAÇÃO) ... */}
       <div className="flex items-center justify-between">
         <div>
           <h2>Gestão de Frota</h2>
@@ -117,10 +120,11 @@ export default function FleetPage() {
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      {/* ✅ 2. TABELA (VISÍVEL APENAS EM DESKTOP) */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 hidden md:block">
         <Table>
           <TableHeader>
-            <TableRow key="header-row"> 
+            <TableRow key="header-row">
               <TableHead>Placa</TableHead>
               <TableHead>Modelo</TableHead>
               <TableHead>Capacidade</TableHead>
@@ -129,7 +133,7 @@ export default function FleetPage() {
           </TableHeader>
           <TableBody>
             {filteredBuses.map((bus) => (
-              <TableRow key={bus.id}> 
+              <TableRow key={bus.id}>
                 <TableCell>{bus.placa}</TableCell>
                 <TableCell>{bus.modelo}</TableCell>
                 <TableCell>{bus.capacidadePassageiros} assentos</TableCell>
@@ -158,7 +162,45 @@ export default function FleetPage() {
           </TableBody>
         </Table>
       </div>
-      
+
+      {/* ✅ 3. LISTA DE CARDS (VISÍVEL APENAS EM MOBILE) */}
+      <div className="block md:hidden space-y-4">
+        {filteredBuses.map((bus) => (
+          <Card key={bus.id} className="bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle>Placa: {bus.placa}</CardTitle>
+              <CardDescription>Modelo: {bus.modelo}</CardDescription>
+            </CardHeader>
+            <CardContent className="text-sm">
+              <p>
+                <span className="font-medium text-muted-foreground">Capacidade: </span>
+                {bus.capacidadePassageiros} assentos
+              </p>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => openEditModal(bus)}
+                className="hover:bg-primary/10 hover:text-primary"
+              >
+                <Edit className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDeleteBus(bus)}
+                className="hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+
+
+      {/* ... (Modais - SEM ALTERAÇÃO) ... */}
       <BusModal
         isOpen={isModalOpen}
         onClose={() => {

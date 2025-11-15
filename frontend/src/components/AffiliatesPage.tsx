@@ -1,27 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; 
-// ✅ ÍCONES IMPORTADOS
+import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+// ✅ 1. IMPORTE OS COMPONENTES DE CARD
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import AffiliateModal from './AffiliateModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api';
-// ✅ IMPORTS DA PAGINAÇÃO (COM ELLIPSIS)
-import { 
-  Pagination, 
-  PaginationContent, 
-  PaginationItem, 
-  PaginationPrevious, 
-  PaginationNext, 
-  PaginationLink, 
-  PaginationEllipsis // <-- ADICIONADO
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationLink,
+  PaginationEllipsis
 } from './ui/pagination';
 import { cn } from './ui/utils';
 
 
+// ... (Interfaces: Person, Affiliate, AffiliateType, Page - SEM ALTERAÇÃO) ...
 interface Person {
   id: number;
   nome: string;
@@ -43,8 +44,9 @@ interface Page<T> {
   number: number;
 }
 
+
 export default function AffiliatesPage() {
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
   const [taxistas, setTaxistas] = useState<Affiliate[]>([]);
   const [comisseiros, setComisseiros] = useState<Affiliate[]>([]);
   const [peopleList, setPeopleList] = useState<Person[]>([]);
@@ -62,7 +64,7 @@ export default function AffiliatesPage() {
   const [comisseiroPage, setComisseiroPage] = useState(0);
   const [comisseiroTotalPages, setComisseiroTotalPages] = useState(0);
 
-  // --- Funções de Busca ---
+  // ... (Lógica de fetch, CRUD, filtros, etc. - SEM ALTERAÇÃO) ...
   const fetchTaxistas = async (page = 0) => {
     try {
       const response = await api.get<Page<Affiliate>>(`/api/v1/affiliates/taxistas?page=${page}&size=10`);
@@ -87,8 +89,7 @@ export default function AffiliatesPage() {
 
   const fetchPeople = async () => {
     try {
-      // Ajustado para buscar mais pessoas para o combobox
-      const response = await api.get<Page<Person>>('/api/pessoa?page=0&size=100'); 
+      const response = await api.get<Page<Person>>('/api/pessoa?page=0&size=100');
       setPeopleList(response.data.content);
     } catch (error) {
       console.error("Erro ao buscar pessoas:", error);
@@ -107,11 +108,9 @@ export default function AffiliatesPage() {
     fetchPeople();
   }, []);
 
-  // --- Funções de Ação ---
   const handleSaveAffiliate = async (pessoaId: string) => {
     try {
       const payload = { pessoaId: parseInt(pessoaId, 10) };
-
       if (currentAffiliateType === 'taxista') {
         await api.post('/api/v1/affiliates/taxistas', payload);
         await fetchTaxistas(taxistaPage);
@@ -119,7 +118,6 @@ export default function AffiliatesPage() {
         await api.post('/api/v1/affiliates/comisseiros', payload);
         await fetchComisseiros(comisseiroPage);
       }
-
       setIsModalOpen(false);
     } catch (error) {
       console.error(`Erro ao criar ${currentAffiliateType}:`, error);
@@ -128,7 +126,6 @@ export default function AffiliatesPage() {
 
   const handleDeleteAffiliate = async () => {
     if (!deleteTarget) return;
-
     try {
       if (deleteTarget.type === 'taxista') {
         await api.delete(`/api/v1/affiliates/taxistas/${deleteTarget.id}`);
@@ -156,7 +153,6 @@ export default function AffiliatesPage() {
     });
   };
 
-  // --- LÓGICA DE FILTRO (no frontend) ---
   const filterAffiliates = (affiliates: Affiliate[], searchTerm: string) => {
     if (!Array.isArray(affiliates)) return [];
     const searchLower = searchTerm.toLowerCase();
@@ -169,7 +165,6 @@ export default function AffiliatesPage() {
   const filteredTaxistas = filterAffiliates(taxistas, taxistaSearchTerm);
   const filteredComisseiros = filterAffiliates(comisseiros, comisseiroSearchTerm);
 
-  // --- HANDLERS DE PAGINAÇÃO (NOVOS) ---
   const handleTaxistaPageChange = (newPage: number) => {
     if (newPage >= 0 && newPage < taxistaTotalPages) {
       setTaxistaPage(newPage);
@@ -182,106 +177,118 @@ export default function AffiliatesPage() {
     }
   };
 
-  // --- FUNÇÃO HELPER DA PAGINAÇÃO (NOVA) ---
   const getPaginationItems = (currentPage: number, totalPages: number) => {
+    // ... (lógica da paginação - SEM ALTERAÇÃO) ...
     const items: (number | string)[] = [];
-    const maxPageNumbers = 5; // Máximo de números visíveis (ex: 1, ..., 5, 6, 7, ..., 10)
-    const pageRangeDisplayed = 1; // Quantos números antes/depois do atual
-
-    if (totalPages <= maxPageNumbers) {
-      for (let i = 0; i < totalPages; i++) {
-        items.push(i);
-      }
-    } else {
-      // Sempre mostrar a primeira página
-      items.push(0);
-
-      // Elipse ou números no início
-      if (currentPage > pageRangeDisplayed + 1) {
-        items.push('...');
-      } else if (currentPage === pageRangeDisplayed + 1) {
-        items.push(1);
-      }
-
-      // Páginas ao redor da atual
-      for (let i = Math.max(1, currentPage - pageRangeDisplayed); i <= Math.min(totalPages - 2, currentPage + pageRangeDisplayed); i++) {
-        if (i !== 0) {
-          items.push(i);
-        }
-      }
-
-      // Elipse ou números no final
-      if (currentPage < totalPages - pageRangeDisplayed - 2) {
-        items.push('...');
-      } else if (currentPage === totalPages - pageRangeDisplayed - 2) {
-        items.push(totalPages - 2);
-      }
-
-      // Sempre mostrar a última página
-      if (totalPages > 1) {
-         items.push(totalPages - 1);
-      }
-    }
-    
-    // Remove duplicatas (caso a primeira/última página apareça na lógica do meio)
+    const maxPageNumbers = 5;
+    const pageRangeDisplayed = 1;
+    if (totalPages <= maxPageNumbers) { for (let i = 0; i < totalPages; i++) { items.push(i); } }
+    else { items.push(0); if (currentPage > pageRangeDisplayed + 1) { items.push('...'); }
+    else if (currentPage === pageRangeDisplayed + 1) { items.push(1); }
+    for (let i = Math.max(1, currentPage - pageRangeDisplayed); i <= Math.min(totalPages - 2, currentPage + pageRangeDisplayed); i++) { if (i !== 0) { items.push(i); } }
+    if (currentPage < totalPages - pageRangeDisplayed - 2) { items.push('...'); }
+    else if (currentPage === totalPages - pageRangeDisplayed - 2) { items.push(totalPages - 2); }
+    if (totalPages > 1) { items.push(totalPages - 1); } }
     return [...new Set(items)];
   };
 
 
-  // --- Componente de Tabela Reutilizável ---
+  // ✅ 2. COMPONENTE DE TABELA ATUALIZADO (AGORA RESPONSIVO)
   const AffiliateTable = ({ data, type }: { data: Affiliate[]; type: AffiliateType }) => (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nome</TableHead>
-            <TableHead>Documento (CPF)</TableHead>
-            <TableHead>Telefone</TableHead>
-            <TableHead className="text-right">Ações</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {Array.isArray(data) && data.map((affiliate) => (
-            <TableRow key={affiliate.id}>
-              <TableCell>{affiliate.pessoa.nome}</TableCell>
-              <TableCell>{affiliate.pessoa.cpf}</TableCell>
-              <TableCell>{affiliate.pessoa.telefone || '-'}</TableCell>
-              <TableCell className="text-right">
-                
-                {/* BOTÃO DE DETALHES */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    const path = type === 'taxista' ? `/taxistas/${affiliate.id}` : `/comisseiros/${affiliate.id}`;
-                    navigate(path);
-                  }}
-                  className="hover:bg-primary/10 hover:text-primary"
-                  title="Ver Relatório"
-                >
-                  <Eye className="w-4 h-4" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => openDeleteModal(affiliate, type)}
-                  className="hover:bg-destructive/10 hover:text-destructive"
-                  title="Excluir Afiliado"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </TableCell>
+    <>
+      {/* --- TABELA DESKTOP --- */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome</TableHead>
+              <TableHead>Documento (CPF)</TableHead>
+              <TableHead>Telefone</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {Array.isArray(data) && data.map((affiliate) => (
+              <TableRow key={affiliate.id}>
+                <TableCell>{affiliate.pessoa.nome}</TableCell>
+                <TableCell>{affiliate.pessoa.cpf}</TableCell>
+                <TableCell>{affiliate.pessoa.telefone || '-'}</TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      const path = type === 'taxista' ? `/taxistas/${affiliate.id}` : `/comisseiros/${affiliate.id}`;
+                      navigate(path);
+                    }}
+                    className="hover:bg-primary/10 hover:text-primary"
+                    title="Ver Relatório"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => openDeleteModal(affiliate, type)}
+                    className="hover:bg-destructive/10 hover:text-destructive"
+                    title="Excluir Afiliado"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* --- CARDS MOBILE --- */}
+      <div className="block md:hidden space-y-4">
+        {Array.isArray(data) && data.map((affiliate) => (
+          <Card key={affiliate.id} className="bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle>{affiliate.pessoa.nome}</CardTitle>
+              <CardDescription>CPF: {affiliate.pessoa.cpf}</CardDescription>
+            </CardHeader>
+            <CardContent className="text-sm">
+              <p>
+                <span className="font-medium text-muted-foreground">Telefone: </span>
+                {affiliate.pessoa.telefone || '-'}
+              </p>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  const path = type === 'taxista' ? `/taxistas/${affiliate.id}` : `/comisseiros/${affiliate.id}`;
+                  navigate(path);
+                }}
+                className="hover:bg-primary/10 hover:text-primary"
+                title="Ver Relatório"
+              >
+                <Eye className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => openDeleteModal(affiliate, type)}
+                className="hover:bg-destructive/10 hover:text-destructive"
+                title="Excluir Afiliado"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+    </>
   );
 
 
   return (
     <div className="space-y-6">
+      {/* ... (Cabeçalho da página - SEM ALTERAÇÃO) ... */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold">Gestão de Afiliados</h2>
@@ -297,8 +304,9 @@ export default function AffiliatesPage() {
 
         {/* --- Aba de Taxistas --- */}
         <TabsContent value="taxistas" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="relative w-1/2 sm:w-1/3">
+          {/* ✅ 3. LAYOUT DA BUSCA ATUALIZADO (Mobile-friendly) */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-2">
+            <div className="relative w-full sm:w-1/2 md:w-1/3">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="text"
@@ -308,16 +316,17 @@ export default function AffiliatesPage() {
                 className="pl-10"
               />
             </div>
-            <Button onClick={() => openCreateModal('taxista')} className="bg-primary hover:bg-primary/90 gap-2">
+            <Button onClick={() => openCreateModal('taxista')} className="bg-primary hover:bg-primary/90 gap-2 w-full sm:w-auto">
               <Plus className="w-4 h-4" />
               Novo Taxista
             </Button>
           </div>
           <AffiliateTable data={filteredTaxistas} type="taxista" />
 
-          {/* --- PAGINAÇÃO ATUALIZADA (TAXISTAS) --- */}
+          {/* --- PAGINAÇÃO (SEM ALTERAÇÃO - Sempre visível) --- */}
           {taxistaTotalPages > 1 && (
             <Pagination>
+              {/* ... (Conteúdo da paginação sem alteração) ... */}
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
@@ -326,7 +335,6 @@ export default function AffiliatesPage() {
                     className={cn(taxistaPage === 0 ? "pointer-events-none opacity-50" : "")}
                   />
                 </PaginationItem>
-
                 {getPaginationItems(taxistaPage, taxistaTotalPages).map((pageItem, index) => (
                   <PaginationItem key={index}>
                     {typeof pageItem === 'string' ? (
@@ -342,7 +350,6 @@ export default function AffiliatesPage() {
                     )}
                   </PaginationItem>
                 ))}
-                
                 <PaginationItem>
                   <PaginationNext
                     href="#"
@@ -357,8 +364,9 @@ export default function AffiliatesPage() {
 
         {/* --- Aba de Comisseiros --- */}
         <TabsContent value="comisseiros" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="relative w-1/2 sm:w-1/3">
+          {/* ✅ 3. LAYOUT DA BUSCA ATUALIZADO (Mobile-friendly) */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-2">
+            <div className="relative w-full sm:w-1/2 md:w-1/3">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="text"
@@ -368,16 +376,17 @@ export default function AffiliatesPage() {
                 className="pl-10"
               />
             </div>
-            <Button onClick={() => openCreateModal('comisseiro')} className="bg-primary hover:bg-primary/90 gap-2">
+            <Button onClick={() => openCreateModal('comisseiro')} className="bg-primary hover:bg-primary/90 gap-2 w-full sm:w-auto">
               <Plus className="w-4 h-4" />
               Novo Comisseiro
             </Button>
           </div>
           <AffiliateTable data={filteredComisseiros} type="comisseiro" />
 
-          {/* --- PAGINAÇÃO ATUALIZADA (COMISSEIROS) --- */}
+          {/* --- PAGINAÇÃO (SEM ALTERAÇÃO - Sempre visível) --- */}
           {comisseiroTotalPages > 1 && (
             <Pagination>
+              {/* ... (Conteúdo da paginação sem alteração) ... */}
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
@@ -386,7 +395,6 @@ export default function AffiliatesPage() {
                     className={cn(comisseiroPage === 0 ? "pointer-events-none opacity-50" : "")}
                   />
                 </PaginationItem>
-
                 {getPaginationItems(comisseiroPage, comisseiroTotalPages).map((pageItem, index) => (
                   <PaginationItem key={index}>
                     {typeof pageItem === 'string' ? (
@@ -402,7 +410,6 @@ export default function AffiliatesPage() {
                     )}
                   </PaginationItem>
                 ))}
-                
                 <PaginationItem>
                   <PaginationNext
                     href="#"
@@ -416,7 +423,7 @@ export default function AffiliatesPage() {
         </TabsContent>
       </Tabs>
 
-      {/* --- Modais --- */}
+      {/* ... (Modais - SEM ALTERAÇÃO) ... */}
       <AffiliateModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

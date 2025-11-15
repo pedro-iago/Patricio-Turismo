@@ -1,25 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// ✅ ÍCONES IMPORTADOS
 import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+// ✅ 1. IMPORTE OS COMPONENTES DE CARD
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import PersonModal from './PersonModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api';
 import { Input } from './ui/input';
-// ✅ IMPORTS DA PAGINAÇÃO (COM ELLIPSIS)
-import { 
-  Pagination, 
-  PaginationContent, 
-  PaginationItem, 
-  PaginationPrevious, 
-  PaginationNext, 
-  PaginationLink, 
-  PaginationEllipsis // <-- ADICIONADO
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationLink,
+  PaginationEllipsis
 } from './ui/pagination';
 import { cn } from './ui/utils';
 
+// ... (Interfaces: Person, PersonDto, Page - SEM ALTERAÇÃO) ...
 interface Person {
   id: number;
   nome: string;
@@ -41,8 +42,9 @@ interface Page<T> {
   number: number;
 }
 
+
 export default function PeoplePage() {
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
   const [people, setPeople] = useState<Person[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -52,6 +54,7 @@ export default function PeoplePage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
+  // ... (Lógica de fetch, handle, filter, etc. - SEM ALTERAÇÃO) ...
   const fetchPeople = async (page = 0) => {
     try {
       const response = await api.get<Page<Person>>(`/api/pessoa?page=${page}&size=10`);
@@ -124,54 +127,25 @@ export default function PeoplePage() {
       setCurrentPage(newPage);
     }
   };
-  
-  // ✅ FUNÇÃO HELPER DA PAGINAÇÃO
+
   const getPaginationItems = (currentPage: number, totalPages: number) => {
+    // ... (lógica da paginação - SEM ALTERAÇÃO) ...
     const items: (number | string)[] = [];
-    const maxPageNumbers = 5; // Máximo de números visíveis (ex: 1, ..., 5, 6, 7, ..., 10)
-    const pageRangeDisplayed = 1; // Quantos números antes/depois do atual
-
-    if (totalPages <= maxPageNumbers) {
-      for (let i = 0; i < totalPages; i++) {
-        items.push(i);
-      }
-    } else {
-      // Sempre mostrar a primeira página
-      items.push(0);
-
-      // Elipse ou números no início
-      if (currentPage > pageRangeDisplayed + 1) {
-        items.push('...');
-      } else if (currentPage === pageRangeDisplayed + 1) {
-        items.push(1);
-      }
-
-      // Páginas ao redor da atual
-      for (let i = Math.max(1, currentPage - pageRangeDisplayed); i <= Math.min(totalPages - 2, currentPage + pageRangeDisplayed); i++) {
-        if (i !== 0) {
-          items.push(i);
-        }
-      }
-
-      // Elipse ou números no final
-      if (currentPage < totalPages - pageRangeDisplayed - 2) {
-        items.push('...');
-      } else if (currentPage === totalPages - pageRangeDisplayed - 2) {
-        items.push(totalPages - 2);
-      }
-
-      // Sempre mostrar a última página
-      if (totalPages > 1) {
-         items.push(totalPages - 1);
-      }
-    }
-    
-    // Remove duplicatas (caso a primeira/última página apareça na lógica do meio)
+    const maxPageNumbers = 5;
+    const pageRangeDisplayed = 1;
+    if (totalPages <= maxPageNumbers) { for (let i = 0; i < totalPages; i++) { items.push(i); } }
+    else { items.push(0); if (currentPage > pageRangeDisplayed + 1) { items.push('...'); }
+    else if (currentPage === pageRangeDisplayed + 1) { items.push(1); }
+    for (let i = Math.max(1, currentPage - pageRangeDisplayed); i <= Math.min(totalPages - 2, currentPage + pageRangeDisplayed); i++) { if (i !== 0) { items.push(i); } }
+    if (currentPage < totalPages - pageRangeDisplayed - 2) { items.push('...'); }
+    else if (currentPage === totalPages - pageRangeDisplayed - 2) { items.push(totalPages - 2); }
+    if (totalPages > 1) { items.push(totalPages - 1); } }
     return [...new Set(items)];
   };
 
   return (
     <div className="space-y-6">
+      {/* ... (Cabeçalho da página e Input de Busca - SEM ALTERAÇÃO) ... */}
       <div className="flex items-center justify-between">
         <div>
           <h2>Gestão de Pessoas</h2>
@@ -194,7 +168,8 @@ export default function PeoplePage() {
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      {/* ✅ 2. TABELA (VISÍVEL APENAS EM DESKTOP) */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -214,8 +189,6 @@ export default function PeoplePage() {
                 <TableCell>{person.idade || '-'}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
-                    
-                    {/* --- BOTÃO DE HISTÓRICO --- */}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -252,11 +225,63 @@ export default function PeoplePage() {
         </Table>
       </div>
 
-      {/* --- PAGINAÇÃO ATUALIZADA --- */}
+      {/* ✅ 3. LISTA DE CARDS (VISÍVEL APENAS EM MOBILE) */}
+      <div className="block md:hidden space-y-4">
+        {filteredPeople.map((person) => (
+          <Card key={person.id} className="bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle>{person.nome}</CardTitle>
+              <CardDescription>CPF: {person.cpf}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div>
+                <span className="font-medium text-muted-foreground">Telefone: </span>
+                {person.telefone || '-'}
+              </div>
+              <div>
+                <span className="font-medium text-muted-foreground">Idade: </span>
+                {person.idade || '-'}
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(`/pessoas/${person.id}`)}
+                className="hover:bg-primary/10 hover:text-primary"
+                title="Ver Histórico"
+              >
+                <Eye className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => openEditModal(person)}
+                className="hover:bg-primary/10 hover:text-primary"
+                title="Editar Pessoa"
+              >
+                <Edit className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDeletePerson(person)}
+                className="hover:bg-destructive/10 hover:text-destructive"
+                title="Excluir Pessoa"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+
+
+      {/* --- PAGINAÇÃO (SEM ALTERAÇÃO - Sempre visível) --- */}
       {totalPages > 1 && (
         <Pagination>
+          {/* ... (Conteúdo da paginação sem alteração) ... */}
           <PaginationContent>
-            {/* Botão Anterior */}
             <PaginationItem>
               <PaginationPrevious
                 href="#"
@@ -264,8 +289,6 @@ export default function PeoplePage() {
                 className={cn(currentPage === 0 ? "pointer-events-none opacity-50" : "")}
               />
             </PaginationItem>
-
-            {/* Números de Página e Elipses */}
             {getPaginationItems(currentPage, totalPages).map((pageItem, index) => (
               <PaginationItem key={index}>
                 {typeof pageItem === 'string' ? (
@@ -281,8 +304,6 @@ export default function PeoplePage() {
                 )}
               </PaginationItem>
             ))}
-
-            {/* Botão Próximo */}
             <PaginationItem>
               <PaginationNext
                 href="#"
@@ -293,10 +314,9 @@ export default function PeoplePage() {
           </PaginationContent>
         </Pagination>
       )}
-      {/* --- FIM DA PAGINAÇÃO --- */}
 
 
-      {/* --- MODAIS --- */}
+      {/* ... (Modais - SEM ALTERAÇÃO) ... */}
       <PersonModal
         isOpen={isModalOpen}
         onClose={() => {
