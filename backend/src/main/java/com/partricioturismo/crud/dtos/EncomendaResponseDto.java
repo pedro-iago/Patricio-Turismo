@@ -14,7 +14,13 @@ public record EncomendaResponseDto(
         EnderecoDto enderecoColeta,
         EnderecoDto enderecoEntrega,
         PessoaDto responsavel,
-        AffiliateResponseDto taxista,
+
+        // --- MUDANÇA AQUI ---
+        // AffiliateResponseDto taxista, // <-- REMOVIDO
+        AffiliateResponseDto taxistaColeta, // <-- ADICIONADO
+        AffiliateResponseDto taxistaEntrega, // <-- ADICIONADO
+        // --- FIM DA MUDANÇA ---
+
         AffiliateResponseDto comisseiro,
         BigDecimal valor,
         String metodoPagamento,
@@ -50,7 +56,12 @@ public record EncomendaResponseDto(
                         e.getResponsavel().getTelefone(),
                         e.getResponsavel().getIdade()
                 ) : null,
-                e.getTaxista() != null ? new AffiliateResponseDto(e.getTaxista()) : null,
+
+                // --- MUDANÇA AQUI (Usa os novos getters da Entidade) ---
+                e.getTaxistaColeta() != null ? new AffiliateResponseDto(e.getTaxistaColeta()) : null,
+                e.getTaxistaEntrega() != null ? new AffiliateResponseDto(e.getTaxistaEntrega()) : null,
+                // --- FIM DA MUDANÇA ---
+
                 e.getComisseiro() != null ? new AffiliateResponseDto(e.getComisseiro()) : null,
                 e.getValor(),
                 e.getMetodoPagamento(),

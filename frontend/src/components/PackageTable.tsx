@@ -2,14 +2,15 @@ import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Button } from './ui/button';
 import { Edit, Trash2, DollarSign } from 'lucide-react';
-// ✅ 1. IMPORTE OS COMPONENTES DE CARD
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 
-// ... (Interfaces, formatAddress, formatCurrency - SEM ALTERAÇÃO) ...
+// --- Interfaces ---
 interface Person { id: number; nome: string; telefone?: string | null; }
 interface Address { id: number; logradouro: string; numero: string; bairro: string; cidade: string; }
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
+
+// --- MUDANÇA: Interface de dados atualizada ---
 interface PackageData {
   id: number;
   descricao: string;
@@ -17,12 +18,16 @@ interface PackageData {
   destinatario: Person;
   enderecoColeta: Address;
   enderecoEntrega: Address;
-  taxista?: Affiliate;
+  // taxista?: Affiliate; // <-- REMOVIDO
+  taxistaColeta?: Affiliate; // <-- ADICIONADO
+  taxistaEntrega?: Affiliate; // <-- ADICIONADO
   comisseiro?: Affiliate;
   valor?: number;
   metodoPagamento?: string;
   pago?: boolean;
 }
+// --- FIM DA MUDANÇA ---
+
 const formatAddress = (addr: Address) => {
   if (!addr) return 'Endereço inválido';
   return `${addr.logradouro}, ${addr.numero} - ${addr.bairro}, ${addr.cidade}`;
@@ -50,7 +55,6 @@ export default function PackageTable({
   onDelete,
 }: PackageTableProps) {
   
-  // ✅ 2. RETORNO AGORA USA UM FRAGMENTO <>...</>
   return (
     <>
       {/* --- TABELA (DESKTOP) --- */}
@@ -67,7 +71,6 @@ export default function PackageTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {/* ... (Lógica de loading/empty/map da Tabela - SEM ALTERAÇÃO) ... */}
             {loading ? (
               <TableRow><TableCell colSpan={isPrintView ? 5 : 6} className="text-center text-muted-foreground py-8">Buscando dados...</TableCell></TableRow>
             ) : packages.length === 0 ? (
@@ -80,10 +83,15 @@ export default function PackageTable({
                     <div className="text-xs"><b>De:</b> {pkg.remetente.nome} ({pkg.remetente.telefone || 'N/A'})</div>
                     <div className="text-xs"><b>Para:</b> {pkg.destinatario.nome} ({pkg.destinatario.telefone || 'N/A'})</div>
                   </TableCell>
+                  
+                  {/* --- MUDANÇA: Célula de Afiliados --- */}
                   <TableCell>
-                    <div className="text-xs"><b>T:</b> {pkg.taxista?.pessoa.nome || '-'}</div>
+                    <div className="text-xs"><b>T(Coleta):</b> {pkg.taxistaColeta?.pessoa.nome || '-'}</div>
+                    <div className="text-xs"><b>T(Entrega):</b> {pkg.taxistaEntrega?.pessoa.nome || '-'}</div>
                     <div className="text-xs"><b>C:</b> {pkg.comisseiro?.pessoa.nome || '-'}</div>
                   </TableCell>
+                  {/* --- FIM DA MUDANÇA --- */}
+
                   <TableCell>{formatCurrency(pkg.valor)}</TableCell>
                   <TableCell>
                     {pkg.pago ? (
@@ -94,7 +102,6 @@ export default function PackageTable({
                   </TableCell>
                   {!isPrintView && (
                     <TableCell className="text-right">
-                      {/* ... (Botões da Tabela - SEM ALTERAÇÃO) ... */}
                       <div className="flex items-center justify-end gap-1">
                         {!pkg.pago && (
                           <Button variant="ghost" size="icon" onClick={() => onMarkAsPaid?.(pkg.id)} className="hover:bg-green-100 hover:text-green-800">
@@ -117,7 +124,7 @@ export default function PackageTable({
         </Table>
       </div>
 
-      {/* ✅ 3. CARDS (MOBILE) */}
+      {/* --- CARDS (MOBILE) --- */}
       <div className="block md:hidden space-y-4">
         {loading ? (
           <div className="text-center text-muted-foreground p-4">Buscando dados...</div>
@@ -146,10 +153,15 @@ export default function PackageTable({
                   <p className="font-medium text-muted-foreground">Para:</p>
                   <p>{pkg.destinatario.nome} ({pkg.destinatario.telefone || 'N/A'})</p>
                 </div>
+
+                {/* --- MUDANÇA: Card de Afiliados --- */}
                 <div className="text-xs border-t pt-2">
-                  <p><b>Taxista:</b> {pkg.taxista?.pessoa.nome || '-'}</p>
+                  <p><b>T(Coleta):</b> {pkg.taxistaColeta?.pessoa.nome || '-'}</p>
+                  <p><b>T(Entrega):</b> {pkg.taxistaEntrega?.pessoa.nome || '-'}</p>
                   <p><b>Comisseiro:</b> {pkg.comisseiro?.pessoa.nome || '-'}</p>
                 </div>
+                {/* --- FIM DA MUDANÇA --- */}
+
               </CardContent>
               {!isPrintView && (
                 <CardFooter className="flex justify-end gap-1">

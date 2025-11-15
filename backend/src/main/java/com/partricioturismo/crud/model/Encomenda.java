@@ -39,19 +39,28 @@ public class Encomenda {
     private Endereco enderecoEntrega;
 
     @ManyToOne
-    @JoinColumn(name = "responsavel_id") // Pessoa responsável (pode ser nulo)
+    @JoinColumn(name = "responsavel_id")
     private Pessoa responsavel;
 
-    // --- NOVOS CAMPOS (FUNCIONALIDADE 1) ---
+    // --- MUDANÇA: CAMPO 'taxista' REMOVIDO ---
+    // @ManyToOne(fetch = FetchType.LAZY)
+    // @JoinColumn(name = "taxista_id")
+    // private Taxista taxista;
+
+    // --- MUDANÇA: NOVOS CAMPOS DE TAXISTA ---
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "taxista_id")
-    private Taxista taxista;
+    @JoinColumn(name = "taxista_coleta_id") // Esta coluna será criada próxima migração
+    private Taxista taxistaColeta;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "taxista_entrega_id") // Esta coluna será criada próxima migração
+    private Taxista taxistaEntrega;
+    // --- FIM DA MUDANÇA ---
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "comisseiro_id")
     private Comisseiro comisseiro;
 
-    // --- NOVOS CAMPOS (FUNCIONALIDADE 2) ---
     @Column(name = "valor", precision = 10, scale = 2)
     private BigDecimal valor;
 
@@ -59,13 +68,13 @@ public class Encomenda {
     private String metodoPagamento;
 
     @Column(name = "pago", nullable = false)
-    private boolean pago = false; // Garante o 'DEFAULT false'
+    private boolean pago = false;
 
-     // Construtores
+    // Construtores
     public Encomenda() {
     }
 
-    // Getters e Setters (para todos os campos, incluindo os novos)
+    // --- Getters e Setters ---
 
     public Long getId() {
         return id;
@@ -139,15 +148,7 @@ public class Encomenda {
         this.responsavel = responsavel;
     }
 
-    // --- GETTERS E SETTERS (NOVOS CAMPOS) ---
-
-    public Taxista getTaxista() {
-        return taxista;
-    }
-
-    public void setTaxista(Taxista taxista) {
-        this.taxista = taxista;
-    }
+    // --- MUDANÇA: Getter/Setter de 'taxista' removido ---
 
     public Comisseiro getComisseiro() {
         return comisseiro;
@@ -181,7 +182,24 @@ public class Encomenda {
         this.pago = pago;
     }
 
-    // hashCode e equals
+    // --- MUDANÇA: NOVOS GETTERS E SETTERS ---
+    public Taxista getTaxistaColeta() {
+        return taxistaColeta;
+    }
+
+    public void setTaxistaColeta(Taxista taxistaColeta) {
+        this.taxistaColeta = taxistaColeta;
+    }
+
+    public Taxista getTaxistaEntrega() {
+        return taxistaEntrega;
+    }
+
+    public void setTaxistaEntrega(Taxista taxistaEntrega) {
+        this.taxistaEntrega = taxistaEntrega;
+    }
+    // --- FIM DA MUDANÇA ---
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

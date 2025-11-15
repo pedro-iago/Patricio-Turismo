@@ -15,8 +15,12 @@ public record EncomendaDto(
 
         // --- NOVOS CAMPOS ADICIONADOS ---
 
-        // Funcionalidade 1 (IDs dos Afiliados)
-        Long taxistaId,
+        // --- MUDANÇA AQUI ---
+        // Long taxistaId, // <-- REMOVIDO
+        Long taxistaColetaId, // <-- ADICIONADO
+        Long taxistaEntregaId, // <-- ADICIONADO
+        // --- FIM DA MUDANÇA ---
+
         Long comisseiroId,
 
         // Funcionalidade 2 (Pagamentos)

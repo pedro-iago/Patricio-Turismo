@@ -26,7 +26,6 @@ public class PassageiroViagemService {
     @Autowired private ComisseiroRepository comisseiroRepository;
     @Autowired private AssentoRepository assentoRepository;
 
-    // --- Seu método 'save' (Mantido) ---
     @Transactional
     public PassengerResponseDto save(PassengerSaveRequestDto dto) {
         Pessoa pessoa = pessoaRepository.findById(dto.pessoaId())
@@ -39,10 +38,20 @@ public class PassageiroViagemService {
                 .orElseThrow(() -> new EntityNotFoundException("Endereço de entrega não encontrado"));
 
         var pv = new PassageiroViagem();
-        // ... (BeanUtils.copyProperties ou set manual) ...
         pv.setPessoa(pessoa); pv.setViagem(viagem); pv.setEnderecoColeta(endColeta); pv.setEnderecoEntrega(endEntrega);
         pv.setValor(dto.valor()); pv.setMetodoPagamento(dto.metodoPagamento()); pv.setPago(dto.pago() != null && dto.pago());
-        if (dto.taxistaId() != null) { pv.setTaxista(taxistaRepository.findById(dto.taxistaId()).orElse(null)); }
+
+        // --- MUDANÇA: LÓGICA DE TAXISTA ATUALIZADA ---
+        // if (dto.taxistaId() != null) { pv.setTaxista(taxistaRepository.findById(dto.taxistaId()).orElse(null)); } // <-- REMOVIDO
+
+        if (dto.taxistaColetaId() != null) {
+            pv.setTaxistaColeta(taxistaRepository.findById(dto.taxistaColetaId()).orElse(null));
+        }
+        if (dto.taxistaEntregaId() != null) {
+            pv.setTaxistaEntrega(taxistaRepository.findById(dto.taxistaEntregaId()).orElse(null));
+        }
+        // --- FIM DA MUDANÇA ---
+
         if (dto.comisseiroId() != null) { pv.setComisseiro(comisseiroRepository.findById(dto.comisseiroId()).orElse(null)); }
 
         // --- LÓGICA DE VINCULAR ASSENTO (Mantida) ---
@@ -65,27 +74,20 @@ public class PassageiroViagemService {
         return new PassengerResponseDto(pvSalvo);
     }
 
-    // --- MÉTODO 'update' (CORRIGIDO E PREENCHIDO) ---
     @Transactional
     public Optional<PassengerResponseDto> update(Long id, PassengerSaveRequestDto dto) {
-        // 1. Busca a entidade principal
         Optional<PassageiroViagem> pvOptional = repository.findById(id);
         if (pvOptional.isEmpty()) {
-            return Optional.empty(); // Retorna 404 se o passageiro não existe
+            return Optional.empty();
         }
 
         var pv = pvOptional.get();
-        Assento assentoAntigo = pv.getAssento(); // Guarda o assento antigo para lógica de troca
+        Assento assentoAntigo = pv.getAssento();
 
-        // --- INÍCIO DA LÓGICA DE ATUALIZAÇÃO (O QUE FALTAVA) ---
-
-        // 2. Atualiza os campos simples
         pv.setValor(dto.valor());
         pv.setMetodoPagamento(dto.metodoPagamento());
         pv.setPago(dto.pago() != null && dto.pago());
 
-        // 3. Atualiza as associações (buscando as novas entidades)
-        // Só busca no banco se o ID realmente mudou
         if (dto.pessoaId() != null && !Objects.equals(pv.getPessoa().getId(), dto.pessoaId())) {
             Pessoa pessoa = pessoaRepository.findById(dto.pessoaId())
                     .orElseThrow(() -> new EntityNotFoundException("Pessoa não encontrada com ID: " + dto.pessoaId()));
@@ -104,16 +106,27 @@ public class PassageiroViagemService {
             pv.setEnderecoEntrega(endEntrega);
         }
 
-        // 4. Atualiza Taxista (permite nulo)
-        if (dto.taxistaId() == null) {
-            pv.setTaxista(null);
-        } else if (!Objects.equals(pv.getTaxista() != null ? pv.getTaxista().getId() : null, dto.taxistaId())) {
-            Taxista taxista = taxistaRepository.findById(dto.taxistaId())
-                    .orElseThrow(() -> new EntityNotFoundException("Taxista não encontrado com ID: " + dto.taxistaId()));
-            pv.setTaxista(taxista);
+        // --- MUDANÇA: LÓGICA DE TAXISTA ATUALIZADA ---
+
+        // 4. Atualiza Taxista Coleta (permite nulo)
+        if (dto.taxistaColetaId() == null) {
+            pv.setTaxistaColeta(null);
+        } else if (!Objects.equals(pv.getTaxistaColeta() != null ? pv.getTaxistaColeta().getId() : null, dto.taxistaColetaId())) {
+            Taxista taxistaColeta = taxistaRepository.findById(dto.taxistaColetaId())
+                    .orElseThrow(() -> new EntityNotFoundException("Taxista de Coleta não encontrado com ID: " + dto.taxistaColetaId()));
+            pv.setTaxistaColeta(taxistaColeta);
         }
 
-        // 5. Atualiza Comisseiro (permite nulo)
+        // 5. Atualiza Taxista Entrega (permite nulo)
+        if (dto.taxistaEntregaId() == null) {
+            pv.setTaxistaEntrega(null);
+        } else if (!Objects.equals(pv.getTaxistaEntrega() != null ? pv.getTaxistaEntrega().getId() : null, dto.taxistaEntregaId())) {
+            Taxista taxistaEntrega = taxistaRepository.findById(dto.taxistaEntregaId())
+                    .orElseThrow(() -> new EntityNotFoundException("Taxista de Entrega não encontrado com ID: " + dto.taxistaEntregaId()));
+            pv.setTaxistaEntrega(taxistaEntrega);
+        }
+
+        // 6. Atualiza Comisseiro (permite nulo)
         if (dto.comisseiroId() == null) {
             pv.setComisseiro(null);
         } else if (!Objects.equals(pv.getComisseiro() != null ? pv.getComisseiro().getId() : null, dto.comisseiroId())) {
@@ -121,8 +134,7 @@ public class PassageiroViagemService {
                     .orElseThrow(() -> new EntityNotFoundException("Comisseiro não encontrado com ID: " + dto.comisseiroId()));
             pv.setComisseiro(comisseiro);
         }
-
-        // --- FIM DA LÓGICA DE ATUALIZAÇÃO ---
+        // --- FIM DA MUDANÇA ---
 
 
         // --- LÓGICA DE ATUALIZAÇÃO DO ASSENTO (Mantida) ---
@@ -155,7 +167,6 @@ public class PassageiroViagemService {
         }
         // --- FIM DA LÓGICA DO ASSENTO ---
 
-        // 6. Salva todas as alterações
         PassageiroViagem pvAtualizado = repository.save(pv);
         return Optional.of(new PassengerResponseDto(pvAtualizado));
     }
@@ -179,7 +190,8 @@ public class PassageiroViagemService {
         return true;
     }
 
-    // --- MÉTODOS DE BUSCA (Preenchidos) ---
+    // --- MÉTODOS DE BUSCA (Mantidos) ---
+    // (Eles funcionam, pois o 'PassengerResponseDto' já foi atualizado)
 
     @Transactional(readOnly = true)
     public List<PassengerResponseDto> findAll() {
@@ -190,8 +202,6 @@ public class PassageiroViagemService {
 
     @Transactional(readOnly = true)
     public List<PassengerResponseDto> findByViagemId(Long viagemId) {
-        // A lógica de busca principal está no ReportController,
-        // mas se você chamar este, ele deve funcionar.
         return repository.findByViagemId(viagemId).stream()
                 .map(PassengerResponseDto::new)
                 .collect(Collectors.toList());
@@ -200,29 +210,19 @@ public class PassageiroViagemService {
     @Transactional(readOnly = true)
     public Optional<PassengerResponseDto> findById(Long id) {
         return repository.findById(id)
-                .map(PassengerResponseDto::new); // Converte para DTO se achar
+                .map(PassengerResponseDto::new);
     }
 
-    // --- MÉTODO 'markAsPaid' (CORRIGIDO E PREENCHIDO) ---
+    // --- MÉTODO 'markAsPaid' (Mantido) ---
     @Transactional
     public Optional<PassengerResponseDto> markAsPaid(Long id) {
-
-        // 1. Tenta encontrar a entidade pelo ID
         Optional<PassageiroViagem> pvOptional = repository.findById(id);
-
-        // 2. Se não encontrar, retorna um Optional vazio (que o Controller traduzirá para 404)
         if (pvOptional.isEmpty()) {
             return Optional.empty();
         }
-
-        // 3. Se encontrou, atualiza a entidade
         PassageiroViagem pv = pvOptional.get();
         pv.setPago(true);
-
-        // 4. Salva a entidade atualizada
         PassageiroViagem pvSalvo = repository.save(pv);
-
-        // 5. Retorna o DTO com os dados atualizados
         return Optional.of(new PassengerResponseDto(pvSalvo));
     }
 }

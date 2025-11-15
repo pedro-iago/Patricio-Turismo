@@ -69,13 +69,23 @@ public class EncomendaService {
             encomenda.setResponsavel(null);
         }
 
-        if (dto.taxistaId() != null) {
-            Taxista taxista = taxistaRepository.findById(dto.taxistaId())
-                    .orElseThrow(() -> new EntityNotFoundException("Taxista não encontrado!"));
-            encomenda.setTaxista(taxista);
+        // --- MUDANÇA: LÓGICA DE TAXISTA ATUALIZADA ---
+        if (dto.taxistaColetaId() != null) {
+            Taxista taxistaColeta = taxistaRepository.findById(dto.taxistaColetaId())
+                    .orElseThrow(() -> new EntityNotFoundException("Taxista de Coleta não encontrado!"));
+            encomenda.setTaxistaColeta(taxistaColeta);
         } else {
-            encomenda.setTaxista(null);
+            encomenda.setTaxistaColeta(null);
         }
+
+        if (dto.taxistaEntregaId() != null) {
+            Taxista taxistaEntrega = taxistaRepository.findById(dto.taxistaEntregaId())
+                    .orElseThrow(() -> new EntityNotFoundException("Taxista de Entrega não encontrado!"));
+            encomenda.setTaxistaEntrega(taxistaEntrega);
+        } else {
+            encomenda.setTaxistaEntrega(null);
+        }
+        // --- FIM DA MUDANÇA ---
 
         if (dto.comisseiroId() != null) {
             Comisseiro comisseiro = comisseiroRepository.findById(dto.comisseiroId())
@@ -138,7 +148,7 @@ public class EncomendaService {
         return Optional.of(convertToDto(encomendaSalva));
     }
 
-    // Método de conversão
+    // Método de conversão (Mantido)
     private EncomendaResponseDto convertToDto(Encomenda e) {
         return new EncomendaResponseDto(e);
     }

@@ -2,16 +2,17 @@ import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Button } from './ui/button';
 import { Edit, Trash2, Briefcase, DollarSign } from 'lucide-react';
-// ✅ 1. IMPORTE CARD E ACCORDION
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 
-// ... (Interfaces, formatAddress, formatCurrency - SEM ALTERAÇÃO) ...
+// --- Interfaces ---
 interface Person { id: number; nome: string; cpf: string; telefone?: string | null; }
 interface Address { id: number; logradouro: string; numero: string; bairro: string; cidade: string; }
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
 interface Trip { id: number; }
+
+// --- MUDANÇA: Interface de dados atualizada ---
 interface PassengerData {
   id: number;
   pessoa: Person;
@@ -19,13 +20,17 @@ interface PassengerData {
   enderecoColeta: Address;
   enderecoEntrega: Address;
   luggageCount: number;
-  taxista?: Affiliate;
+  // taxista?: Affiliate; // <-- REMOVIDO
+  taxistaColeta?: Affiliate; // <-- ADICIONADO
+  taxistaEntrega?: Affiliate; // <-- ADICIONADO
   comisseiro?: Affiliate;
   valor?: number;
   metodoPagamento?: string;
   pago?: boolean;
   numeroAssento?: string;
 }
+// --- FIM DA MUDANÇA ---
+
 const formatAddress = (addr: Address) => {
   if (!addr) return 'Endereço inválido';
   return `${addr.logradouro}, ${addr.numero} - ${addr.bairro}, ${addr.cidade}`;
@@ -57,14 +62,12 @@ export default function PassengerTable({
   
   const colSpan = isPrintView ? 7 : 8;
 
-  // ✅ 2. RETORNO AGORA USA UM FRAGMENTO <>...</>
   return (
     <>
       {/* --- TABELA (DESKTOP) --- */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 pt-print-clean hidden md:block">
         <Table>
           <TableHeader>
-            {/* ... (Header da Tabela - SEM ALTERAÇÃO) ... */}
             <TableRow>
               <TableHead className="pt-print-col-passageiro">Passageiro</TableHead>
               <TableHead className="pt-print-col-endereco">Coleta / Entrega</TableHead>
@@ -77,7 +80,6 @@ export default function PassengerTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {/* ... (Lógica de loading/empty/map da Tabela - SEM ALTERAÇÃO) ... */}
             {loading ? (
               <TableRow><TableCell colSpan={colSpan} className="text-center text-muted-foreground py-8">Buscando dados...</TableCell></TableRow>
             ) : !passengers || passengers.length === 0 ? (
@@ -94,10 +96,15 @@ export default function PassengerTable({
                     <div className="text-xs"><b>C:</b> {formatAddress(passenger.enderecoColeta)}</div>
                     <div className="text-xs"><b>E:</b> {formatAddress(passenger.enderecoEntrega)}</div>
                   </TableCell>
+                  
+                  {/* --- MUDANÇA: Célula de Afiliados --- */}
                   <TableCell className="pt-print-col-afiliado">
-                    <div className="text-xs"><b>T:</b> {passenger.taxista?.pessoa.nome || '-'}</div>
+                    <div className="text-xs"><b>T(Coleta):</b> {passenger.taxistaColeta?.pessoa.nome || '-'}</div>
+                    <div className="text-xs"><b>T(Entrega):</b> {passenger.taxistaEntrega?.pessoa.nome || '-'}</div>
                     <div className="text-xs"><b>C:</b> {passenger.comisseiro?.pessoa.nome || '-'}</div>
                   </TableCell>
+                  {/* --- FIM DA MUDANÇA --- */}
+
                   <TableCell className="pt-print-col-valor">{formatCurrency(passenger.valor)}</TableCell>
                   <TableCell className="pt-print-col-status">
                     {passenger.pago ? (
@@ -110,7 +117,6 @@ export default function PassengerTable({
                   <TableCell className="pt-print-col-bagagem">{passenger.luggageCount} items</TableCell>
                   {!isPrintView && (
                     <TableCell className="text-right pt-no-print">
-                      {/* ... (Botões da Tabela - SEM ALTERAÇÃO) ... */}
                       <div className="flex items-center justify-end gap-1">
                         {!passenger.pago && (
                           <Button variant="ghost" size="icon" onClick={() => onMarkAsPaid?.(passenger.id)} className="hover:bg-green-100 hover:text-green-800">
@@ -136,7 +142,7 @@ export default function PassengerTable({
         </Table>
       </div>
 
-      {/* ✅ 3. CARDS (MOBILE) */}
+      {/* --- CARDS (MOBILE) --- */}
       <div className="block md:hidden space-y-4">
         {loading ? (
           <div className="text-center text-muted-foreground p-4">Buscando dados...</div>
@@ -166,7 +172,6 @@ export default function PassengerTable({
                   <p>{passenger.pessoa.telefone || '-'}</p>
                 </div>
 
-                {/* --- ACORDEÃO PARA DADOS SECUNDÁRIOS --- */}
                 <Accordion type="single" collapsible className="w-full">
                   <AccordionItem value="details" className="border-b-0">
                     <AccordionTrigger className="text-sm py-2 hover:no-underline">
@@ -189,10 +194,15 @@ export default function PassengerTable({
                         <p className="font-medium text-muted-foreground">End. Entrega:</p>
                         <p className="text-xs">{formatAddress(passenger.enderecoEntrega)}</p>
                       </div>
+                      
+                      {/* --- MUDANÇA: Card de Afiliados --- */}
                       <div className="text-xs border-t pt-2">
-                        <p><b>Taxista:</b> {passenger.taxista?.pessoa.nome || '-'}</p>
+                        <p><b>T(Coleta):</b> {passenger.taxistaColeta?.pessoa.nome || '-'}</p>
+                        <p><b>T(Entrega):</b> {passenger.taxistaEntrega?.pessoa.nome || '-'}</p>
                         <p><b>Comisseiro:</b> {passenger.comisseiro?.pessoa.nome || '-'}</p>
                       </div>
+                      {/* --- FIM DA MUDANÇA --- */}
+
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>

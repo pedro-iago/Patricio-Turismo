@@ -13,7 +13,13 @@ public record PassengerResponseDto(
         PessoaDto pessoa,
         EnderecoDto enderecoColeta,
         EnderecoDto enderecoEntrega,
-        AffiliateResponseDto taxista,
+
+        // --- MUDANÇA AQUI ---
+        // AffiliateResponseDto taxista, // <-- REMOVIDO
+        AffiliateResponseDto taxistaColeta, // <-- ADICIONADO
+        AffiliateResponseDto taxistaEntrega, // <-- ADICIONADO
+        // --- FIM DA MUDANÇA ---
+
         AffiliateResponseDto comisseiro,
         BigDecimal valor,
         String metodoPagamento,
@@ -28,7 +34,12 @@ public record PassengerResponseDto(
                 new PessoaDto(pv.getPessoa()),
                 new EnderecoDto(pv.getEnderecoColeta()),
                 new EnderecoDto(pv.getEnderecoEntrega()),
-                pv.getTaxista() != null ? new AffiliateResponseDto(pv.getTaxista()) : null,
+
+                // --- MUDANÇA AQUI (Usa os novos getters da Entidade) ---
+                pv.getTaxistaColeta() != null ? new AffiliateResponseDto(pv.getTaxistaColeta()) : null,
+                pv.getTaxistaEntrega() != null ? new AffiliateResponseDto(pv.getTaxistaEntrega()) : null,
+                // --- FIM DA MUDANÇA ---
+
                 pv.getComisseiro() != null ? new AffiliateResponseDto(pv.getComisseiro()) : null,
                 pv.getValor(),
                 pv.getMetodoPagamento(),

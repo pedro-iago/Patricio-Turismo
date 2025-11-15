@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from './ui/checkbox';
 import api from '../services/api';
 
-// --- IMPORTS ADICIONADOS (Para Popovers de Afiliados) ---
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from './ui/utils';
 import {
@@ -24,13 +23,12 @@ import {
   PopoverTrigger,
 } from './ui/popover';
 
-// --- IMPORTS NOVOS (Para Busca Inteligente) ---
 import { PessoaSearchCombobox } from './PessoaSearchCombobox';
 import { AddressSearchCombobox } from './AddressSearchCombobox';
 import PersonModal from './PersonModal';
 import AddressModal from './AddressModal';
 
-// --- Interfaces (Definidas para DTOs) ---
+// --- Interfaces ---
 interface PersonDto {
   id: number;
   nome: string;
@@ -64,7 +62,7 @@ interface AddressSaveDto {
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
 
-// Interface dos dados recebidos (quando editando)
+// --- MUDANÇA: Interface de dados recebidos (edição) ---
 interface PackageData {
   id: number;
   descricao: string;
@@ -72,28 +70,31 @@ interface PackageData {
   destinatario: PersonDto;
   enderecoColeta: AddressDto;
   enderecoEntrega: AddressDto;
-  taxista?: Affiliate;
+  // taxista?: Affiliate; // <-- REMOVIDO
+  taxistaColeta?: Affiliate; // <-- ADICIONADO
+  taxistaEntrega?: Affiliate; // <-- ADICIONADO
   comisseiro?: Affiliate;
   valor?: number;
   metodoPagamento?: string;
   pago?: boolean;
 }
 
-// Interface do DTO que o backend espera
+// --- MUDANÇA: Interface do DTO de salvamento ---
 interface PackageSaveDto {
   descricao: string;
   remetenteId: number;
   destinatarioId: number;
   enderecoColetaId: number;
   enderecoEntregaId: number;
-  taxistaId?: number;
+  // taxistaId?: number; // <-- REMOVIDO
+  taxistaColetaId?: number; // <-- ADICIONADO
+  taxistaEntregaId?: number; // <-- ADICIONADO
   comisseiroId?: number;
   valor?: number;
   metodoPagamento?: string;
   pago?: boolean;
 }
 
-// --- INTERFACE NOVA (Paginação) ---
 interface Page<T> {
   content: T[];
   totalPages: number;
@@ -107,14 +108,16 @@ interface PackageModalProps {
   package: PackageData | null;
 }
 
-// Estado inicial limpo
+// --- MUDANÇA: Estado inicial limpo ---
 const initialFormData = {
   description: '',
   senderId: null as number | null,
   recipientId: null as number | null,
   pickupAddressId: null as number | null,
   deliveryAddressId: null as number | null,
-  taxistaId: '',
+  // taxistaId: '', // <-- REMOVIDO
+  taxistaColetaId: '', // <-- ADICIONADO
+  taxistaEntregaId: '', // <-- ADICIONADO
   comisseiroId: '',
   valor: '',
   metodoPagamento: '',
@@ -124,36 +127,34 @@ const initialFormData = {
 export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: PackageModalProps) {
   const [formData, setFormData] = useState(initialFormData);
 
-  // --- Listas de dados (Apenas Afiliados) ---
   const [taxistas, setTaxistas] = useState<Affiliate[]>([]);
   const [comisseiros, setComisseiros] = useState<Affiliate[]>([]);
   const [loadingAffiliates, setLoadingAffiliates] = useState(false);
 
-  // --- Controles de Popover (Apenas Afiliados) ---
-  const [openTaxistaPopover, setOpenTaxistaPopover] = useState(false);
+  // --- MUDANÇA: Popovers de Taxista ---
+  const [openTaxistaColetaPopover, setOpenTaxistaColetaPopover] = useState(false);
+  const [openTaxistaEntregaPopover, setOpenTaxistaEntregaPopover] = useState(false);
+  // --- FIM DA MUDANÇA ---
   const [openComisseiroPopover, setOpenComisseiroPopover] = useState(false);
 
-  // --- Estados dos Modais Internos ---
   const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-  // Alvos para saber qual campo atualizar
   const [personModalTarget, setPersonModalTarget] = useState<'senderId' | 'recipientId' | null>(null);
   const [addressModalTarget, setAddressModalTarget] = useState<'pickupAddressId' | 'deliveryAddressId' | null>(null);
 
 
-  // Busca (apenas) afiliados quando o modal abre
+  // Busca (apenas) afiliados quando o modal abre (Sem alteração)
   useEffect(() => {
     if (isOpen) {
       const fetchAffiliates = async () => {
         setLoadingAffiliates(true);
         try {
-          // --- CHAMADAS CORRIGIDAS (já usavam /api) ---
           const [taxistasRes, comisseirosRes] = await Promise.all([
-            api.get<Page<Affiliate>>('/api/v1/affiliates/taxistas?size=100'), // Pega todos
-            api.get<Page<Affiliate>>('/api/v1/affiliates/comisseiros?size=100') // Pega todos
+            api.get<Page<Affiliate>>('/api/v1/affiliates/taxistas?size=100'),
+            api.get<Page<Affiliate>>('/api/v1/affiliates/comisseiros?size=100')
           ]);
-          setTaxistas(taxistasRes.data.content); // Paginação
-          setComisseiros(comisseirosRes.data.content); // Paginação
+          setTaxistas(taxistasRes.data.content);
+          setComisseiros(comisseirosRes.data.content);
         } catch (error) {
           console.error("Erro ao buscar afiliados:", error);
         }
@@ -163,7 +164,7 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
     }
   }, [isOpen]);
 
-  // Popula o formulário se estiver editando (pkg)
+  // --- MUDANÇA: Popula o formulário para edição ---
   useEffect(() => {
     if (pkg && isOpen) {
       setFormData({
@@ -172,7 +173,9 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
         recipientId: pkg.destinatario?.id || null,
         pickupAddressId: pkg.enderecoColeta?.id || null,
         deliveryAddressId: pkg.enderecoEntrega?.id || null,
-        taxistaId: pkg.taxista?.id?.toString() || '',
+        // taxistaId: pkg.taxista?.id?.toString() || '', // <-- REMOVIDO
+        taxistaColetaId: pkg.taxistaColeta?.id?.toString() || '', // <-- ADICIONADO
+        taxistaEntregaId: pkg.taxistaEntrega?.id?.toString() || '', // <-- ADICIONADO
         comisseiroId: pkg.comisseiro?.id?.toString() || '',
         valor: pkg.valor?.toString() || '',
         metodoPagamento: pkg.metodoPagamento || '',
@@ -183,18 +186,14 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
     }
   }, [pkg, isOpen]);
 
-  // --- Handlers para os Modais Internos (Pessoa e Endereço) ---
-
+  // Handlers para os Modais Internos (Sem alteração)
   const handleSaveNewPessoa = async (personDto: PersonSaveDto) => {
     try {
-      // --- CAMINHO CORRIGIDO ---
       const response = await api.post<PersonDto>('/api/pessoa', personDto);
       const newPerson = response.data;
-
       if (personModalTarget) {
         setFormData(prev => ({ ...prev, [personModalTarget]: newPerson.id }));
       }
-      
       setIsPersonModalOpen(false);
       setPersonModalTarget(null);
     } catch (error) {
@@ -205,14 +204,11 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
 
   const handleSaveNewEndereco = async (addressDto: AddressSaveDto) => {
     try {
-      // --- CAMINHO CORRIGIDO ---
       const response = await api.post<AddressDto>('/api/endereco', addressDto);
       const newAddress = response.data;
-
       if (addressModalTarget) {
         setFormData(prev => ({ ...prev, [addressModalTarget]: newAddress.id }));
       }
-      
       setIsAddressModalOpen(false); 
       setAddressModalTarget(null); 
     } catch (error) {
@@ -221,7 +217,7 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
     }
   };
 
-  // --- Handler Principal (Submit) ---
+  // --- MUDANÇA: Handler Principal (Submit) ---
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
      if (!formData.senderId || !formData.recipientId || !formData.pickupAddressId || !formData.deliveryAddressId) {
@@ -234,7 +230,9 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
       destinatarioId: Number(formData.recipientId),
       enderecoColetaId: Number(formData.pickupAddressId),
       enderecoEntregaId: Number(formData.deliveryAddressId),
-      taxistaId: formData.taxistaId ? Number(formData.taxistaId) : undefined,
+      // taxistaId: formData.taxistaId ? Number(formData.taxistaId) : undefined, // <-- REMOVIDO
+      taxistaColetaId: formData.taxistaColetaId ? Number(formData.taxistaColetaId) : undefined, // <-- ADICIONADO
+      taxistaEntregaId: formData.taxistaEntregaId ? Number(formData.taxistaEntregaId) : undefined, // <-- ADICIONADO
       comisseiroId: formData.comisseiroId ? Number(formData.comisseiroId) : undefined,
       valor: formData.valor ? parseFloat(formData.valor) : undefined,
       metodoPagamento: formData.metodoPagamento || undefined,
@@ -242,8 +240,9 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
     });
   };
 
-  // Funções auxiliares (apenas para afiliados)
-  const getSelectedTaxistaName = () => taxistas.find(t => t.id.toString() === formData.taxistaId)?.pessoa.nome;
+  // --- MUDANÇA: Funções auxiliares para afiliados ---
+  const getSelectedTaxistaColetaName = () => taxistas.find(t => t.id.toString() === formData.taxistaColetaId)?.pessoa.nome;
+  const getSelectedTaxistaEntregaName = () => taxistas.find(t => t.id.toString() === formData.taxistaEntregaId)?.pessoa.nome;
   const getSelectedComisseiroName = () => comisseiros.find(c => c.id.toString() === formData.comisseiroId)?.pessoa.nome;
   
   const getAffiliatePlaceholder = () => {
@@ -274,9 +273,8 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
               />
             </div>
 
-            {/* --- DIV ALTERADA --- */}
+            {/* Comboboxes de Pessoa (Sem alteração) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* --- Combobox Remetente (Refatorado) --- */}
               <div className="space-y-2">
                 <Label htmlFor="sender">Remetente (Obrigatório)</Label>
                 <PessoaSearchCombobox
@@ -289,8 +287,6 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                   onClear={() => setFormData({ ...formData, senderId: null })}
                 />
               </div>
-
-              {/* --- Combobox Destinatário (Refatorado) --- */}
               <div className="space-y-2">
                 <Label htmlFor="recipient">Destinatário (Obrigatório)</Label>
                 <PessoaSearchCombobox
@@ -305,7 +301,7 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
               </div>
             </div>
 
-            {/* --- Combobox Endereço Coleta (Refatorado) --- */}
+            {/* Comboboxes de Endereço (Sem alteração) */}
             <div className="space-y-2">
               <Label htmlFor="pickup">Endereço de Coleta (Obrigatório)</Label>
               <AddressSearchCombobox
@@ -319,8 +315,6 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                 onClear={() => setFormData({ ...formData, pickupAddressId: null })}
               />
             </div>
-
-            {/* --- Combobox Endereço Entrega (Refatorado) --- */}
             <div className="space-y-2">
               <Label htmlFor="delivery">Endereço de Entrega (Obrigatório)</Label>
               <AddressSearchCombobox
@@ -337,15 +331,15 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
             
             <hr className="my-4" />
 
-            {/* --- Campos de Afiliados e Pagamento (Mantidos como estavam) --- */}
-            
+            {/* --- MUDANÇA: Campos de Afiliados --- */}
             <div className="grid grid-cols-2 gap-4">
+              {/* Combobox de Taxista (Coleta) */}
               <div className="space-y-2">
-                <Label htmlFor="taxista">Taxista (Opcional)</Label>
-                <Popover open={openTaxistaPopover} onOpenChange={setOpenTaxistaPopover}>
+                <Label htmlFor="taxistaColeta">Taxista (Coleta)</Label>
+                <Popover open={openTaxistaColetaPopover} onOpenChange={setOpenTaxistaColetaPopover} modal={true}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                      {formData.taxistaId ? getSelectedTaxistaName() : getAffiliatePlaceholder()}
+                      {formData.taxistaColetaId ? getSelectedTaxistaColetaName() : getAffiliatePlaceholder()}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -357,10 +351,10 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                         <CommandGroup>
                           {taxistas.map((taxista) => (
                             <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
-                                setFormData({ ...formData, taxistaId: taxista.id.toString() });
-                                setOpenTaxistaPopover(false);
+                                setFormData({ ...formData, taxistaColetaId: taxista.id.toString() });
+                                setOpenTaxistaColetaPopover(false);
                             }}>
-                              <Check className={cn("mr-2 h-4 w-4", formData.taxistaId === taxista.id.toString() ? "opacity-100" : "opacity-0")} />
+                              <Check className={cn("mr-2 h-4 w-4", formData.taxistaColetaId === taxista.id.toString() ? "opacity-100" : "opacity-0")} />
                               {taxista.pessoa.nome}
                             </CommandItem>
                           ))}
@@ -371,28 +365,29 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                 </Popover>
               </div>
 
+              {/* Combobox de Taxista (Entrega) */}
               <div className="space-y-2">
-                <Label htmlFor="comisseiro">Comisseiro (Opcional)</Label>
-                <Popover open={openComisseiroPopover} onOpenChange={setOpenComisseiroPopover}>
+                <Label htmlFor="taxistaEntrega">Taxista (Entrega)</Label>
+                <Popover open={openTaxistaEntregaPopover} onOpenChange={setOpenTaxistaEntregaPopover} modal={true}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                      {formData.comisseiroId ? getSelectedComisseiroName() : getAffiliatePlaceholder()}
+                      {formData.taxistaEntregaId ? getSelectedTaxistaEntregaName() : getAffiliatePlaceholder()}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
                     <Command>
-                      <CommandInput placeholder="Pesquisar comisseiro..." />
+                      <CommandInput placeholder="Pesquisar taxista..." />
                       <CommandList>
-                        <CommandEmpty>Nenhum comisseiro encontrado.</CommandEmpty>
+                        <CommandEmpty>Nenhum taxista encontrado.</CommandEmpty>
                         <CommandGroup>
-                          {comisseiros.map((comisseiro) => (
-                            <CommandItem key={comisseiro.id} value={comisseiro.pessoa.nome} onSelect={() => {
-                                setFormData({ ...formData, comisseiroId: comisseiro.id.toString() });
-                                setOpenComisseiroPopover(false);
+                          {taxistas.map((taxista) => (
+                            <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
+                                setFormData({ ...formData, taxistaEntregaId: taxista.id.toString() });
+                                setOpenTaxistaEntregaPopover(false);
                             }}>
-                              <Check className={cn("mr-2 h-4 w-4", formData.comisseiroId === comisseiro.id.toString() ? "opacity-100" : "opacity-0")} />
-                              {comisseiro.pessoa.nome}
+                              <Check className={cn("mr-2 h-4 w-4", formData.taxistaEntregaId === taxista.id.toString() ? "opacity-100" : "opacity-0")} />
+                              {taxista.pessoa.nome}
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -402,7 +397,41 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                 </Popover>
               </div>
             </div>
+
+            {/* Combobox de Comisseiro (Opcional) */}
+            <div className="space-y-2">
+              <Label htmlFor="comisseiro">Comisseiro (Opcional)</Label>
+              <Popover open={openComisseiroPopover} onOpenChange={setOpenComisseiroPopover} modal={true}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {formData.comisseiroId ? getSelectedComisseiroName() : getAffiliatePlaceholder()}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
+                  <Command>
+                    <CommandInput placeholder="Pesquisar comisseiro..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhum comisseiro encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {comisseiros.map((comisseiro) => (
+                          <CommandItem key={comisseiro.id} value={comisseiro.pessoa.nome} onSelect={() => {
+                              setFormData({ ...formData, comisseiroId: comisseiro.id.toString() });
+                              setOpenComisseiroPopover(false);
+                          }}>
+                            <Check className={cn("mr-2 h-4 w-4", formData.comisseiroId === comisseiro.id.toString() ? "opacity-100" : "opacity-0")} />
+                            {comisseiro.pessoa.nome}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            {/* --- FIM DA MUDANÇA --- */}
             
+            {/* Campos de Pagamento (Sem alteração) */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="valor">Valor (R$)</Label>

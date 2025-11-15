@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from './ui/checkbox';
 import api from '../services/api';
 
-// --- IMPORTS ADICIONADOS (Para Popovers de Afiliados) ---
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from './ui/utils';
 import {
@@ -24,11 +23,10 @@ import {
   PopoverTrigger,
 } from './ui/popover'; 
 
-// --- IMPORTS NOVOS (Para Busca Inteligente) ---
 import { PessoaSearchCombobox } from './PessoaSearchCombobox';
 import { AddressSearchCombobox } from './AddressSearchCombobox';
-import PersonModal from './PersonModal'; // Para cadastrar novo
-import AddressModal from './AddressModal'; // Para cadastrar novo
+import PersonModal from './PersonModal';
+import AddressModal from './AddressModal';
 
 // --- Interfaces ---
 interface Person {
@@ -36,7 +34,6 @@ interface Person {
   nome: string;
   cpf: string;
 }
-// --- INTERFACES NOVAS (Para os modais internos) ---
 interface PersonSaveDto {
   nome: string;
   cpf: string;
@@ -63,23 +60,29 @@ interface Address {
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
 
+// --- MUDANÇA: Interface de dados recebidos (edição) ---
 interface PassengerData {
   id: number;
   pessoa: Person; 
   enderecoColeta: Address;
   enderecoEntrega: Address;
-  taxista?: Affiliate;
+  // taxista?: Affiliate; // <-- REMOVIDO
+  taxistaColeta?: Affiliate; // <-- ADICIONADO
+  taxistaEntrega?: Affiliate; // <-- ADICIONADO
   comisseiro?: Affiliate;
   valor?: number;
   metodoPagamento?: string;
   pago?: boolean;
 }
 
+// --- MUDANÇA: Interface do DTO de salvamento ---
 interface PassengerSaveDto {
   pessoaId: number;
   enderecoColetaId: number;
   enderecoEntregaId: number;
-  taxistaId?: number;
+  // taxistaId?: number; // <-- REMOVIDO
+  taxistaColetaId?: number; // <-- ADICIONADO
+  taxistaEntregaId?: number; // <-- ADICIONADO
   comisseiroId?: number;
   valor?: number;
   metodoPagamento?: string;
@@ -93,17 +96,18 @@ interface PassengerModalProps {
   passenger: PassengerData | null;
 }
 
-// Interface de Paginação
 interface Page<T> {
   content: T[];
 }
 
-// Estado inicial limpo
+// --- MUDANÇA: Estado inicial limpo ---
 const initialFormData = {
   personId: null as number | null,
   pickupAddressId: null as number | null,
   dropoffAddressId: null as number | null,
-  taxistaId: '',
+  // taxistaId: '', // <-- REMOVIDO
+  taxistaColetaId: '', // <-- ADICIONADO
+  taxistaEntregaId: '', // <-- ADICIONADO
   comisseiroId: '',
   valor: '',
   metodoPagamento: '',
@@ -113,22 +117,22 @@ const initialFormData = {
 export default function PassengerModal({ isOpen, onClose, onSave, passenger }: PassengerModalProps) {
   const [formData, setFormData] = useState(initialFormData);
 
-  // --- LÓGICA ANTIGA REMOVIDA (people, addresses) ---
   const [taxistas, setTaxistas] = useState<Affiliate[]>([]);
   const [comisseiros, setComisseiros] = useState<Affiliate[]>([]);
   
   const [loadingAffiliates, setLoadingAffiliates] = useState(false);
 
-  // --- POPOVERS ANTIGOS REMOVIDOS (person, pickup, dropoff) ---
-  const [openTaxistaPopover, setOpenTaxistaPopover] = useState(false);
+  // --- MUDANÇA: Popovers de Taxista ---
+  const [openTaxistaColetaPopover, setOpenTaxistaColetaPopover] = useState(false);
+  const [openTaxistaEntregaPopover, setOpenTaxistaEntregaPopover] = useState(false);
+  // --- FIM DA MUDANÇA ---
   const [openComisseiroPopover, setOpenComisseiroPopover] = useState(false);
 
-  // --- Estados dos Modais Internos ---
   const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [addressModalTarget, setAddressModalTarget] = useState<'pickupAddressId' | 'dropoffAddressId' | null>(null);
 
-  // Busca (apenas) afiliados quando o modal abre
+  // Busca (apenas) afiliados quando o modal abre (Sem alteração)
   useEffect(() => {
     if (isOpen) {
       const fetchAffiliates = async () => {
@@ -149,14 +153,16 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
     }
   }, [isOpen]);
 
-  // Popula o formulário quando 'passenger' (para edição) ou 'isOpen' muda
+  // --- MUDANÇA: Popula o formulário para edição ---
   useEffect(() => {
     if (passenger && isOpen) {
       setFormData({
         personId: passenger.pessoa?.id || null, 
         pickupAddressId: passenger.enderecoColeta?.id || null, 
         dropoffAddressId: passenger.enderecoEntrega?.id || null,
-        taxistaId: passenger.taxista?.id?.toString() || '',
+        // taxistaId: passenger.taxista?.id?.toString() || '', // <-- REMOVIDO
+        taxistaColetaId: passenger.taxistaColeta?.id?.toString() || '', // <-- ADICIONADO
+        taxistaEntregaId: passenger.taxistaEntrega?.id?.toString() || '', // <-- ADICIONADO
         comisseiroId: passenger.comisseiro?.id?.toString() || '',
         valor: passenger.valor?.toString() || '',
         metodoPagamento: passenger.metodoPagamento || '',
@@ -167,6 +173,7 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
     }
   }, [passenger, isOpen]);
 
+  // --- MUDANÇA: Handler de Submit ---
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.personId || !formData.pickupAddressId || !formData.dropoffAddressId) {
@@ -177,7 +184,9 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
       pessoaId: Number(formData.personId),
       enderecoColetaId: Number(formData.pickupAddressId),
       enderecoEntregaId: Number(formData.dropoffAddressId),
-      taxistaId: formData.taxistaId ? parseInt(formData.taxistaId) : undefined,
+      // taxistaId: formData.taxistaId ? parseInt(formData.taxistaId) : undefined, // <-- REMOVIDO
+      taxistaColetaId: formData.taxistaColetaId ? parseInt(formData.taxistaColetaId) : undefined, // <-- ADICIONADO
+      taxistaEntregaId: formData.taxistaEntregaId ? parseInt(formData.taxistaEntregaId) : undefined, // <-- ADICIONADO
       comisseiroId: formData.comisseiroId ? parseInt(formData.comisseiroId) : undefined,
       valor: formData.valor ? parseFloat(formData.valor) : undefined,
       metodoPagamento: formData.metodoPagamento || undefined,
@@ -185,12 +194,11 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
     });
   };
 
-  // --- Handlers para os Modais Internos (Pessoa e Endereço) ---
+  // Handlers para os Modais Internos (Sem alteração)
   const handleSaveNewPessoa = async (personDto: PersonSaveDto) => {
     try {
       const response = await api.post<Person>('/api/pessoa', personDto);
       const newPerson = response.data;
-      // Atualiza o campo de Pessoa (único alvo)
       setFormData(prev => ({ ...prev, personId: newPerson.id }));
       setIsPersonModalOpen(false);
     } catch (error) {
@@ -203,7 +211,6 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
     try {
       const response = await api.post<Address>('/api/endereco', addressDto);
       const newAddress = response.data;
-      // Atualiza o campo de endereço correto (coleta ou entrega)
       if (addressModalTarget) {
         setFormData(prev => ({ ...prev, [addressModalTarget]: newAddress.id }));
       }
@@ -215,8 +222,9 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
     }
   };
 
-  // Funções auxiliares para afiliados
-  const getSelectedTaxistaName = () => taxistas.find(t => t.id.toString() === formData.taxistaId)?.pessoa.nome;
+  // --- MUDANÇA: Funções auxiliares para afiliados ---
+  const getSelectedTaxistaColetaName = () => taxistas.find(t => t.id.toString() === formData.taxistaColetaId)?.pessoa.nome;
+  const getSelectedTaxistaEntregaName = () => taxistas.find(t => t.id.toString() === formData.taxistaEntregaId)?.pessoa.nome;
   const getSelectedComisseiroName = () => comisseiros.find(c => c.id.toString() === formData.comisseiroId)?.pessoa.nome;
   const getAffiliatePlaceholder = () => loadingAffiliates ? "Carregando..." : "Selecione...";
 
@@ -232,7 +240,7 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
 
-            {/* ✅ Combobox de Pessoas (Refatorado) */}
+            {/* Combobox de Pessoas (Sem alteração) */}
             <div className="space-y-2">
               <Label htmlFor="person">Passageiro (Obrigatório)</Label>
               <PessoaSearchCombobox
@@ -243,7 +251,7 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
               />
             </div>
 
-            {/* ✅ Combobox de Endereço de Coleta (Refatorado) */}
+            {/* Combobox de Endereço de Coleta (Sem alteração) */}
             <div className="space-y-2">
               <Label htmlFor="pickup">Endereço de Coleta (Obrigatório)</Label>
               <AddressSearchCombobox
@@ -258,7 +266,7 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
               />
             </div>
 
-            {/* ✅ Combobox de Endereço de Entrega (Refatorado) */}
+            {/* Combobox de Endereço de Entrega (Sem alteração) */}
             <div className="space-y-2">
               <Label htmlFor="dropoff">Endereço de Entrega (Obrigatório)</Label>
               <AddressSearchCombobox
@@ -275,16 +283,15 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
             
             <hr className="my-4" />
 
-            {/* Campos de Afiliados (Lógica antiga mantida, pois funciona) */}
+            {/* --- MUDANÇA: Campos de Afiliados --- */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Combobox de Taxista (Opcional) */}
+              {/* Combobox de Taxista (Coleta) */}
               <div className="space-y-2">
-                <Label htmlFor="taxista">Taxista (Opcional)</Label>
-                {/* ===== CORREÇÃO AQUI ===== */}
-                <Popover open={openTaxistaPopover} onOpenChange={setOpenTaxistaPopover} modal={true}>
+                <Label htmlFor="taxistaColeta">Taxista (Coleta)</Label>
+                <Popover open={openTaxistaColetaPopover} onOpenChange={setOpenTaxistaColetaPopover} modal={true}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                      {formData.taxistaId ? getSelectedTaxistaName() : getAffiliatePlaceholder()}
+                      {formData.taxistaColetaId ? getSelectedTaxistaColetaName() : getAffiliatePlaceholder()}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -296,10 +303,10 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
                         <CommandGroup>
                           {taxistas.map((taxista) => (
                             <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
-                                setFormData({ ...formData, taxistaId: taxista.id.toString() });
-                                setOpenTaxistaPopover(false);
+                                setFormData({ ...formData, taxistaColetaId: taxista.id.toString() });
+                                setOpenTaxistaColetaPopover(false);
                             }}>
-                              <Check className={cn("mr-2 h-4 w-4", formData.taxistaId === taxista.id.toString() ? "opacity-100" : "opacity-0")} />
+                              <Check className={cn("mr-2 h-4 w-4", formData.taxistaColetaId === taxista.id.toString() ? "opacity-100" : "opacity-0")} />
                               {taxista.pessoa.nome}
                             </CommandItem>
                           ))}
@@ -310,30 +317,29 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
                 </Popover>
               </div>
 
-              {/* Combobox de Comisseiro (Opcional) */}
+              {/* Combobox de Taxista (Entrega) */}
               <div className="space-y-2">
-                <Label htmlFor="comisseiro">Comisseiro (Opcional)</Label>
-                {/* ===== CORREÇÃO AQUI ===== */}
-                <Popover open={openComisseiroPopover} onOpenChange={setOpenComisseiroPopover} modal={true}>
+                <Label htmlFor="taxistaEntrega">Taxista (Entrega)</Label>
+                <Popover open={openTaxistaEntregaPopover} onOpenChange={setOpenTaxistaEntregaPopover} modal={true}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                      {formData.comisseiroId ? getSelectedComisseiroName() : getAffiliatePlaceholder()}
+                      {formData.taxistaEntregaId ? getSelectedTaxistaEntregaName() : getAffiliatePlaceholder()}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
                     <Command>
-                      <CommandInput placeholder="Pesquisar comisseiro..." />
+                      <CommandInput placeholder="Pesquisar taxista..." />
                       <CommandList>
-                        <CommandEmpty>Nenhum comisseiro encontrado.</CommandEmpty>
+                        <CommandEmpty>Nenhum taxista encontrado.</CommandEmpty>
                         <CommandGroup>
-                          {comisseiros.map((comisseiro) => (
-                            <CommandItem key={comisseiro.id} value={comisseiro.pessoa.nome} onSelect={() => {
-                                setFormData({ ...formData, comisseiroId: comisseiro.id.toString() });
-                                setOpenComisseiroPopover(false);
+                          {taxistas.map((taxista) => (
+                            <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
+                                setFormData({ ...formData, taxistaEntregaId: taxista.id.toString() });
+                                setOpenTaxistaEntregaPopover(false);
                             }}>
-                              <Check className={cn("mr-2 h-4 w-4", formData.comisseiroId === comisseiro.id.toString() ? "opacity-100" : "opacity-0")} />
-                              {comisseiro.pessoa.nome}
+                              <Check className={cn("mr-2 h-4 w-4", formData.taxistaEntregaId === taxista.id.toString() ? "opacity-100" : "opacity-0")} />
+                              {taxista.pessoa.nome}
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -343,8 +349,41 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
                 </Popover>
               </div>
             </div>
+            {/* --- FIM DA MUDANÇA --- */}
             
-            {/* Campos de Pagamento */}
+            {/* Combobox de Comisseiro (Opcional) */}
+            <div className="space-y-2">
+              <Label htmlFor="comisseiro">Comisseiro (Opcional)</Label>
+              <Popover open={openComisseiroPopover} onOpenChange={setOpenComisseiroPopover} modal={true}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {formData.comisseiroId ? getSelectedComisseiroName() : getAffiliatePlaceholder()}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
+                  <Command>
+                    <CommandInput placeholder="Pesquisar comisseiro..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhum comisseiro encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {comisseiros.map((comisseiro) => (
+                          <CommandItem key={comisseiro.id} value={comisseiro.pessoa.nome} onSelect={() => {
+                              setFormData({ ...formData, comisseiroId: comisseiro.id.toString() });
+                              setOpenComisseiroPopover(false);
+                          }}>
+                            <Check className={cn("mr-2 h-4 w-4", formData.comisseiroId === comisseiro.id.toString() ? "opacity-100" : "opacity-0")} />
+                            {comisseiro.pessoa.nome}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            {/* Campos de Pagamento (Sem alteração) */}
             <div className="grid grid-cols-2 gap-4">
                <div className="space-y-2">
                 <Label htmlFor="valor">Valor (R$)</Label>

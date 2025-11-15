@@ -11,7 +11,13 @@ public record PassengerSaveRequestDto(
         Long enderecoColetaId,
         Long enderecoEntregaId,
         Long viagemId,
-        Long taxistaId,
+
+        // --- MUDANÇA AQUI ---
+        // Long taxistaId, // <-- REMOVIDO
+        Long taxistaColetaId, // <-- ADICIONADO
+        Long taxistaEntregaId, // <-- ADICIONADO
+        // --- FIM DA MUDANÇA ---
+
         Long comisseiroId,
         BigDecimal valor,
         String metodoPagamento,

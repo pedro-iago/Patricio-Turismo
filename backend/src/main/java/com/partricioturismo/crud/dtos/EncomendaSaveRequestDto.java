@@ -12,7 +12,13 @@ public record EncomendaSaveRequestDto(
         Long enderecoColetaId,
         Long enderecoEntregaId,
         Long responsavelId,
-        Long taxistaId,
+
+        // --- MUDANÇA AQUI ---
+        // Long taxistaId, // <-- REMOVIDO
+        Long taxistaColetaId, // <-- ADICIONADO
+        Long taxistaEntregaId, // <-- ADICIONADO
+        // --- FIM DA MUDANÇA ---
+
         Long comisseiroId,
         BigDecimal valor,
         String metodoPagamento,

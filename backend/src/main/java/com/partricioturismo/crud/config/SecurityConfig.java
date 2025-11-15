@@ -41,11 +41,9 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    // CORREÇÃO: Usa o nome completo da propriedade que está no application.properties
     @Value("${spring.security.oauth2.resourceserver.jwt.public.key}")
     RSAPublicKey publicKey;
 
-    // Chave privada (agora definida no application.properties)
     @Value("${jwt.private.key}")
     RSAPrivateKey privateKey;
 
@@ -80,7 +78,6 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http, CookieAuthenticationFilter cookieAuthenticationFilter) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
-                        // ... (regras de /login, /assets, etc. continuam iguais) ...
                         .requestMatchers(HttpMethod.POST, "/login").permitAll()
                         .requestMatchers(
                                 "/", "/index.html", "/assets/**",
@@ -90,27 +87,16 @@ public class SecurityConfig {
                                 "/{path:[^\\.]*}",
                                 "/**/{path:(?!api|assets)[^\\.]*}"
                         ).permitAll()
-
-                        // --- REGRAS ESPECÍFICAS DA API ---
-
-                        // <<< MUDANÇA AQUI
-                        // Exige que o usuário tenha (pelo menos) a role "USER" para gerenciar afiliados
                         .requestMatchers("/api/v1/affiliates/**").hasRole("USER")
-
-                        // --- REGRA GERAL DA API ---
-                        // Garante que todo o resto da API também exija "USER"
                         .requestMatchers("/api/**").hasRole("USER")
-
                         .anyRequest().denyAll()
                 )
-                // ... (resto do arquivo: .csrf(), .sessionManagement(), etc.) ...
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .cors(Customizer.withDefaults())
+                .cors(Customizer.withDefaults()) // Esta linha já usa o seu 'corsConfigurationSource' por padrão
                 .addFilterBefore(cookieAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .logout(logout -> logout
                         .logoutUrl("/logout")
-                        // ... (resto do logout handler) ...
                         .logoutSuccessHandler((request, response, authentication) -> {
                             ResponseCookie cookie = ResponseCookie.from("authToken", "")
                                     .httpOnly(true)
@@ -131,21 +117,19 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // ****** ESTA É A ALTERAÇÃO FEITA ******
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "http://localhost:3001",
-                "https://patricio-turismo.onrender.com", // Domínio antigo (pode manter)
-                "https://patricioturismo.cloud" // SEU NOVO DOMÍNIO DE PRODUÇÃO
+                "https://patricio-turismo.onrender.com",
+                "https://patricioturismo.cloud"
         ));
-        // ***************************************
 
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        // --- MUDANÇA AQUI ---
+        // Adicionando "PATCH" à lista de métodos permitidos
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        // --- FIM DA MUDANÇA ---
 
-        // Inclui "Authorization", "Content-Type" e outros cabeçalhos necessários para CORS e Cookies
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept"));
-
-        // ESSENCIAL para o envio de cookies (como o authToken) e credenciais de autenticação
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
