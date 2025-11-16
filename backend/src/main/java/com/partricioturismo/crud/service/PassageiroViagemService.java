@@ -17,7 +17,6 @@ import java.util.stream.Collectors;
 @Service
 public class PassageiroViagemService {
 
-    // --- Suas Injeções (Mantidas) ---
     @Autowired private PassageiroViagemRepository repository;
     @Autowired private PessoaRepository pessoaRepository;
     @Autowired private ViagemRepository viagemRepository;
@@ -25,7 +24,9 @@ public class PassageiroViagemService {
     @Autowired private TaxistaRepository taxistaRepository;
     @Autowired private ComisseiroRepository comisseiroRepository;
     @Autowired private AssentoRepository assentoRepository;
+    @Autowired private BagagemRepository bagagemRepository;
 
+    // --- Método 'save' (Sem alterações) ---
     @Transactional
     public PassengerResponseDto save(PassengerSaveRequestDto dto) {
         Pessoa pessoa = pessoaRepository.findById(dto.pessoaId())
@@ -41,20 +42,15 @@ public class PassageiroViagemService {
         pv.setPessoa(pessoa); pv.setViagem(viagem); pv.setEnderecoColeta(endColeta); pv.setEnderecoEntrega(endEntrega);
         pv.setValor(dto.valor()); pv.setMetodoPagamento(dto.metodoPagamento()); pv.setPago(dto.pago() != null && dto.pago());
 
-        // --- MUDANÇA: LÓGICA DE TAXISTA ATUALIZADA ---
-        // if (dto.taxistaId() != null) { pv.setTaxista(taxistaRepository.findById(dto.taxistaId()).orElse(null)); } // <-- REMOVIDO
-
         if (dto.taxistaColetaId() != null) {
             pv.setTaxistaColeta(taxistaRepository.findById(dto.taxistaColetaId()).orElse(null));
         }
         if (dto.taxistaEntregaId() != null) {
             pv.setTaxistaEntrega(taxistaRepository.findById(dto.taxistaEntregaId()).orElse(null));
         }
-        // --- FIM DA MUDANÇA ---
 
         if (dto.comisseiroId() != null) { pv.setComisseiro(comisseiroRepository.findById(dto.comisseiroId()).orElse(null)); }
 
-        // --- LÓGICA DE VINCULAR ASSENTO (Mantida) ---
         if (dto.assentoId() != null) {
             Assento assento = assentoRepository.findById(dto.assentoId())
                     .orElseThrow(() -> new EntityNotFoundException("Assento não encontrado"));
@@ -74,6 +70,7 @@ public class PassageiroViagemService {
         return new PassengerResponseDto(pvSalvo);
     }
 
+    // --- Método 'update' (Sem alterações) ---
     @Transactional
     public Optional<PassengerResponseDto> update(Long id, PassengerSaveRequestDto dto) {
         Optional<PassageiroViagem> pvOptional = repository.findById(id);
@@ -106,9 +103,6 @@ public class PassageiroViagemService {
             pv.setEnderecoEntrega(endEntrega);
         }
 
-        // --- MUDANÇA: LÓGICA DE TAXISTA ATUALIZADA ---
-
-        // 4. Atualiza Taxista Coleta (permite nulo)
         if (dto.taxistaColetaId() == null) {
             pv.setTaxistaColeta(null);
         } else if (!Objects.equals(pv.getTaxistaColeta() != null ? pv.getTaxistaColeta().getId() : null, dto.taxistaColetaId())) {
@@ -117,7 +111,6 @@ public class PassageiroViagemService {
             pv.setTaxistaColeta(taxistaColeta);
         }
 
-        // 5. Atualiza Taxista Entrega (permite nulo)
         if (dto.taxistaEntregaId() == null) {
             pv.setTaxistaEntrega(null);
         } else if (!Objects.equals(pv.getTaxistaEntrega() != null ? pv.getTaxistaEntrega().getId() : null, dto.taxistaEntregaId())) {
@@ -126,7 +119,6 @@ public class PassageiroViagemService {
             pv.setTaxistaEntrega(taxistaEntrega);
         }
 
-        // 6. Atualiza Comisseiro (permite nulo)
         if (dto.comisseiroId() == null) {
             pv.setComisseiro(null);
         } else if (!Objects.equals(pv.getComisseiro() != null ? pv.getComisseiro().getId() : null, dto.comisseiroId())) {
@@ -134,18 +126,16 @@ public class PassageiroViagemService {
                     .orElseThrow(() -> new EntityNotFoundException("Comisseiro não encontrado com ID: " + dto.comisseiroId()));
             pv.setComisseiro(comisseiro);
         }
-        // --- FIM DA MUDANÇA ---
 
-
-        // --- LÓGICA DE ATUALIZAÇÃO DO ASSENTO (Mantida) ---
         Long idAssentoNovo = dto.assentoId();
 
         if (!Objects.equals(assentoAntigo != null ? assentoAntigo.getId() : null, idAssentoNovo)) {
 
             if (idAssentoNovo == null && assentoAntigo != null) {
                 assentoAntigo.setOcupado(false);
-                assentoRepository.save(assentoAntigo);
+                assentoAntigo.setPassageiroViagem(null); // <-- ADICIONADO TAMBÉM
                 pv.setAssento(null);
+                assentoRepository.save(assentoAntigo);
             }
             else if (idAssentoNovo != null) {
                 Assento assentoNovo = assentoRepository.findById(idAssentoNovo)
@@ -157,41 +147,60 @@ public class PassageiroViagemService {
 
                 if (assentoAntigo != null) {
                     assentoAntigo.setOcupado(false);
+                    assentoAntigo.setPassageiroViagem(null); // <-- ADICIONADO TAMBÉM
                     assentoRepository.save(assentoAntigo);
                 }
 
                 assentoNovo.setOcupado(true);
+                // assentoNovo.setPassageiroViagem(pv); // O 'pv' já é salvo com o link
                 pv.setAssento(assentoNovo);
-                assentoRepository.save(assentoNovo);
+                // assentoRepository.save(assentoNovo); // Desnecessário salvar o assento aqui, o save(pv) cuida
             }
         }
-        // --- FIM DA LÓGICA DO ASSENTO ---
 
         PassageiroViagem pvAtualizado = repository.save(pv);
+
+        // Se o assento novo foi setado, precisamos garantir que o link reverso seja salvo
+        // (o pv.setAssento() pode não ser suficiente para o 'mappedBy')
+        if (pv.getAssento() != null && pv.getAssento().getPassageiroViagem() == null) {
+            pv.getAssento().setPassageiroViagem(pvAtualizado);
+            assentoRepository.save(pv.getAssento());
+        }
+
         return Optional.of(new PassengerResponseDto(pvAtualizado));
     }
 
-    // --- Seu método 'delete' (Mantido) ---
+    // --- MUDANÇA: Método 'delete' corrigido ---
     @Transactional
     public boolean delete(Long id) {
         Optional<PassageiroViagem> pvOptional = repository.findById(id);
-        if (pvOptional.isEmpty()) { return false; }
+        if (pvOptional.isEmpty()) {
+            return false;
+        }
 
         PassageiroViagem pv = pvOptional.get();
         Assento assento = pv.getAssento();
 
+        // 1. Libera o assento E QUEBRA OS DOIS LADOS DO LINK
         if (assento != null) {
             assento.setOcupado(false);
+            assento.setPassageiroViagem(null); // <-- A CORREÇÃO ESTÁ AQUI
             pv.setAssento(null);
-            assentoRepository.save(assento);
+            assentoRepository.save(assento); // Salva a liberação do assento
         }
 
+        // 2. Remove as dependências (Bagagens)
+        List<Bagagem> bagagens = pv.getBagagens();
+        if (bagagens != null && !bagagens.isEmpty()) {
+            bagagemRepository.deleteAllInBatch(bagagens);
+            pv.getBagagens().clear();
+        }
+
+        // 3. Deleta o passageiro
         repository.delete(pv);
         return true;
     }
-
-    // --- MÉTODOS DE BUSCA (Mantidos) ---
-    // (Eles funcionam, pois o 'PassengerResponseDto' já foi atualizado)
+    // --- FIM DA MUDANÇA ---
 
     @Transactional(readOnly = true)
     public List<PassengerResponseDto> findAll() {
@@ -213,16 +222,19 @@ public class PassageiroViagemService {
                 .map(PassengerResponseDto::new);
     }
 
-    // --- MÉTODO 'markAsPaid' (Mantido) ---
     @Transactional
     public Optional<PassengerResponseDto> markAsPaid(Long id) {
         Optional<PassageiroViagem> pvOptional = repository.findById(id);
+
         if (pvOptional.isEmpty()) {
             return Optional.empty();
         }
+
         PassageiroViagem pv = pvOptional.get();
         pv.setPago(true);
+
         PassageiroViagem pvSalvo = repository.save(pv);
+
         return Optional.of(new PassengerResponseDto(pvSalvo));
     }
 }
