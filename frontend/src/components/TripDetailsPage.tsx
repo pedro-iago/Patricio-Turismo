@@ -316,6 +316,7 @@ export default function TripDetailsPage() {
             }
             setDeleteItem(null);
             await fetchFilteredData(); 
+            setSeatMapRefreshKey(prevKey => prevKey + 1);
         } catch (error) { console.error("Erro ao deletar item:", error); }
     };
 
