@@ -324,7 +324,7 @@ export default function PeoplePage() {
           setSelectedPerson(null);
         }}
         onSave={selectedPerson ? handleUpdatePerson : handleCreatePerson}
-        person={selectedPerson}
+        person={selectedPerson
       />
       <DeleteConfirmModal
         isOpen={!!deletePerson}
