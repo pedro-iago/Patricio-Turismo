@@ -168,16 +168,34 @@ export default function TripDetailsPage() {
     useEffect(() => { fetchFilteredData(); }, [fetchFilteredData]);
 
     // --- Lógica de Assentos e CRUD ---
-    const handleSelectSeat = (seatId: number, seatNumber: string, isOccupied: boolean) => {
-        setSeatTargetId(seatId); setSeatTargetNumber(seatNumber); 
+// Substitua a função handleSelectSeat por esta versão robusta
+    const handleSelectSeat = (identifier: number, seatNumber: string, isOccupied: boolean) => {
+        setSeatTargetId(identifier); 
+        setSeatTargetNumber(seatNumber); 
+        
         if (isOccupied) {
-            const passenger = passengers.find(p => p.numeroAssento === seatNumber && p.onibusId === currentBusId); 
-            if (passenger) setPassengerToDesassociate(passenger);
-            else {
-               const pLegado = passengers.find(p => p.numeroAssento === seatNumber);
-               if (pLegado) setPassengerToDesassociate(pLegado);
+            // 1. Tenta encontrar pelo ID direto (Vem do SeatMap)
+            let passenger = passengers.find(p => p.id === identifier);
+            
+            // 2. Fallback: Se não achou por ID, tenta pelo número do assento (Ignorando zeros: "02" == "2")
+            if (!passenger) {
+                console.warn("Passageiro não encontrado por ID, tentando por número de assento...");
+                passenger = passengers.find(p => {
+                    const seatA = parseInt(p.numeroAssento || '0', 10);
+                    const seatB = parseInt(seatNumber || '0', 10);
+                    return seatA === seatB && p.onibusId === currentBusId;
+                });
             }
-        } else setIsSeatBinderModalOpen(true);
+
+            if (passenger) {
+                setPassengerToDesassociate(passenger);
+            } else {
+                console.error("ERRO CRÍTICO: Não foi possível identificar o passageiro para desvincular.", { identifier, seatNumber });
+                alert("Erro ao identificar passageiro. Tente recarregar a página.");
+            }
+        } else {
+            setIsSeatBinderModalOpen(true);
+        }
     };
     
     const updatePassengerAssento = async (passengerId: number, seatIdentifier: string | null, isUnbind: boolean = false) => {
