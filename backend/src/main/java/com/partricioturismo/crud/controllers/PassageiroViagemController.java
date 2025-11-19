@@ -1,5 +1,6 @@
 package com.partricioturismo.crud.controllers;
 
+import com.partricioturismo.crud.dtos.CorRequestDto; // Importar
 import com.partricioturismo.crud.dtos.PassengerSaveRequestDto;
 import com.partricioturismo.crud.dtos.PassengerResponseDto;
 import com.partricioturismo.crud.service.PassageiroViagemService;
@@ -14,80 +15,72 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/passageiroviagem") // <-- MUDANÇA AQUI
+@RequestMapping("/api/passageiroviagem")
 public class PassageiroViagemController {
 
     @Autowired
     PassageiroViagemService service;
 
+    // ... (Métodos GET, POST, PUT, DELETE mantidos iguais) ...
     @GetMapping
-    public ResponseEntity<List<PassengerResponseDto>> getAll() {
-        return ResponseEntity.status(HttpStatus.OK).body(service.findAll());
-    }
+    public ResponseEntity<List<PassengerResponseDto>> getAll() { return ResponseEntity.ok(service.findAll()); }
 
     @GetMapping("/viagem/{viagemId}")
-    public ResponseEntity<List<PassengerResponseDto>> getByViagemId(@PathVariable Long viagemId) {
-        List<PassengerResponseDto> passageiros = service.findByViagemId(viagemId);
-        return ResponseEntity.status(HttpStatus.OK).body(passageiros);
-    }
+    public ResponseEntity<List<PassengerResponseDto>> getByViagemId(@PathVariable Long viagemId) { return ResponseEntity.ok(service.findByViagemId(viagemId)); }
 
-    // --- MÉTODO ATUALIZADO ---
     @GetMapping("/{id}")
-    public ResponseEntity<PassengerResponseDto> getById(@PathVariable(value = "id") Long id) {
-        // Agora usa o retorno direto do service (que foi corrigido)
-        return service.findById(id)
-                .map(dto -> ResponseEntity.ok(dto)) // Se encontrar, retorna 200 OK com o DTO
-                .orElse(ResponseEntity.notFound().build()); // Se não, retorna 404 Not Found
+    public ResponseEntity<PassengerResponseDto> getById(@PathVariable Long id) {
+        return service.findById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
     public ResponseEntity<Object> save(@RequestBody PassengerSaveRequestDto dto) {
-        try {
-            PassengerResponseDto pvSalvo = service.save(dto);
-            return ResponseEntity.status(HttpStatus.CREATED).body(pvSalvo);
-        } catch (EntityNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Object> delete(@PathVariable(value = "id") Long id) {
-        boolean deletado = service.delete(id);
-        if (!deletado) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Registro não encontrado");
-        }
-        return ResponseEntity.status(HttpStatus.OK).body("Registro deletado com sucesso");
+        try { return ResponseEntity.status(HttpStatus.CREATED).body(service.save(dto)); }
+        catch (Exception e) { return ResponseEntity.badRequest().body(e.getMessage()); }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Object> update(@PathVariable(value = "id") Long id, @RequestBody PassengerSaveRequestDto dto) {
-        try {
-            Optional<PassengerResponseDto> pvAtualizado = service.update(id, dto);
-            if (pvAtualizado.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Registro não encontrado");
-            }
-            return ResponseEntity.status(HttpStatus.OK).body(pvAtualizado.get());
-        } catch (EntityNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
+    public ResponseEntity<Object> update(@PathVariable Long id, @RequestBody PassengerSaveRequestDto dto) {
+        try { return ResponseEntity.ok(service.update(id, dto).get()); }
+        catch (Exception e) { return ResponseEntity.badRequest().body(e.getMessage()); }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Object> delete(@PathVariable Long id) {
+        return service.delete(id) ? ResponseEntity.ok("Deletado") : ResponseEntity.notFound().build();
     }
 
     @PatchMapping("/{id}/marcar-pago")
     public ResponseEntity<Object> markAsPaid(@PathVariable(value = "id") Long id) {
         try {
             Optional<PassengerResponseDto> pvAtualizado = service.markAsPaid(id);
-            if (pvAtualizado.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Registro não encontrado");
-            }
-            return ResponseEntity.status(HttpStatus.OK).body(pvAtualizado.get());
+            if (pvAtualizado.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Registro não encontrado");
+            return ResponseEntity.ok(pvAtualizado.get());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(e.getMessage());
+        }
+    }
+
+    @PatchMapping("/{id}/vincular-assento")
+    public ResponseEntity<Object> vincularAssento(@PathVariable Long id, @RequestParam Long onibusId, @RequestParam(required = false) String numero) {
+        try {
+            return ResponseEntity.ok(service.vincularAssentoPorNumero(id, onibusId, numero));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // --- NOVO ENDPOINT: ATUALIZAR COR (V11) ---
+    @PatchMapping("/{id}/cor")
+    public ResponseEntity<Object> updateCor(@PathVariable Long id, @RequestBody CorRequestDto dto) {
+        try {
+            PassengerResponseDto response = service.updateCor(id, dto.cor());
+            return ResponseEntity.ok(response);
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
+    // -----------------------------------------
 }

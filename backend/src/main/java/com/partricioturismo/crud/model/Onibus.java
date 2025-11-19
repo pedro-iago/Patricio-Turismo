@@ -19,18 +19,24 @@ public class Onibus {
     @Column(name = "capacidade_passageiros")
     private int capacidadePassageiros;
 
+    // CAMPO OBRIGATÓRIO PARA O MAPA DE ASSENTOS
+    @Column(name = "layout_json", columnDefinition = "TEXT")
+    private String layoutJson;
+
     public Onibus() {
     }
 
     // Construtor
-    public Onibus(Long idOnibus, String modelo, String placa, int capacidadePassageiros) {
-        this.id = id;
+    public Onibus(Long idOnibus, String modelo, String placa, int capacidadePassageiros, String layoutJson) {
+        this.id = idOnibus; // Corrigido: usa o parametro idOnibus
         this.modelo = modelo;
         this.placa = placa;
         this.capacidadePassageiros = capacidadePassageiros;
+        this.layoutJson = layoutJson;
     }
 
-    // Getters e Setters
+    // --- Getters e Setters (Mantendo seu padrão getIdOnibus) ---
+
     public Long getIdOnibus() {
         return id;
     }
@@ -61,5 +67,13 @@ public class Onibus {
 
     public void setCapacidadePassageiros(int capacidadePassageiros) {
         this.capacidadePassageiros = capacidadePassageiros;
+    }
+
+    public String getLayoutJson() {
+        return layoutJson;
+    }
+
+    public void setLayoutJson(String layoutJson) {
+        this.layoutJson = layoutJson;
     }
 }

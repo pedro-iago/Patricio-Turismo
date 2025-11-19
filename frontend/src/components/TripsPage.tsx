@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Eye, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Search, X } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-// ✅ 1. IMPORTE OS COMPONENTES DE CARD
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
+// ✅ 1. IMPORTS DOS SELECTS
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import TripModal from './TripModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api';
@@ -21,7 +22,6 @@ import {
 import axios from 'axios';
 import { cn } from './ui/utils';
 
-// ... (Interfaces: TripDto, Bus, TripComOnibus, Page - SEM ALTERAÇÃO) ...
 interface TripDto {
   id: number;
   dataHoraPartida: string;
@@ -42,7 +42,6 @@ interface Page<T> {
   number: number;
 }
 
-
 export default function TripsPage() {
   const navigate = useNavigate();
   const [trips, setTrips] = useState<TripComOnibus[]>([]);
@@ -51,22 +50,49 @@ export default function TripsPage() {
   const [deleteTrip, setDeleteTrip] = useState<TripComOnibus | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // ✅ 2. ESTADOS DOS FILTROS
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<string>('all');
+
   const [busMap, setBusMap] = useState<Map<number, Bus>>(new Map());
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  // ... (Lógica de fetch, handle, filter, etc. - SEM ALTERAÇÃO) ...
+  // Gera lista de anos (Ano atual - 1 até Ano atual + 2)
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 4 }, (_, i) => (currentYear - 1) + i);
+
+  const months = [
+    { value: '1', label: 'Janeiro' }, { value: '2', label: 'Fevereiro' },
+    { value: '3', label: 'Março' }, { value: '4', label: 'Abril' },
+    { value: '5', label: 'Maio' }, { value: '6', label: 'Junho' },
+    { value: '7', label: 'Julho' }, { value: '8', label: 'Agosto' },
+    { value: '9', label: 'Setembro' }, { value: '10', label: 'Outubro' },
+    { value: '11', label: 'Novembro' }, { value: '12', label: 'Dezembro' },
+  ];
+
   const fetchTripsAndBuses = async (page = 0) => {
     try {
+      // Construção dos Parâmetros de Consulta
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('size', '10');
+      // ✅ 3. ORDENAÇÃO (Mais recente primeiro)
+      params.append('sort', 'dataHoraPartida,desc');
+      
+      // ✅ 4. FILTROS (Enviados ao backend)
+      if (selectedMonth !== 'all') params.append('mes', selectedMonth);
+      if (selectedYear !== 'all') params.append('ano', selectedYear);
+
       const [tripsResponse, busesResponse] = await Promise.all([
-        api.get<Page<TripDto>>(`/api/viagem?page=${page}&size=10`),
+        api.get<Page<TripDto>>(`/api/viagem?${params.toString()}`),
         api.get<Bus[]>('/api/onibus')
       ]);
 
       const busData = busesResponse.data;
       const newBusMap = new Map<number, Bus>();
       busData.forEach(bus => {
-        newBusMap.set(bus.id, bus); // Usa bus.id
+        newBusMap.set(bus.id, bus);
       });
       setBusMap(newBusMap);
 
@@ -84,9 +110,24 @@ export default function TripsPage() {
     }
   };
 
+  // Atualiza sempre que a página ou os filtros mudarem
   useEffect(() => {
     fetchTripsAndBuses(currentPage);
-  }, [currentPage]);
+  }, [currentPage, selectedMonth, selectedYear]);
+
+  // Reseta para a primeira página quando mudar o filtro
+  const handleFilterChange = (type: 'month' | 'year', value: string) => {
+    if (type === 'month') setSelectedMonth(value);
+    if (type === 'year') setSelectedYear(value);
+    setCurrentPage(0);
+  };
+
+  const clearFilters = () => {
+    setSelectedMonth('all');
+    setSelectedYear('all');
+    setSearchTerm('');
+    setCurrentPage(0);
+  };
 
   const handleCreateTrip = async (tripData: any) => {
     try {
@@ -135,6 +176,7 @@ export default function TripsPage() {
     setIsModalOpen(true);
   };
 
+  // Filtro local apenas para a busca de texto (Placa/Data String)
   const filteredTrips = trips.filter(trip => {
     const searchLower = searchTerm.toLowerCase();
     const partidaDate = new Date(trip.dataHoraPartida).toLocaleDateString();
@@ -153,7 +195,6 @@ export default function TripsPage() {
   };
 
   const getPaginationItems = (currentPage: number, totalPages: number) => {
-    // ... (lógica da paginação - SEM ALTERAÇÃO) ...
     const items: (number | string)[] = [];
     const maxPageNumbers = 5;
     const pageRangeDisplayed = 1;
@@ -169,7 +210,6 @@ export default function TripsPage() {
 
   return (
     <div className="space-y-6">
-      {/* ... (Cabeçalho da página e Input de Busca - SEM ALTERAÇÃO) ... */}
       <div className="flex items-center justify-between">
         <div>
           <h2>Todas as viagens</h2>
@@ -181,18 +221,52 @@ export default function TripsPage() {
         </Button>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder="Pesquisar por placa do ônibus ou data (dd/mm/aaaa)..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      {/* ✅ 5. ÁREA DE FILTROS ATUALIZADA */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Pesquisar placa ou data..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <Select value={selectedMonth} onValueChange={(val) => handleFilterChange('month', val)}>
+            <SelectTrigger className="w-[140px] bg-white">
+              <SelectValue placeholder="Mês" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Meses</SelectItem>
+              {months.map((m) => (
+                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={selectedYear} onValueChange={(val) => handleFilterChange('year', val)}>
+            <SelectTrigger className="w-[120px] bg-white">
+              <SelectValue placeholder="Ano" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Anos</SelectItem>
+              {years.map((y) => (
+                <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(selectedMonth !== 'all' || selectedYear !== 'all' || searchTerm) && (
+             <Button variant="ghost" size="icon" onClick={clearFilters} title="Limpar Filtros">
+               <X className="w-4 h-4 text-red-500" />
+             </Button>
+          )}
+        </div>
       </div>
 
-      {/* ✅ 2. TABELA (VISÍVEL APENAS EM DESKTOP) */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 hidden md:block">
         <Table>
           <TableHeader>
@@ -205,59 +279,66 @@ export default function TripsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredTrips.map((trip) => (
-              <TableRow key={trip.id}>
-                <TableCell>
-                  {new Date(trip.dataHoraPartida).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
-                  {new Date(trip.dataHoraPartida).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </TableCell>
-                <TableCell>
-                  {new Date(trip.dataHoraChegada).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </TableCell>
-                <TableCell>{trip.onibus?.placa || 'N/A'}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => navigate(`/trips/${trip.id}`)}
-                      className="hover:bg-primary/10 hover:text-primary"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEditModal(trip)}
-                      className="hover:bg-primary/10 hover:text-primary"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteTrip(trip)}
-                      className="hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+            {filteredTrips.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                   Nenhuma viagem encontrada.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredTrips.map((trip) => (
+                <TableRow key={trip.id}>
+                  <TableCell>
+                    {new Date(trip.dataHoraPartida).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(trip.dataHoraPartida).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(trip.dataHoraChegada).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </TableCell>
+                  <TableCell>{trip.onibus?.placa || 'N/A'}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => navigate(`/trips/${trip.id}`)}
+                        className="hover:bg-primary/10 hover:text-primary"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditModal(trip)}
+                        className="hover:bg-primary/10 hover:text-primary"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDeleteTrip(trip)}
+                        className="hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
 
-      {/* ✅ 3. LISTA DE CARDS (VISÍVEL APENAS EM MOBILE) */}
       <div className="block md:hidden space-y-4">
         {filteredTrips.map((trip) => (
           <Card key={trip.id} className="bg-white shadow-sm">
@@ -315,11 +396,8 @@ export default function TripsPage() {
         ))}
       </div>
 
-
-      {/* --- PAGINAÇÃO (SEM ALTERAÇÃO) --- */}
       {totalPages > 1 && (
         <Pagination>
-          {/* ... (Conteúdo da paginação sem alteração) ... */}
           <PaginationContent>
             <PaginationItem>
               <PaginationPrevious
@@ -354,8 +432,6 @@ export default function TripsPage() {
         </Pagination>
       )}
 
-
-      {/* ... (Modais - SEM ALTERAÇÃO) ... */}
       <TripModal
         isOpen={isModalOpen}
         onClose={() => {

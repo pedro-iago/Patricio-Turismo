@@ -12,55 +12,47 @@ import java.util.List;
 @Repository
 public interface EncomendaRepository extends JpaRepository<Encomenda, Long> {
 
-    // --- MÉTODOS EXISTENTES (ATUALIZADOS COM JOIN FETCH) ---
     @Query("SELECT e FROM Encomenda e " +
             "JOIN FETCH e.remetente " +
             "JOIN FETCH e.destinatario " +
             "JOIN FETCH e.viagem v " +
-            "LEFT JOIN FETCH v.onibus " +
-            // --- MUDANÇA: Adiciona fetch para os novos campos ---
+            "LEFT JOIN FETCH v.listaOnibus " + // <-- MUDOU AQUI
             "LEFT JOIN FETCH e.taxistaColeta " +
             "LEFT JOIN FETCH e.taxistaEntrega " +
-            // --- FIM DA MUDANÇA ---
             "LEFT JOIN FETCH e.comisseiro " +
             "WHERE e.viagem.id = :viagemId")
     List<Encomenda> findByViagemId(@Param("viagemId") Long viagemId);
 
-    // --- MUDANÇA: Query corrigida para usar taxistaColeta ou taxistaEntrega ---
     @Query("SELECT e FROM Encomenda e " +
             "JOIN FETCH e.remetente " +
             "JOIN FETCH e.destinatario " +
             "JOIN FETCH e.viagem v " +
-            "LEFT JOIN FETCH v.onibus " +
+            "LEFT JOIN FETCH v.listaOnibus " + // <-- MUDOU AQUI
             "LEFT JOIN FETCH e.taxistaColeta " +
             "LEFT JOIN FETCH e.taxistaEntrega " +
             "LEFT JOIN FETCH e.comisseiro " +
             "WHERE e.viagem.id = :viagemId " +
             "AND (e.taxistaColeta.id = :taxistaId OR e.taxistaEntrega.id = :taxistaId)")
     List<Encomenda> findByViagemIdAndTaxistaId(@Param("viagemId") Long viagemId, @Param("taxistaId") Long taxistaId);
-    // --- FIM DA MUDANÇA ---
 
     @Query("SELECT e FROM Encomenda e " +
             "JOIN FETCH e.remetente " +
             "JOIN FETCH e.destinatario " +
             "JOIN FETCH e.viagem v " +
-            "LEFT JOIN FETCH v.onibus " +
-            // --- MUDANÇA: Adiciona fetch para os novos campos ---
+            "LEFT JOIN FETCH v.listaOnibus " + // <-- MUDOU AQUI
             "LEFT JOIN FETCH e.taxistaColeta " +
             "LEFT JOIN FETCH e.taxistaEntrega " +
-            // --- FIM DA MUDANÇA ---
             "LEFT JOIN FETCH e.comisseiro " +
             "WHERE e.viagem.id = :viagemId AND e.comisseiro.id = :comisseiroId")
     List<Encomenda> findByViagemIdAndComisseiroId(@Param("viagemId") Long viagemId, @Param("comisseiroId") Long comisseiroId);
 
-    // --- MÉTODOS DE RELATÓRIO (ATUALIZADOS COM JOIN FETCH) ---
+    // --- RELATÓRIOS ---
 
-    // --- MUDANÇA: Query corrigida para usar taxistaColeta ou taxistaEntrega ---
     @Query("SELECT e FROM Encomenda e " +
             "JOIN FETCH e.remetente " +
             "JOIN FETCH e.destinatario " +
             "JOIN FETCH e.viagem v " +
-            "LEFT JOIN FETCH v.onibus " +
+            "LEFT JOIN FETCH v.listaOnibus " + // <-- MUDOU AQUI
             "LEFT JOIN FETCH e.taxistaColeta " +
             "LEFT JOIN FETCH e.taxistaEntrega " +
             "LEFT JOIN FETCH e.comisseiro " +
@@ -70,17 +62,14 @@ public interface EncomendaRepository extends JpaRepository<Encomenda, Long> {
             @Param("taxistaId") Long taxistaId,
             @Param("inicio") LocalDateTime dataInicio,
             @Param("fim") LocalDateTime dataFim);
-    // --- FIM DA MUDANÇA ---
 
     @Query("SELECT e FROM Encomenda e " +
             "JOIN FETCH e.remetente " +
             "JOIN FETCH e.destinatario " +
             "JOIN FETCH e.viagem v " +
-            "LEFT JOIN FETCH v.onibus " +
-            // --- MUDANÇA: Adiciona fetch para os novos campos ---
+            "LEFT JOIN FETCH v.listaOnibus " + // <-- MUDOU AQUI
             "LEFT JOIN FETCH e.taxistaColeta " +
             "LEFT JOIN FETCH e.taxistaEntrega " +
-            // --- FIM DA MUDANÇA ---
             "LEFT JOIN FETCH e.comisseiro " +
             "WHERE e.comisseiro.id = :comisseiroId AND v.dataHoraPartida BETWEEN :inicio AND :fim")
     List<Encomenda> findByComisseiroIdAndViagemDataHoraPartidaBetween(
@@ -88,30 +77,26 @@ public interface EncomendaRepository extends JpaRepository<Encomenda, Long> {
             @Param("inicio") LocalDateTime dataInicio,
             @Param("fim") LocalDateTime dataFim);
 
-    // --- NOVOS MÉTODOS PARA HISTÓRICO DA PESSOA ---
+    // --- HISTÓRICO ---
 
     @Query("SELECT e FROM Encomenda e " +
             "JOIN FETCH e.viagem v " +
-            "LEFT JOIN FETCH v.onibus o " +
+            "LEFT JOIN FETCH v.listaOnibus o " + // <-- MUDOU AQUI
             "JOIN FETCH e.remetente " +
             "JOIN FETCH e.destinatario " +
-            // --- MUDANÇA: Adiciona fetch para os novos campos ---
             "LEFT JOIN FETCH e.taxistaColeta " +
             "LEFT JOIN FETCH e.taxistaEntrega " +
-            // --- FIM DA MUDANÇA ---
             "LEFT JOIN FETCH e.comisseiro " +
             "WHERE e.remetente.id = :pessoaId ORDER BY v.dataHoraPartida DESC")
     List<Encomenda> findByRemetenteIdWithHistory(@Param("pessoaId") Long pessoaId);
 
     @Query("SELECT e FROM Encomenda e " +
             "JOIN FETCH e.viagem v " +
-            "LEFT JOIN FETCH v.onibus o " +
+            "LEFT JOIN FETCH v.listaOnibus o " + // <-- MUDOU AQUI
             "JOIN FETCH e.remetente " +
             "JOIN FETCH e.destinatario " +
-            // --- MUDANÇA: Adiciona fetch para os novos campos ---
             "LEFT JOIN FETCH e.taxistaColeta " +
             "LEFT JOIN FETCH e.taxistaEntrega " +
-            // --- FIM DA MUDANÇA ---
             "LEFT JOIN FETCH e.comisseiro " +
             "WHERE e.destinatario.id = :pessoaId ORDER BY v.dataHoraPartida DESC")
     List<Encomenda> findByDestinatarioIdWithHistory(@Param("pessoaId") Long pessoaId);

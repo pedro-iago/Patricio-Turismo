@@ -20,16 +20,15 @@ public class OnibusService {
 
     // Converte Entidade -> DTO
     private OnibusDto toDto(Onibus onibus) {
-        // IMPORTANTE: Mapeia o getIdOnibus() da entidade para o id do DTO
         return new OnibusDto(
                 onibus.getIdOnibus(),
                 onibus.getModelo(),
                 onibus.getPlaca(),
-                onibus.getCapacidadePassageiros()
+                onibus.getCapacidadePassageiros(),
+                onibus.getLayoutJson() // <--- Mapeia o JSON do banco para o DTO
         );
     }
 
-    // Retorna List<OnibusDto> (JSON terá campo 'id')
     public List<OnibusDto> findAll() {
         return repository.findAll()
                 .stream()
@@ -44,7 +43,9 @@ public class OnibusService {
     @Transactional
     public OnibusDto save(OnibusDto onibusDto) {
         var onibus = new Onibus();
+        // Copia as propriedades (incluindo layoutJson se o nome bater)
         BeanUtils.copyProperties(onibusDto, onibus);
+
         var onibusSalvo = repository.save(onibus);
         return toDto(onibusSalvo);
     }
@@ -56,6 +57,10 @@ public class OnibusService {
 
         var onibusModel = onibusOptional.get();
         BeanUtils.copyProperties(onibusDto, onibusModel);
+
+        // Garante que o ID não seja perdido/sobrescrito incorretamente
+        onibusModel.setIdOnibus(id);
+
         var onibusAtualizado = repository.save(onibusModel);
         return Optional.of(toDto(onibusAtualizado));
     }

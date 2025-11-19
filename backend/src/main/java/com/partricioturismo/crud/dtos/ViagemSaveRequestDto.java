@@ -1,14 +1,11 @@
 package com.partricioturismo.crud.dtos;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
-/**
- * Este DTO é usado APENAS para Criar (POST) ou Atualizar (PUT) uma Viagem.
- * Note a ausência do campo 'id'.
- */
 public record ViagemSaveRequestDto(
         LocalDateTime dataHoraPartida,
         LocalDateTime dataHoraChegada,
-        Long onibusId
+        List<Long> onibusIds // <-- Lista de IDs para vincular
 ) {
 }

@@ -4,6 +4,7 @@ public record OnibusDto(
         Long id,
         String modelo,
         String placa,
-        int capacidadePassageiros
+        int capacidadePassageiros,
+        String layoutJson // Campo obrigatório para o Service funcionar
 ) {
 }

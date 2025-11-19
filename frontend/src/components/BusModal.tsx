@@ -3,18 +3,21 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Textarea } from './ui/textarea'; // Importe ou use <textarea className... />
 
 interface BusDto {
   placa: string;
   modelo: string;
   capacidadePassageiros: number;
+  layoutJson?: string; // Campo novo
 }
 
 interface Bus {
-  id: number; // <-- MUDOU DE idOnibus PARA id
+  id: number; 
   placa: string;
   modelo: string;
   capacidadePassageiros: number;
+  layoutJson?: string; // Campo novo vindo do backend
 }
 
 interface BusModalProps {
@@ -29,6 +32,7 @@ export default function BusModal({ isOpen, onClose, onSave, bus }: BusModalProps
     placa: '',
     modelo: '',
     capacidadePassageiros: '', 
+    layoutJson: '', // Estado para o JSON
   });
 
   useEffect(() => {
@@ -36,13 +40,15 @@ export default function BusModal({ isOpen, onClose, onSave, bus }: BusModalProps
       setFormData({
         placa: bus.placa || '',
         modelo: bus.modelo || '',
-        capacidadePassageiros: bus.capacidadePassageiros?.toString() || '', // Converte número para string
+        capacidadePassageiros: bus.capacidadePassageiros?.toString() || '',
+        layoutJson: bus.layoutJson || '',
       });
     } else {
       setFormData({
         placa: '',
         modelo: '',
         capacidadePassageiros: '',
+        layoutJson: '',
       });
     }
   }, [bus, isOpen]);
@@ -53,28 +59,44 @@ export default function BusModal({ isOpen, onClose, onSave, bus }: BusModalProps
       placa: formData.placa,
       modelo: formData.modelo,
       capacidadePassageiros: parseInt(formData.capacidadePassageiros, 10),
+      layoutJson: formData.layoutJson || undefined, // Envia undefined se estiver vazio
     });
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{bus ? 'Editar ônibus' : 'Novo ônibus'}</DialogTitle>
           <DialogDescription>
-            {bus ? 'Atualize as informações do ônibus abaixo.' : 'Adicione um novo ônibus à sua frota.'}
+            Configure os dados do veículo e o layout das poltronas.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="placa">Placa</Label>
-            <Input
-              id="placa" 
-              value={formData.placa}
-              onChange={(e) => setFormData({ ...formData, placa: e.target.value })}
-              placeholder="ABC-1234"
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+                <Label htmlFor="placa">Placa</Label>
+                <Input
+                id="placa" 
+                value={formData.placa}
+                onChange={(e) => setFormData({ ...formData, placa: e.target.value })}
+                placeholder="ABC-1234"
+                required
+                />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="capacidadePassageiros">Capacidade</Label>
+                <Input
+                    id="capacidadePassageiros" 
+                    type="number"
+                    value={formData.capacidadePassageiros}
+                    onChange={(e) => setFormData({ ...formData, capacidadePassageiros: e.target.value })}
+                    placeholder="Ex: 44"
+                    min="1"
+                    required
+                />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -83,22 +105,24 @@ export default function BusModal({ isOpen, onClose, onSave, bus }: BusModalProps
               id="modelo" 
               value={formData.modelo}
               onChange={(e) => setFormData({ ...formData, modelo: e.target.value })}
-              placeholder="Mercedes-Benz O500"
+              placeholder="Scania Marcopolo LD"
               required
             />
           </div>
 
-          <div className="space-y-2">
-              <Label htmlFor="capacidadePassageiros">Capacidade (assentos)</Label>
-              <Input
-                id="capacidadePassageiros" 
-                type="number"
-                value={formData.capacidadePassageiros}
-                onChange={(e) => setFormData({ ...formData, capacidadePassageiros: e.target.value })}
-                placeholder="42"
-                min="1"
-                required
-              />
+          {/* Campo Avançado para Layout JSON */}
+          <div className="space-y-2 border-t pt-4 mt-2">
+             <Label htmlFor="layoutJson" className="text-blue-600">Layout Personalizado (JSON)</Label>
+             <p className="text-xs text-gray-500">
+                Cole aqui a matriz de assentos (ex: [[1,2],[3,4]]). Se deixar vazio, o sistema usará o layout padrão sequencial.
+             </p>
+             <Textarea 
+                id="layoutJson"
+                value={formData.layoutJson}
+                onChange={(e) => setFormData({ ...formData, layoutJson: e.target.value })}
+                placeholder='[[1,2,4,3], [5,6,8,7]...]'
+                className="font-mono text-xs h-24"
+             />
           </div>
 
           <div className="flex justify-end gap-3 pt-4">

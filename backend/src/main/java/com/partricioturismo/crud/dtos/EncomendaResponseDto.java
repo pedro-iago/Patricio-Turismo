@@ -2,78 +2,60 @@ package com.partricioturismo.crud.dtos;
 
 import com.partricioturismo.crud.model.Encomenda;
 import java.math.BigDecimal;
-import java.time.LocalDateTime; // <-- IMPORT NECESSÁRIO
+import java.util.stream.Collectors;
 
-// Este é o DTO para RETORNAR uma Encomenda (evita o bug de Lazy Loading)
 public record EncomendaResponseDto(
         Long id,
         String descricao,
         BigDecimal peso,
         PessoaDto remetente,
         PessoaDto destinatario,
+        PessoaDto responsavel,
         EnderecoDto enderecoColeta,
         EnderecoDto enderecoEntrega,
-        PessoaDto responsavel,
-
-        // --- MUDANÇA AQUI ---
-        // AffiliateResponseDto taxista, // <-- REMOVIDO
-        AffiliateResponseDto taxistaColeta, // <-- ADICIONADO
-        AffiliateResponseDto taxistaEntrega, // <-- ADICIONADO
-        // --- FIM DA MUDANÇA ---
-
+        AffiliateResponseDto taxistaColeta,
+        AffiliateResponseDto taxistaEntrega,
         AffiliateResponseDto comisseiro,
         BigDecimal valor,
         String metodoPagamento,
         boolean pago,
-        ViagemDto viagem // <-- CAMPO NOVO
+        String corTag, // Campo existe aqui
+        ViagemDto viagem
 ) {
-    // Construtor de conveniência para converter da Entidade
     public EncomendaResponseDto(Encomenda e) {
         this(
                 e.getId(),
                 e.getDescricao(),
                 e.getPeso(),
-                new PessoaDto(
-                        e.getRemetente().getId(),
-                        e.getRemetente().getNome(),
-                        e.getRemetente().getCpf(),
-                        e.getRemetente().getTelefone(),
-                        e.getRemetente().getIdade()
-                ),
-                new PessoaDto(
-                        e.getDestinatario().getId(),
-                        e.getDestinatario().getNome(),
-                        e.getDestinatario().getCpf(),
-                        e.getDestinatario().getTelefone(),
-                        e.getDestinatario().getIdade()
-                ),
-                new EnderecoDto(e.getEnderecoColeta()),
-                new EnderecoDto(e.getEnderecoEntrega()),
-                e.getResponsavel() != null ? new PessoaDto(
-                        e.getResponsavel().getId(),
-                        e.getResponsavel().getNome(),
-                        e.getResponsavel().getCpf(),
-                        e.getResponsavel().getTelefone(),
-                        e.getResponsavel().getIdade()
-                ) : null,
-
-                // --- MUDANÇA AQUI (Usa os novos getters da Entidade) ---
+                new PessoaDto(e.getRemetente()),
+                new PessoaDto(e.getDestinatario()),
+                e.getResponsavel() != null ? new PessoaDto(e.getResponsavel()) : null,
+                e.getEnderecoColeta() != null ? new EnderecoDto(e.getEnderecoColeta()) : null,
+                e.getEnderecoEntrega() != null ? new EnderecoDto(e.getEnderecoEntrega()) : null,
                 e.getTaxistaColeta() != null ? new AffiliateResponseDto(e.getTaxistaColeta()) : null,
                 e.getTaxistaEntrega() != null ? new AffiliateResponseDto(e.getTaxistaEntrega()) : null,
-                // --- FIM DA MUDANÇA ---
-
                 e.getComisseiro() != null ? new AffiliateResponseDto(e.getComisseiro()) : null,
                 e.getValor(),
                 e.getMetodoPagamento(),
                 e.isPago(),
 
+                // --- CORREÇÃO: ADICIONE ESTA LINHA PARA MAPEAR O corTag ---
+                e.getCorTag(), // <-- Mapeia o valor da entidade
+                // --------------------------------------------------------
+
+                // CORREÇÃO DA LISTA DE ÔNIBUS
                 e.getViagem() != null ? new ViagemDto(
                         e.getViagem().getId(),
                         e.getViagem().getDataHoraPartida(),
                         e.getViagem().getDataHoraChegada(),
-                        // === CORREÇÃO AQUI ===
-                        // Chamando .getIdOnibus() em vez de .getId()
-                        (e.getViagem().getOnibus() != null) ? e.getViagem().getOnibus().getIdOnibus() : null
+                        e.getViagem().getListaOnibus().stream()
+                                .map(o -> new OnibusDto(
+                                        o.getIdOnibus(),
+                                        o.getModelo(),
+                                        o.getPlaca(),
+                                        o.getCapacidadePassageiros(),
+                                        o.getLayoutJson()))
+                                .collect(Collectors.toList())
                 ) : null
         );
     }

@@ -1,5 +1,6 @@
 package com.partricioturismo.crud.controllers;
 
+import com.partricioturismo.crud.dtos.CorRequestDto; // Certifique-se de importar isso
 import com.partricioturismo.crud.dtos.EncomendaSaveRequestDto;
 import com.partricioturismo.crud.dtos.EncomendaResponseDto;
 import com.partricioturismo.crud.service.EncomendaService;
@@ -13,7 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/encomenda") // <-- MUDANÇA AQUI
+@RequestMapping("/api/encomenda")
 public class EncomendaController {
 
     @Autowired
@@ -30,14 +31,13 @@ public class EncomendaController {
         return ResponseEntity.status(HttpStatus.OK).body(encomendas);
     }
 
-    // --- MÉTODO ATUALIZADO ---
     @GetMapping("/{id}")
     public ResponseEntity<EncomendaResponseDto> getById(@PathVariable(value = "id") Long id) {
         Optional<EncomendaResponseDto> encomenda = service.findById(id);
         if (encomenda.isEmpty()) {
-            return ResponseEntity.notFound().build(); // Retorna 404
+            return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.status(HttpStatus.OK).body(encomenda.get()); // Retorna 200 com DTO
+        return ResponseEntity.status(HttpStatus.OK).body(encomenda.get());
     }
 
     @PostMapping
@@ -90,4 +90,18 @@ public class EncomendaController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
+
+    // --- NOVO ENDPOINT: ATUALIZAR COR (V11) ---
+    @PatchMapping("/{id}/cor")
+    public ResponseEntity<Object> updateCor(@PathVariable Long id, @RequestBody CorRequestDto dto) {
+        try {
+            EncomendaResponseDto response = service.updateCor(id, dto.cor());
+            return ResponseEntity.ok(response);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+    // -----------------------------------------
 }

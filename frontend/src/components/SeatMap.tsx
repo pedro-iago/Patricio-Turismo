@@ -1,188 +1,191 @@
-import React, { useState, useEffect } from 'react';
-import { Loader2, X } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { cn } from './ui/utils';
-import api from '@/services/api';
 
-// --- Interfaces do Backend ---
-interface PessoaDto { nome: string; cpf: string; }
-interface AssentoDto {
+// --- INTERFACES ---
+
+interface PassengerData {
     id: number;
-    numero: string;
-    ocupado: boolean; 
-    passageiro: PessoaDto | null; 
+    pessoa: { nome: string; cpf: string };
+    numeroAssento?: string;
+    [key: string]: any;
+}
+
+interface SeatLayout {
+    numero: string | null;
+    tipo: 'JANELA' | 'CORREDOR' | 'VAZIO' | 'MOTORISTA' | 'ESCADA';
 }
 
 interface SeatMapProps {
     tripId: number;
+    busId: number;
+    layoutJson?: string;
+    capacity: number;
+    passengers?: PassengerData[];
     onSelectSeat: (seatId: number, seatNumber: string, isOccupied: boolean) => void;
-    onRefresh: () => void;
-    refreshKey: number; 
+    onRefresh?: () => void;
+    refreshKey?: number;
 }
 
-export default function SeatMap({ tripId, onSelectSeat, onRefresh, refreshKey }: SeatMapProps) {
-    const [seats, setSeats] = useState<AssentoDto[]>([]);
-    const [loading, setLoading] = useState(true);
+export default function SeatMap({ 
+    layoutJson, 
+    capacity, 
+    passengers = [], 
+    onSelectSeat 
+}: SeatMapProps) {
 
-    const fetchSeats = async () => {
-        
-        // Trava de segurança para evitar chamada com ID inválido
-        if (!tripId || isNaN(tripId)) {
-            setLoading(false); 
-            return; 
+    // 1. Processa o Layout (Desenho)
+    const matrix: SeatLayout[][] = useMemo(() => {
+        let parsedMatrix: SeatLayout[][] | null = null;
+
+        if (layoutJson && layoutJson.length > 10) {
+            try {
+                const parsed = JSON.parse(layoutJson);
+                if (Array.isArray(parsed) && parsed.length > 0 && Array.isArray(parsed[0])) {
+                    parsedMatrix = parsed;
+                } else {
+                    console.warn("Layout JSON inválido (não é matriz). Usando fallback.");
+                }
+            } catch (e) {
+                console.warn("Erro ao ler JSON do ônibus:", e);
+            }
         }
-        
-        setLoading(true);
-        try {
-            const response = await api.get<AssentoDto[]>(`/api/viagem/${tripId}/assentos`);
-            
-            // ✅ --- CORREÇÃO ESTÁ AQUI --- ✅
-            // Força a ordenação numérica, já que a API retorna em ordem alfabética (1, 10, 2)
-            const sortedSeats = response.data.sort((a, b) => {
-                return parseInt(a.numero) - parseInt(b.numero);
-            });
 
-            setSeats(sortedSeats); // Salva os dados JÁ ORDENADOS
+        if (parsedMatrix) return parsedMatrix;
 
-        } catch (error) {
-            console.error("Erro ao buscar mapa de assentos:", error);
+        // --- FALLBACK ---
+        const safeCapacity = (capacity && capacity > 0) ? capacity : 46;
+        const rows = Math.ceil(safeCapacity / 4);
+        const grid: SeatLayout[][] = [];
+        let seatCount = 1;
+
+        for (let i = 0; i < rows; i++) {
+            const row: SeatLayout[] = [];
+            row.push({ numero: seatCount <= safeCapacity ? String(seatCount++).padStart(2, '0') : '', tipo: 'JANELA' });
+            row.push({ numero: seatCount <= safeCapacity ? String(seatCount++).padStart(2, '0') : '', tipo: 'JANELA' });
+            // Nota: No fallback não precisamos empurrar o corredor no array, pois vamos tratar no visual
+            row.push({ numero: seatCount <= safeCapacity ? String(seatCount++).padStart(2, '0') : '', tipo: 'JANELA' });
+            row.push({ numero: seatCount <= safeCapacity ? String(seatCount++).padStart(2, '0') : '', tipo: 'JANELA' });
+            grid.push(row);
         }
-        setLoading(false);
+        return grid;
+    }, [layoutJson, capacity]);
+
+    // 2. Encontrar passageiro
+    const getPassengerInSeat = (seatNumber: string) => {
+        if (!seatNumber) return undefined;
+        return passengers.find(p => p.numeroAssento === seatNumber); 
     };
 
-    useEffect(() => {
-        fetchSeats();
-    }, [tripId, refreshKey]); // Roda quando o ID ou a chave de atualização mudam
-    
-    // --- LÓGICA DE LAYOUT (Agrupamento em filas) ---
-    const seatsPerRow = 4;
-    const totalSeats = seats.length;
-    const validSeats = seats.filter(s => s.numero); 
+    // 3. Renderizar Assento
+    const renderSeat = (seat: SeatLayout, rowIndex: number, colIndex: number) => {
+        // Espaços vazios/Escada
+        if (!seat.numero || seat.tipo === 'VAZIO' || seat.tipo === 'CORREDOR') {
+            return <div className="w-10 h-10" />; 
+        }
 
-    const orderedRows = [];
-    for (let i = 0; i < validSeats.length; i += seatsPerRow) {
-        orderedRows.push(validSeats.slice(i, i + seatsPerRow));
-    }
-    
-    // --- Renderização de Assento Individual ---
-    const renderSeat = (seat: AssentoDto) => {
-        const statusClass = seat.ocupado
-            ? "bg-red-500 hover:bg-red-600 cursor-pointer"
-            : "bg-green-500 hover:bg-green-600 cursor-pointer";
-        
-        const content = (
-            <div
+        const passenger = getPassengerInSeat(seat.numero);
+        const isOccupied = !!passenger;
+
+        let bgColor = "bg-green-500 hover:bg-green-600 border-green-600";
+        if (isOccupied) bgColor = "bg-red-500 hover:bg-red-600 border-red-600";
+
+        const SeatButton = (
+            <button
                 className={cn(
-                    "w-10 h-10 flex items-center justify-center rounded-md text-white font-semibold transition-colors shadow-md",
-                    statusClass
+                    "w-10 h-10 flex items-center justify-center rounded-md text-white font-bold shadow-sm transition-all border-b-4 border-black/10",
+                    bgColor
                 )}
+                onClick={() => !isOccupied && onSelectSeat(0, seat.numero!, false)}
             >
                 {seat.numero}
-            </div>
+            </button>
         );
 
-        if (seat.ocupado && seat.passageiro) {
-            // Se OCUPADO, usa Popover (clicável)
+        if (isOccupied && passenger) {
             return (
-                <Popover key={seat.id}>
-                    <PopoverTrigger asChild>
-                        <div className="cursor-pointer">{content}</div>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64 p-3 space-y-2 text-sm">
-                        <p className="font-bold">{seat.passageiro.nome}</p>
-                        <p className="text-muted-foreground">CPF: {seat.passageiro.cpf}</p>
+                <Popover key={seat.numero}>
+                    <PopoverTrigger asChild><div>{SeatButton}</div></PopoverTrigger>
+                    <PopoverContent className="w-64 p-4 space-y-3 z-50 shadow-xl">
+                        <div>
+                            <h4 className="font-bold text-lg leading-none">{passenger.pessoa.nome}</h4>
+                            <p className="text-sm text-muted-foreground mt-1">CPF: {passenger.pessoa.cpf}</p>
+                        </div>
                         <Button
                             variant="destructive"
                             size="sm"
-                            className="w-full mt-2"
-                            onClick={() => {
-                                onSelectSeat(seat.id, seat.numero, true); // Aciona desvinculação
-                            }}
+                            className="w-full"
+                            onClick={() => onSelectSeat(passenger.id, seat.numero!, true)}
                         >
-                            <X className="w-4 h-4 mr-1" /> Desvincular Assento
+                            <X className="w-4 h-4 mr-2" /> Liberar Assento
                         </Button>
                     </PopoverContent>
                 </Popover>
             );
         }
 
-        // Se LIVRE, o onClick é direto no assento
-        return (
-            <div 
-                key={seat.id} 
-                onClick={() => onSelectSeat(seat.id, seat.numero, seat.ocupado)}
-            >
-                {content}
-            </div>
-        );
+        return SeatButton;
     };
-    
-    // Placeholder de loading
-    if (loading) { 
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Mapa de Assentos</CardTitle>
-                </CardHeader>
-                <CardContent className="h-40 flex items-center justify-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                </CardContent>
-            </Card>
-        );
-    }
-    
-    // Placeholder se não houver assentos
-    if (totalSeats === 0 && !loading) { 
-        return (
-             <Card>
-                <CardHeader>
-                    <CardTitle>Mapa de Assentos</CardTitle>
-                </CardHeader>
-                <CardContent className="h-40 flex items-center justify-center">
-                    <p className="text-muted-foreground">Nenhum assento encontrado.</p>
-                </CardContent>
-            </Card>
-        );
-    }
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Mapa de Assentos</CardTitle>
-                <CardDescription>
-                    Total: {totalSeats} assentos | Livres: {seats.filter(s => !s.ocupado).length}
-                </CardDescription>
+        <Card className="w-full max-w-fit mx-auto bg-white shadow-sm border border-slate-200">
+            <CardHeader className="pb-2 border-b bg-slate-50/50">
+                <CardTitle className="flex justify-between items-center text-base">
+                    <span>Mapa de Assentos</span>
+                    <span className="text-xs font-normal bg-white border px-3 py-1 rounded-full text-slate-600">
+                        {passengers.length} Ocupados
+                    </span>
+                </CardTitle>
+                <CardDescription>Vista superior do veículo</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col items-center p-6 space-y-4">
+            
+            <CardContent className="p-6 flex flex-col items-center bg-slate-50 min-h-[400px]">
                 
-                <div className="w-full max-w-lg bg-gray-200 p-2 rounded-t-lg text-center text-xs font-semibold">
-                    Frente (Motorista à Esquerda)
+                <div className="w-full flex justify-between mb-6 px-4 text-slate-400 text-[10px] uppercase font-bold tracking-widest border-b pb-2">
+                    <div className="flex flex-col items-center gap-1">
+                        <div className="w-8 h-8 border-2 border-slate-300 rounded-full flex items-center justify-center">M</div>
+                        <span>Motorista</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                         <div className="w-8 h-2 bg-slate-200 rounded-full mb-2"></div>
+                        <span>Porta</span>
+                    </div>
                 </div>
-                
-                <div className="flex flex-col gap-3 p-2 bg-gray-50 rounded-lg">
-                    {orderedRows.map((row, rowIndex) => (
-                        <div key={rowIndex} className="flex gap-4">
-                            {row.map((seat, index) => {
-                                if (index === 2) { // Adiciona o corredor
-                                    return (
-                                        <React.Fragment key={seat.id}>
-                                            <div className="w-6 shrink-0" /> 
-                                            {renderSeat(seat)}
-                                        </React.Fragment>
-                                    );
-                                }
-                                return renderSeat(seat);
-                            })}
+
+                <div className="flex flex-col gap-3">
+                    {matrix.map((row, rowIndex) => (
+                        <div key={rowIndex} className="flex gap-3 justify-center items-center">
+                            {row.map((seat, colIndex) => (
+                                <React.Fragment key={`${rowIndex}-${colIndex}`}>
+                                    
+                                    {/* Renderiza o Assento */}
+                                    {renderSeat(seat, rowIndex, colIndex)}
+
+                                    {/* --- AQUI ESTÁ A MÁGICA DO ESPAÇO --- */}
+                                    {/* Se for o 2º item (índice 1) e a fileira tiver 4 itens (padrão), adiciona um espaço */}
+                                    {colIndex === 1 && row.length === 4 && (
+                                        <div className="w-8 sm:w-12"></div> /* Espaço do Corredor */
+                                    )}
+                                    {/* ----------------------------------- */}
+
+                                </React.Fragment>
+                            ))}
                         </div>
                     ))}
                 </div>
 
-                <div className="w-full max-w-lg bg-gray-200 p-2 rounded-b-lg text-center text-xs font-semibold mt-4">
-                    Traseira
+                <div className="mt-8 flex gap-6 text-xs font-medium text-slate-600 bg-white px-4 py-2 rounded-full shadow-sm border">
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-sm"></div> Livre
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-red-500 rounded-sm"></div> Ocupado
+                    </div>
                 </div>
-                
+
             </CardContent>
         </Card>
     );

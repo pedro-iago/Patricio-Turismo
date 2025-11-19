@@ -2,7 +2,8 @@ package com.partricioturismo.crud.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import java.util.List; // <-- IMPORT NOVO
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "viagem")
@@ -18,56 +19,56 @@ public class Viagem {
     @Column(nullable = false)
     private LocalDateTime dataHoraChegada;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "onibus_id", nullable = false)
-    private Onibus onibus;
+    // --- MUDANÇA: Agora é uma Lista de Ônibus (ManyToMany) ---
+    @ManyToMany
+    @JoinTable(
+            name = "viagem_onibus",
+            joinColumns = @JoinColumn(name = "viagem_id"),
+            inverseJoinColumns = @JoinColumn(name = "onibus_id")
+    )
+    private List<Onibus> listaOnibus = new ArrayList<>();
 
-    // --- CAMPO NOVO ---
-    // CascadeType.ALL: Se deletar a viagem, deleta os assentos.
     @OneToMany(mappedBy = "viagem", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Assento> assentos;
 
-    // --- Getters e Setters Existentes ---
-    // (Mantenha os seus getters/setters para id, dataHoraPartida, etc.)
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public Long getId() {
-        return id;
-    }
+    public LocalDateTime getDataHoraPartida() { return dataHoraPartida; }
+    public void setDataHoraPartida(LocalDateTime dataHoraPartida) { this.dataHoraPartida = dataHoraPartida; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public LocalDateTime getDataHoraChegada() { return dataHoraChegada; }
+    public void setDataHoraChegada(LocalDateTime dataHoraChegada) { this.dataHoraChegada = dataHoraChegada; }
 
-    public LocalDateTime getDataHoraPartida() {
-        return dataHoraPartida;
-    }
+    // --- GETTER E SETTER DA LISTA ---
+    public List<Onibus> getListaOnibus() { return listaOnibus; }
+    public void setListaOnibus(List<Onibus> listaOnibus) { this.listaOnibus = listaOnibus; }
 
-    public void setDataHoraPartida(LocalDateTime dataHoraPartida) {
-        this.dataHoraPartida = dataHoraPartida;
-    }
+    public List<Assento> getAssentos() { return assentos; }
+    public void setAssentos(List<Assento> assentos) { this.assentos = assentos; }
 
-    public LocalDateTime getDataHoraChegada() {
-        return dataHoraChegada;
-    }
+    // =================================================================
+    // MÉTODOS DE COMPATIBILIDADE (LEGACY)
+    // Adicionados para não quebrar códigos antigos que chamam .getOnibus()
+    // =================================================================
 
-    public void setDataHoraChegada(LocalDateTime dataHoraChegada) {
-        this.dataHoraChegada = dataHoraChegada;
-    }
-
+    /**
+     * Retorna o primeiro ônibus da lista para manter compatibilidade.
+     */
     public Onibus getOnibus() {
-        return onibus;
+        if (this.listaOnibus != null && !this.listaOnibus.isEmpty()) {
+            return this.listaOnibus.get(0);
+        }
+        return null;
     }
 
+    /**
+     * Define um único ônibus (substitui a lista inteira por este único).
+     */
     public void setOnibus(Onibus onibus) {
-        this.onibus = onibus;
-    }
-
-    // --- GETTER E SETTER NOVOS ---
-    public List<Assento> getAssentos() {
-        return assentos;
-    }
-
-    public void setAssentos(List<Assento> assentos) {
-        this.assentos = assentos;
+        this.listaOnibus = new ArrayList<>();
+        if (onibus != null) {
+            this.listaOnibus.add(onibus);
+        }
     }
 }

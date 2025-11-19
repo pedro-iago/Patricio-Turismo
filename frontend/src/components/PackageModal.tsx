@@ -62,33 +62,29 @@ interface AddressSaveDto {
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
 
-// --- MUDANÇA: Interface de dados recebidos (edição) ---
 interface PackageData {
   id: number;
   descricao: string;
   remetente: PersonDto;
   destinatario: PersonDto;
-  enderecoColeta: AddressDto;
-  enderecoEntrega: AddressDto;
-  // taxista?: Affiliate; // <-- REMOVIDO
-  taxistaColeta?: Affiliate; // <-- ADICIONADO
-  taxistaEntrega?: Affiliate; // <-- ADICIONADO
+  enderecoColeta?: AddressDto; // Opcional
+  enderecoEntrega?: AddressDto; // Opcional
+  taxistaColeta?: Affiliate;
+  taxistaEntrega?: Affiliate;
   comisseiro?: Affiliate;
   valor?: number;
   metodoPagamento?: string;
   pago?: boolean;
 }
 
-// --- MUDANÇA: Interface do DTO de salvamento ---
 interface PackageSaveDto {
   descricao: string;
   remetenteId: number;
   destinatarioId: number;
-  enderecoColetaId: number;
-  enderecoEntregaId: number;
-  // taxistaId?: number; // <-- REMOVIDO
-  taxistaColetaId?: number; // <-- ADICIONADO
-  taxistaEntregaId?: number; // <-- ADICIONADO
+  enderecoColetaId?: number; // Opcional
+  enderecoEntregaId?: number; // Opcional
+  taxistaColetaId?: number;
+  taxistaEntregaId?: number;
   comisseiroId?: number;
   valor?: number;
   metodoPagamento?: string;
@@ -97,27 +93,16 @@ interface PackageSaveDto {
 
 interface Page<T> {
   content: T[];
-  totalPages: number;
-  number: number;
 }
 
-interface PackageModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (pkg: PackageSaveDto) => void;
-  package: PackageData | null;
-}
-
-// --- MUDANÇA: Estado inicial limpo ---
 const initialFormData = {
   description: '',
   senderId: null as number | null,
   recipientId: null as number | null,
   pickupAddressId: null as number | null,
   deliveryAddressId: null as number | null,
-  // taxistaId: '', // <-- REMOVIDO
-  taxistaColetaId: '', // <-- ADICIONADO
-  taxistaEntregaId: '', // <-- ADICIONADO
+  taxistaColetaId: '',
+  taxistaEntregaId: '',
   comisseiroId: '',
   valor: '',
   metodoPagamento: '',
@@ -131,10 +116,8 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
   const [comisseiros, setComisseiros] = useState<Affiliate[]>([]);
   const [loadingAffiliates, setLoadingAffiliates] = useState(false);
 
-  // --- MUDANÇA: Popovers de Taxista ---
   const [openTaxistaColetaPopover, setOpenTaxistaColetaPopover] = useState(false);
   const [openTaxistaEntregaPopover, setOpenTaxistaEntregaPopover] = useState(false);
-  // --- FIM DA MUDANÇA ---
   const [openComisseiroPopover, setOpenComisseiroPopover] = useState(false);
 
   const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
@@ -142,8 +125,6 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
   const [personModalTarget, setPersonModalTarget] = useState<'senderId' | 'recipientId' | null>(null);
   const [addressModalTarget, setAddressModalTarget] = useState<'pickupAddressId' | 'deliveryAddressId' | null>(null);
 
-
-  // Busca (apenas) afiliados quando o modal abre (Sem alteração)
   useEffect(() => {
     if (isOpen) {
       const fetchAffiliates = async () => {
@@ -164,7 +145,6 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
     }
   }, [isOpen]);
 
-  // --- MUDANÇA: Popula o formulário para edição ---
   useEffect(() => {
     if (pkg && isOpen) {
       setFormData({
@@ -173,20 +153,46 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
         recipientId: pkg.destinatario?.id || null,
         pickupAddressId: pkg.enderecoColeta?.id || null,
         deliveryAddressId: pkg.enderecoEntrega?.id || null,
-        // taxistaId: pkg.taxista?.id?.toString() || '', // <-- REMOVIDO
-        taxistaColetaId: pkg.taxistaColeta?.id?.toString() || '', // <-- ADICIONADO
-        taxistaEntregaId: pkg.taxistaEntrega?.id?.toString() || '', // <-- ADICIONADO
+        taxistaColetaId: pkg.taxistaColeta?.id?.toString() || '',
+        taxistaEntregaId: pkg.taxistaEntrega?.id?.toString() || '',
         comisseiroId: pkg.comisseiro?.id?.toString() || '',
         valor: pkg.valor?.toString() || '',
         metodoPagamento: pkg.metodoPagamento || '',
         pago: pkg.pago || false,
       });
     } else {
-      setFormData(initialFormData); // Limpa o formulário
+      setFormData(initialFormData);
     }
   }, [pkg, isOpen]);
 
-  // Handlers para os Modais Internos (Sem alteração)
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // --- VALIDAÇÃO RELAXADA ---
+    // Apenas Descrição, Remetente e Destinatário são obrigatórios agora.
+    // Endereços são opcionais para flexibilidade.
+    if (!formData.description || !formData.senderId || !formData.recipientId) {
+        alert("Por favor, preencha a Descrição, Remetente e Destinatário.");
+        return;
+    }
+
+    onSave({
+      descricao: formData.description,
+      remetenteId: Number(formData.senderId),
+      destinatarioId: Number(formData.recipientId),
+      // Envia undefined se for nulo, permitindo salvar sem endereço
+      enderecoColetaId: formData.pickupAddressId ? Number(formData.pickupAddressId) : undefined,
+      enderecoEntregaId: formData.deliveryAddressId ? Number(formData.deliveryAddressId) : undefined,
+      taxistaColetaId: formData.taxistaColetaId ? Number(formData.taxistaColetaId) : undefined,
+      taxistaEntregaId: formData.taxistaEntregaId ? Number(formData.taxistaEntregaId) : undefined,
+      comisseiroId: formData.comisseiroId ? Number(formData.comisseiroId) : undefined,
+      valor: formData.valor ? parseFloat(formData.valor) : undefined,
+      metodoPagamento: formData.metodoPagamento || undefined,
+      pago: formData.pago,
+    });
+  };
+
+  // Handlers para criar novas Pessoas/Endereços
   const handleSaveNewPessoa = async (personDto: PersonSaveDto) => {
     try {
       const response = await api.post<PersonDto>('/api/pessoa', personDto);
@@ -217,39 +223,10 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
     }
   };
 
-  // --- MUDANÇA: Handler Principal (Submit) ---
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-     if (!formData.senderId || !formData.recipientId || !formData.pickupAddressId || !formData.deliveryAddressId) {
-        alert("Por favor, selecione Remetente, Destinatário e os Endereços.");
-        return;
-    }
-    onSave({
-      descricao: formData.description,
-      remetenteId: Number(formData.senderId),
-      destinatarioId: Number(formData.recipientId),
-      enderecoColetaId: Number(formData.pickupAddressId),
-      enderecoEntregaId: Number(formData.deliveryAddressId),
-      // taxistaId: formData.taxistaId ? Number(formData.taxistaId) : undefined, // <-- REMOVIDO
-      taxistaColetaId: formData.taxistaColetaId ? Number(formData.taxistaColetaId) : undefined, // <-- ADICIONADO
-      taxistaEntregaId: formData.taxistaEntregaId ? Number(formData.taxistaEntregaId) : undefined, // <-- ADICIONADO
-      comisseiroId: formData.comisseiroId ? Number(formData.comisseiroId) : undefined,
-      valor: formData.valor ? parseFloat(formData.valor) : undefined,
-      metodoPagamento: formData.metodoPagamento || undefined,
-      pago: formData.pago,
-    });
-  };
-
-  // --- MUDANÇA: Funções auxiliares para afiliados ---
   const getSelectedTaxistaColetaName = () => taxistas.find(t => t.id.toString() === formData.taxistaColetaId)?.pessoa.nome;
   const getSelectedTaxistaEntregaName = () => taxistas.find(t => t.id.toString() === formData.taxistaEntregaId)?.pessoa.nome;
   const getSelectedComisseiroName = () => comisseiros.find(c => c.id.toString() === formData.comisseiroId)?.pessoa.nome;
-  
-  const getAffiliatePlaceholder = () => {
-    if (loadingAffiliates) return `Carregando...`;
-    return `Selecione...`;
-  };
-
+  const getAffiliatePlaceholder = () => loadingAffiliates ? `Carregando...` : `Selecione...`;
 
   return (
     <>
@@ -258,7 +235,7 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
           <DialogHeader>
             <DialogTitle>{pkg ? 'Editar Encomenda' : 'Adicionar Encomenda'}</DialogTitle>
             <DialogDescription>
-              Insira as informações da encomenda, afiliados e pagamento.
+              Insira as informações. Endereços são opcionais.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -268,12 +245,11 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Descreva a encomenda"
+                placeholder="Ex: Caixa de ferramentas"
                 required
               />
             </div>
 
-            {/* Comboboxes de Pessoa (Sem alteração) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="sender">Remetente (Obrigatório)</Label>
@@ -301,12 +277,11 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
               </div>
             </div>
 
-            {/* Comboboxes de Endereço (Sem alteração) */}
             <div className="space-y-2">
-              <Label htmlFor="pickup">Endereço de Coleta (Obrigatório)</Label>
+              <Label htmlFor="pickup">Endereço de Coleta (Opcional)</Label>
               <AddressSearchCombobox
                 value={formData.pickupAddressId}
-                placeholder="Selecione o endereço de coleta..."
+                placeholder="Selecione ou crie..."
                 onSelect={(addressId) => setFormData({ ...formData, pickupAddressId: addressId })}
                 onAddNew={() => {
                   setAddressModalTarget('pickupAddressId');
@@ -316,10 +291,10 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="delivery">Endereço de Entrega (Obrigatório)</Label>
+              <Label htmlFor="delivery">Endereço de Entrega (Opcional)</Label>
               <AddressSearchCombobox
                 value={formData.deliveryAddressId}
-                placeholder="Selecione o endereço de entrega..."
+                placeholder="Selecione ou crie..."
                 onSelect={(addressId) => setFormData({ ...formData, deliveryAddressId: addressId })}
                 onAddNew={() => {
                   setAddressModalTarget('deliveryAddressId');
@@ -331,9 +306,7 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
             
             <hr className="my-4" />
 
-            {/* --- MUDANÇA: Campos de Afiliados --- */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Combobox de Taxista (Coleta) */}
               <div className="space-y-2">
                 <Label htmlFor="taxistaColeta">Taxista (Coleta)</Label>
                 <Popover open={openTaxistaColetaPopover} onOpenChange={setOpenTaxistaColetaPopover} modal={true}>
@@ -343,11 +316,11 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
+                  <PopoverContent className="w-[200px] p-0">
                     <Command>
-                      <CommandInput placeholder="Pesquisar taxista..." />
+                      <CommandInput placeholder="Pesquisar..." />
                       <CommandList>
-                        <CommandEmpty>Nenhum taxista encontrado.</CommandEmpty>
+                        <CommandEmpty>Nenhum encontrado.</CommandEmpty>
                         <CommandGroup>
                           {taxistas.map((taxista) => (
                             <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
@@ -365,7 +338,6 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                 </Popover>
               </div>
 
-              {/* Combobox de Taxista (Entrega) */}
               <div className="space-y-2">
                 <Label htmlFor="taxistaEntrega">Taxista (Entrega)</Label>
                 <Popover open={openTaxistaEntregaPopover} onOpenChange={setOpenTaxistaEntregaPopover} modal={true}>
@@ -375,11 +347,11 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
+                  <PopoverContent className="w-[200px] p-0">
                     <Command>
-                      <CommandInput placeholder="Pesquisar taxista..." />
+                      <CommandInput placeholder="Pesquisar..." />
                       <CommandList>
-                        <CommandEmpty>Nenhum taxista encontrado.</CommandEmpty>
+                        <CommandEmpty>Nenhum encontrado.</CommandEmpty>
                         <CommandGroup>
                           {taxistas.map((taxista) => (
                             <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
@@ -398,7 +370,6 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
               </div>
             </div>
 
-            {/* Combobox de Comisseiro (Opcional) */}
             <div className="space-y-2">
               <Label htmlFor="comisseiro">Comisseiro (Opcional)</Label>
               <Popover open={openComisseiroPopover} onOpenChange={setOpenComisseiroPopover} modal={true}>
@@ -408,11 +379,11 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
+                <PopoverContent className="w-[200px] p-0">
                   <Command>
-                    <CommandInput placeholder="Pesquisar comisseiro..." />
+                    <CommandInput placeholder="Pesquisar..." />
                     <CommandList>
-                      <CommandEmpty>Nenhum comisseiro encontrado.</CommandEmpty>
+                      <CommandEmpty>Nenhum encontrado.</CommandEmpty>
                       <CommandGroup>
                         {comisseiros.map((comisseiro) => (
                           <CommandItem key={comisseiro.id} value={comisseiro.pessoa.nome} onSelect={() => {
@@ -429,9 +400,7 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                 </PopoverContent>
               </Popover>
             </div>
-            {/* --- FIM DA MUDANÇA --- */}
             
-            {/* Campos de Pagamento (Sem alteração) */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="valor">Valor (R$)</Label>
@@ -451,7 +420,7 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                   onValueChange={(value) => setFormData({ ...formData, metodoPagamento: value })}
                 >
                   <SelectTrigger id="metodoPagamento">
-                    <SelectValue placeholder="Selecione o método" />
+                    <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="PIX">PIX</SelectItem>
@@ -486,12 +455,11 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
         </DialogContent>
       </Dialog>
       
-      {/* --- MODAIS INTERNOS --- */}
       <PersonModal
         isOpen={isPersonModalOpen}
         onClose={() => setIsPersonModalOpen(false)}
         onSave={handleSaveNewPessoa}
-        person={null} 
+        person={null}
       />
       
       <AddressModal

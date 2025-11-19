@@ -1,16 +1,17 @@
 package com.partricioturismo.crud.service;
 
+import com.partricioturismo.crud.dtos.OnibusDto;
 import com.partricioturismo.crud.dtos.ViagemDto;
 import com.partricioturismo.crud.dtos.ViagemSaveRequestDto;
 import com.partricioturismo.crud.model.Assento;
-import com.partricioturismo.crud.model.Encomenda; // <-- IMPORT NECESSÁRIO
+import com.partricioturismo.crud.model.Encomenda;
 import com.partricioturismo.crud.model.Onibus;
-import com.partricioturismo.crud.model.PassageiroViagem; // <-- IMPORT NECESSÁRIO
+import com.partricioturismo.crud.model.PassageiroViagem;
 import com.partricioturismo.crud.model.Viagem;
 import com.partricioturismo.crud.repositories.AssentoRepository;
-import com.partricioturismo.crud.repositories.EncomendaRepository; // <-- IMPORT NECESSÁRIO
+import com.partricioturismo.crud.repositories.EncomendaRepository;
 import com.partricioturismo.crud.repositories.OnibusRepository;
-import com.partricioturismo.crud.repositories.PassageiroViagemRepository; // <-- IMPORT NECESSÁRIO
+import com.partricioturismo.crud.repositories.PassageiroViagemRepository;
 import com.partricioturismo.crud.repositories.ViagemRepository;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,37 +35,45 @@ public class ViagemService {
     @Autowired
     private AssentoRepository assentoRepository;
 
-    // --- MUDANÇA: Injeções necessárias para o DELETE em cascata ---
     @Autowired
-    private PassageiroViagemService passageiroViagemService; // Usa o Service para a lógica de delete complexa
-
+    private PassageiroViagemService passageiroViagemService;
     @Autowired
-    private PassageiroViagemRepository passageiroViagemRepository; // Usa o Repo para BUSCAR
-
+    private PassageiroViagemRepository passageiroViagemRepository;
     @Autowired
-    private EncomendaRepository encomendaRepository; // Usa o Repo para BUSCAR e DELETAR
-    // --- FIM DA MUDANÇA ---
-
+    private EncomendaRepository encomendaRepository;
 
     @Transactional
     public ViagemDto save(ViagemSaveRequestDto viagemDto) {
-        Onibus onibus = onibusRepository.findById(viagemDto.onibusId())
-                .orElseThrow(() -> new RuntimeException("Ônibus não encontrado!"));
+        Viagem viagem = new Viagem();
+        viagem.setDataHoraPartida(viagemDto.dataHoraPartida());
+        viagem.setDataHoraChegada(viagemDto.dataHoraChegada());
 
-        var viagem = new Viagem();
-        BeanUtils.copyProperties(viagemDto, viagem);
-        viagem.setOnibus(onibus);
+        // Busca e vincula a lista de ônibus
+        List<Onibus> onibusList = new ArrayList<>();
+        if (viagemDto.onibusIds() != null && !viagemDto.onibusIds().isEmpty()) {
+            onibusList = onibusRepository.findAllById(viagemDto.onibusIds());
+            viagem.setListaOnibus(onibusList);
+        }
+
         var viagemSalva = viagemRepository.save(viagem);
 
-        // --- LÓGICA CORRIGIDA: CRIA ASSENTOS COM BOOLEAN ---
-        int capacidade = onibus.getCapacidadePassageiros();
+        // Gera assentos para todos os ônibus
         List<Assento> novosAssentos = new ArrayList<>();
-        for (int i = 1; i <= capacidade; i++) {
-            Assento assento = new Assento();
-            assento.setNumero(String.valueOf(i));
-            assento.setOcupado(false);
-            assento.setViagem(viagemSalva);
-            novosAssentos.add(assento);
+        for (Onibus onibus : onibusList) {
+            int capacidade = onibus.getCapacidadePassageiros();
+            for (int i = 1; i <= capacidade; i++) {
+                Assento assento = new Assento();
+                assento.setNumero(String.valueOf(i));
+                assento.setOcupado(false);
+                assento.setViagem(viagemSalva);
+
+                // --- CORREÇÃO CRÍTICA PARA V12 ---
+                // Agora vinculamos o assento ao ônibus específico
+                assento.setOnibus(onibus);
+                // ---------------------------------
+
+                novosAssentos.add(assento);
+            }
         }
         assentoRepository.saveAll(novosAssentos);
 
@@ -72,11 +81,24 @@ public class ViagemService {
     }
 
     public ViagemDto toDto(Viagem viagem) {
+        List<OnibusDto> onibusDtos = new ArrayList<>();
+
+        if (viagem.getListaOnibus() != null) {
+            onibusDtos = viagem.getListaOnibus().stream()
+                    .map(o -> new OnibusDto(
+                            o.getIdOnibus(),
+                            o.getModelo(),
+                            o.getPlaca(),
+                            o.getCapacidadePassageiros(),
+                            o.getLayoutJson()))
+                    .collect(Collectors.toList());
+        }
+
         return new ViagemDto(
                 viagem.getId(),
                 viagem.getDataHoraPartida(),
                 viagem.getDataHoraChegada(),
-                viagem.getOnibus().getIdOnibus()
+                onibusDtos
         );
     }
 
@@ -93,44 +115,33 @@ public class ViagemService {
         Optional<Viagem> viagemOptional = viagemRepository.findById(id);
         if (viagemOptional.isEmpty()) { return Optional.empty(); }
 
-        Onibus onibus = onibusRepository.findById(viagemDto.onibusId())
-                .orElseThrow(() -> new RuntimeException("Ônibus não encontrado!"));
-
         var viagemModel = viagemOptional.get();
-        BeanUtils.copyProperties(viagemDto, viagemModel, "id");
-        viagemModel.setOnibus(onibus);
+        viagemModel.setDataHoraPartida(viagemDto.dataHoraPartida());
+        viagemModel.setDataHoraChegada(viagemDto.dataHoraChegada());
+
+        if (viagemDto.onibusIds() != null) {
+            List<Onibus> onibusList = onibusRepository.findAllById(viagemDto.onibusIds());
+            viagemModel.setListaOnibus(onibusList);
+        }
 
         var viagemAtualizada = viagemRepository.save(viagemModel);
         return Optional.of(toDto(viagemAtualizada));
     }
 
-    // --- MUDANÇA: Lógica de DELETE corrigida ---
     @Transactional
     public boolean delete(Long id) {
-        // 1. Verifica se a viagem existe
         if (!viagemRepository.existsById(id)) {
             return false;
         }
-
-        // 2. Deletar todos os Passageiros (e suas Bagagens)
-        // Usamos o Service, pois ele tem a lógica de deletar Bagagens e liberar Assentos
         List<PassageiroViagem> passageiros = passageiroViagemRepository.findByViagemId(id);
         for (PassageiroViagem p : passageiros) {
             passageiroViagemService.delete(p.getId());
         }
-
-        // 3. Deletar todas as Encomendas
-        // (Encomenda não tem filhos, então podemos usar o repository)
         List<Encomenda> encomendas = encomendaRepository.findByViagemId(id);
         if (!encomendas.isEmpty()) {
             encomendaRepository.deleteAll(encomendas);
         }
-
-        // 4. Deletar a Viagem "pai"
-        // O `cascade = CascadeType.ALL` na sua entidade Viagem
-        // cuidará de deletar todos os Assentos automaticamente.
         viagemRepository.deleteById(id);
         return true;
     }
-    // --- FIM DA MUDANÇA ---
 }
