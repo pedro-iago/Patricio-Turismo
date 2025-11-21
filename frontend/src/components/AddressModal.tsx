@@ -3,13 +3,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Loader2 } from 'lucide-react';
+import api from '@/services/api';
 
-// --- IMPORTS NOVOS ---
-import { Loader2 } from 'lucide-react'; // Ícone de loading
-import api from '@/services/api'; // O seu cliente axios
-import { useToast } from './ui/use-toast'; // (Opcional, mas recomendado)
-
-// --- INTERFACES (sem mudança) ---
+// --- INTERFACES ---
 interface AddressDto {
   logradouro: string;
   numero: string;
@@ -46,9 +43,7 @@ export default function AddressModal({ isOpen, onClose, onSave, address }: Addre
     cep: '',
   });
 
-  // --- ESTADO NOVO ---
   const [isCepLoading, setIsCepLoading] = useState(false);
-  // const { toast } = useToast(); // Descomente se quiser usar 'toast' para erros
 
   useEffect(() => {
     if (address) {
@@ -61,7 +56,6 @@ export default function AddressModal({ isOpen, onClose, onSave, address }: Addre
         cep: address.cep || '',
       });
     } else {
-      // Limpa o formulário se for um novo endereço
       setFormData({
         logradouro: '',
         numero: '',
@@ -71,61 +65,55 @@ export default function AddressModal({ isOpen, onClose, onSave, address }: Addre
         cep: '',
       });
     }
-  }, [address, isOpen]); // Roda quando o modal abre ou o 'address' muda
+  }, [address, isOpen]);
 
-  // --- LÓGICA NOVA (Passo 5: ViaCEP) ---
+  // --- Busca de CEP ---
   useEffect(() => {
-    // Remove tudo o que não for dígito
     const cepLimpo = formData.cep.replace(/\D/g, '');
 
-    // Só faz a busca se tiver 8 dígitos
     if (cepLimpo.length === 8) {
       const fetchCep = async () => {
         setIsCepLoading(true);
         try {
-          // Chama o endpoint do NOSSO backend que criámos
           const response = await api.get(`/api/endereco/consulta-cep?cep=${cepLimpo}`);
-          
           const { logradouro, bairro, cidade, estado, cep } = response.data;
           
-          // Atualiza o formulário com os dados recebidos
           setFormData((prevData) => ({
             ...prevData,
-            logradouro: logradouro,
-            bairro: bairro,
-            cidade: cidade,
-            estado: estado,
-            cep: cep, // Usa o CEP formatado que veio da API
+            logradouro: logradouro || '', // Garante string vazia se vier null
+            bairro: bairro || '',
+            cidade: cidade || '',
+            estado: estado || '',
+            cep: cep || prevData.cep,
           }));
           
-          // (Opcional) Foca no campo 'numero'
           document.getElementById('numero')?.focus();
 
         } catch (error: any) {
           console.error("Erro ao buscar CEP:", error);
-          // (Opcional) Mostra um 'toast' de erro
-          // toast({
-          //   variant: "destructive",
-          //   title: "CEP não encontrado",
-          //   description: error.response?.data || "Não foi possível consultar o CEP.",
-          // });
         } finally {
           setIsCepLoading(false);
         }
       };
 
-      // Usamos um timeout para não fazer a busca a cada tecla (debounce)
       const timerId = setTimeout(() => {
         fetchCep();
-      }, 500); // 500ms de atraso
+      }, 500);
 
-      return () => clearTimeout(timerId); // Limpa o timeout se o CEP mudar
+      return () => clearTimeout(timerId);
     }
-  }, [formData.cep]); // Dispara este efeito sempre que o CEP mudar
-
+  }, [formData.cep]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validação manual simples no frontend
+    if (!formData.cidade || !formData.estado) {
+      alert("Cidade e Estado são obrigatórios!");
+      return;
+    }
+
+    // Envia os dados (campos vazios serão enviados como strings vazias ou null, dependendo de como seu backend trata)
     onSave(formData);
   };
 
@@ -135,23 +123,23 @@ export default function AddressModal({ isOpen, onClose, onSave, address }: Addre
         <DialogHeader>
           <DialogTitle>{address ? 'Editar Endereço' : 'Novo Endereço'}</DialogTitle>
           <DialogDescription>
-            {address ? 'Atualize os detalhes do endereço abaixo.' : 'Insira o CEP para autocompletar ou preencha manualmente.'}
+            Preencha os dados. <b>Apenas Cidade e Estado são obrigatórios.</b>
           </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           
-          {/* --- CAMPO DE CEP ATUALIZADO --- */}
+          {/* CEP (Opcional) */}
           <div className="space-y-2">
-            <Label htmlFor="cep">CEP</Label>
+            <Label htmlFor="cep">CEP (Opcional)</Label>
             <div className="relative">
               <Input
                 id="cep"
                 value={formData.cep}
                 onChange={(e) => setFormData({ ...formData, cep: e.target.value })}
-                placeholder="01310-100"
-                required
-                maxLength={9} // Ex: 00000-000
+                placeholder="00000-000"
+                maxLength={9}
+                // required removido
               />
               {isCepLoading && (
                 <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
@@ -159,7 +147,6 @@ export default function AddressModal({ isOpen, onClose, onSave, address }: Addre
             </div>
           </div>
           
-          {/* O resto do formulário */}
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2 space-y-2">
               <Label htmlFor="logradouro">Rua</Label>
@@ -167,8 +154,8 @@ export default function AddressModal({ isOpen, onClose, onSave, address }: Addre
                 id="logradouro"
                 value={formData.logradouro}
                 onChange={(e) => setFormData({ ...formData, logradouro: e.target.value })}
-                placeholder="Av. Paulista"
-                required
+                placeholder="Rua, Avenida..."
+                // required removido
               />
             </div>
             <div className="space-y-2">
@@ -177,8 +164,8 @@ export default function AddressModal({ isOpen, onClose, onSave, address }: Addre
                 id="numero"
                 value={formData.numero}
                 onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
-                placeholder="1000"
-                required
+                placeholder="S/N"
+                // required removido
               />
             </div>
           </div>
@@ -189,31 +176,35 @@ export default function AddressModal({ isOpen, onClose, onSave, address }: Addre
               id="bairro"
               value={formData.bairro}
               onChange={(e) => setFormData({ ...formData, bairro: e.target.value })}
-              placeholder="Bela Vista"
-              required
+              placeholder="Bairro"
+              // required removido
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="cidade">Cidade</Label>
+              <Label htmlFor="cidade" className="flex gap-1">
+                Cidade <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="cidade"
                 value={formData.cidade}
                 onChange={(e) => setFormData({ ...formData, cidade: e.target.value })}
                 placeholder="São Paulo"
-                required
+                required // Mantido
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="estado">Estado</Label>
+              <Label htmlFor="estado" className="flex gap-1">
+                Estado <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="estado"
                 value={formData.estado}
                 onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
                 placeholder="SP"
                 maxLength={50} 
-                required
+                required // Mantido
               />
             </div>
           </div>
