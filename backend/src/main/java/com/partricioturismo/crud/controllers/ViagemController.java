@@ -5,6 +5,7 @@ import com.partricioturismo.crud.dtos.ViagemDto;
 import com.partricioturismo.crud.dtos.ViagemSaveRequestDto;
 import com.partricioturismo.crud.service.AssentoService;
 import com.partricioturismo.crud.service.ViagemService;
+import jakarta.persistence.EntityNotFoundException; // Import necessário para o erro 404
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,7 +26,7 @@ public class ViagemController {
     @Autowired
     AssentoService assentoService;
 
-    // --- ATUALIZADO: Endpoint com Filtros ---
+    // Endpoint de listagem com Filtros (Mês, Ano, Busca)
     @GetMapping
     public ResponseEntity<Page<ViagemDto>> getAll(
             @RequestParam(required = false) Integer mes,
@@ -37,14 +38,18 @@ public class ViagemController {
         return ResponseEntity.status(HttpStatus.OK).body(listViagem);
     }
 
+    // === CORREÇÃO AQUI ===
+    // O service.findById agora retorna o objeto direto ou lança exceção
     @GetMapping("/{idViagem}")
     public ResponseEntity<Object> getById(@PathVariable(value = "idViagem") Long idViagem) {
-        Optional<ViagemDto> viagem = service.findById(idViagem);
-        if (viagem.isEmpty()) {
+        try {
+            ViagemDto viagem = service.findById(idViagem);
+            return ResponseEntity.status(HttpStatus.OK).body(viagem);
+        } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Viagem não existente");
         }
-        return ResponseEntity.status(HttpStatus.OK).body(viagem.get());
     }
+    // =====================
 
     @PostMapping
     public ResponseEntity<Object> save(@RequestBody ViagemSaveRequestDto viagemDto) {
