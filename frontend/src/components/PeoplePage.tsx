@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Eye } from 'lucide-react';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-// ✅ 1. IMPORTE OS COMPONENTES DE CARD
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import PersonModal from './PersonModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
@@ -20,7 +19,6 @@ import {
 } from './ui/pagination';
 import { cn } from './ui/utils';
 
-// ... (Interfaces: Person, PersonDto, Page - SEM ALTERAÇÃO) ...
 interface Person {
   id: number;
   nome: string;
@@ -42,94 +40,95 @@ interface Page<T> {
   number: number;
 }
 
-
 export default function PeoplePage() {
   const navigate = useNavigate();
   const [people, setPeople] = useState<Person[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [deletePerson, setDeletePerson] = useState<Person | null>(null);
+  
+  // Busca e Paginação
   const [searchTerm, setSearchTerm] = useState('');
-
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  // ... (Lógica de fetch, handle, filter, etc. - SEM ALTERAÇÃO) ...
-  const fetchPeople = async (page = 0) => {
+  // --- BUSCA NO SERVIDOR (Debounce) ---
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      // Sempre que o termo mudar, voltamos para a página 0 e buscamos
+      fetchPeople(0, searchTerm);
+    }, 500); // Espera 500ms após parar de digitar
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm]);
+
+  const fetchPeople = async (page = 0, term = '') => {
+    setLoading(true);
     try {
-      const response = await api.get<Page<Person>>(`/api/pessoa?page=${page}&size=10`);
-      setPeople(response.data.content);
-      setTotalPages(response.data.totalPages);
-      setCurrentPage(response.data.number);
+      let response;
+      
+      if (term) {
+        // Se tiver busca, usa o endpoint de pesquisa
+        // NOTA: Se o seu endpoint /search retornar uma Lista simples (não paginada), 
+        // tratamos como página única.
+        response = await api.get<Person[] | Page<Person>>(`/api/pessoa/search?query=${term}`);
+        
+        if (Array.isArray(response.data)) {
+            // Se o backend retornar array direto na busca
+            setPeople(response.data);
+            setTotalPages(1); 
+            setCurrentPage(0);
+        } else {
+            // Se o backend retornar objeto Page na busca
+            setPeople(response.data.content);
+            setTotalPages(response.data.totalPages);
+            setCurrentPage(response.data.number);
+        }
+      } else {
+        // Se não tiver busca, usa a paginação padrão
+        response = await api.get<Page<Person>>(`/api/pessoa?page=${page}&size=10`);
+        setPeople(response.data.content);
+        setTotalPages(response.data.totalPages);
+        setCurrentPage(response.data.number);
+      }
     } catch (error) {
       console.error("Erro ao buscar pessoas:", error);
+      setPeople([]);
+    } finally {
+        setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchPeople(currentPage);
-  }, [currentPage]);
-
-  const handleCreatePerson = async (personData: PersonDto) => {
-    try {
-      await api.post('/api/pessoa', personData);
-      setIsModalOpen(false);
-      await fetchPeople(currentPage);
-    } catch (error) {
-      console.error("Erro ao criar pessoa:", error);
+  // Quando muda a página via clique nos botões
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 0 && newPage < totalPages) {
+      fetchPeople(newPage, searchTerm);
     }
+  };
+
+  // ... (CRUD Handlers mantidos) ...
+  const handleCreatePerson = async (personData: PersonDto) => {
+    try { await api.post('/api/pessoa', personData); setIsModalOpen(false); fetchPeople(0, searchTerm); } 
+    catch (error) { console.error("Erro:", error); }
   };
 
   const handleUpdatePerson = async (personData: PersonDto) => {
     if (!selectedPerson) return;
-    try {
-      await api.put(`/api/pessoa/${selectedPerson.id}`, personData);
-      setSelectedPerson(null);
-      setIsModalOpen(false);
-      await fetchPeople(currentPage);
-    } catch (error) {
-      console.error("Erro ao atualizar pessoa:", error, selectedPerson);
-    }
+    try { await api.put(`/api/pessoa/${selectedPerson.id}`, personData); setSelectedPerson(null); setIsModalOpen(false); fetchPeople(currentPage, searchTerm); } 
+    catch (error) { console.error("Erro:", error); }
   };
 
   const handleDeletePerson = async () => {
     if (!deletePerson) return;
-    try {
-      await api.delete(`/api/pessoa/${deletePerson.id}`);
-      setDeletePerson(null);
-      await fetchPeople(currentPage);
-    } catch (error) {
-      console.error("Erro ao deletar pessoa:", error, deletePerson);
-    }
+    try { await api.delete(`/api/pessoa/${deletePerson.id}`); setDeletePerson(null); fetchPeople(currentPage, searchTerm); } 
+    catch (error) { console.error("Erro:", error); }
   };
 
-  const openEditModal = (person: Person) => {
-    setSelectedPerson(person);
-    setIsModalOpen(true);
-  };
-
-  const openCreateModal = () => {
-    setSelectedPerson(null);
-    setIsModalOpen(true);
-  };
-
-  const filteredPeople = people.filter(person => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      person.nome.toLowerCase().includes(searchLower) ||
-      person.cpf.toLowerCase().includes(searchLower) ||
-      (person.telefone && person.telefone.toLowerCase().includes(searchLower))
-    );
-  });
-
-  const handlePageChange = (newPage: number) => {
-    if (newPage >= 0 && newPage < totalPages) {
-      setCurrentPage(newPage);
-    }
-  };
+  const openEditModal = (person: Person) => { setSelectedPerson(person); setIsModalOpen(true); };
+  const openCreateModal = () => { setSelectedPerson(null); setIsModalOpen(true); };
 
   const getPaginationItems = (currentPage: number, totalPages: number) => {
-    // ... (lógica da paginação - SEM ALTERAÇÃO) ...
     const items: (number | string)[] = [];
     const maxPageNumbers = 5;
     const pageRangeDisplayed = 1;
@@ -145,7 +144,6 @@ export default function PeoplePage() {
 
   return (
     <div className="space-y-6">
-      {/* ... (Cabeçalho da página e Input de Busca - SEM ALTERAÇÃO) ... */}
       <div className="flex items-center justify-between">
         <div>
           <h2>Gestão de Pessoas</h2>
@@ -168,7 +166,7 @@ export default function PeoplePage() {
         />
       </div>
 
-      {/* ✅ 2. TABELA (VISÍVEL APENAS EM DESKTOP) */}
+      {/* TABELA DESKTOP */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 hidden md:block">
         <Table>
           <TableHeader>
@@ -181,158 +179,74 @@ export default function PeoplePage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPeople.map((person) => (
-              <TableRow key={person.id}>
-                <TableCell>{person.nome}</TableCell>
-                <TableCell>{person.cpf}</TableCell>
-                <TableCell>{person.telefone || '-'}</TableCell>
-                <TableCell>{person.idade || '-'}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => navigate(`/pessoas/${person.id}`)}
-                      className="hover:bg-primary/10 hover:text-primary"
-                      title="Ver Histórico"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEditModal(person)}
-                      className="hover:bg-primary/10 hover:text-primary"
-                      title="Editar Pessoa"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeletePerson(person)}
-                      className="hover:bg-destructive/10 hover:text-destructive"
-                      title="Excluir Pessoa"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+            {loading ? (
+                <TableRow><TableCell colSpan={5} className="text-center h-24">Carregando...</TableCell></TableRow>
+            ) : people.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center h-24 text-muted-foreground">Nenhum registro encontrado.</TableCell></TableRow>
+            ) : (
+              people.map((person) => (
+                <TableRow key={person.id}>
+                  <TableCell>{person.nome}</TableCell>
+                  <TableCell>{person.cpf}</TableCell>
+                  <TableCell>{person.telefone || '-'}</TableCell>
+                  <TableCell>{person.idade || '-'}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => navigate(`/pessoas/${person.id}`)} className="hover:bg-primary/10 hover:text-primary"><Eye className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => openEditModal(person)} className="hover:bg-primary/10 hover:text-primary"><Edit className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => setDeletePerson(person)} className="hover:bg-destructive/10 hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
 
-      {/* ✅ 3. LISTA DE CARDS (VISÍVEL APENAS EM MOBILE) */}
+      {/* LISTA MOBILE */}
       <div className="block md:hidden space-y-4">
-        {filteredPeople.map((person) => (
+        {loading ? <div className="text-center p-4">Carregando...</div> : 
+         people.length === 0 ? <div className="text-center p-4 text-muted-foreground">Nenhum registro encontrado.</div> :
+         people.map((person) => (
           <Card key={person.id} className="bg-white shadow-sm">
             <CardHeader>
               <CardTitle>{person.nome}</CardTitle>
               <CardDescription>CPF: {person.cpf}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <div>
-                <span className="font-medium text-muted-foreground">Telefone: </span>
-                {person.telefone || '-'}
-              </div>
-              <div>
-                <span className="font-medium text-muted-foreground">Idade: </span>
-                {person.idade || '-'}
-              </div>
+              <div><span className="font-medium text-muted-foreground">Telefone: </span>{person.telefone || '-'}</div>
+              <div><span className="font-medium text-muted-foreground">Idade: </span>{person.idade || '-'}</div>
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(`/pessoas/${person.id}`)}
-                className="hover:bg-primary/10 hover:text-primary"
-                title="Ver Histórico"
-              >
-                <Eye className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => openEditModal(person)}
-                className="hover:bg-primary/10 hover:text-primary"
-                title="Editar Pessoa"
-              >
-                <Edit className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setDeletePerson(person)}
-                className="hover:bg-destructive/10 hover:text-destructive"
-                title="Excluir Pessoa"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`/pessoas/${person.id}`)} className="hover:bg-primary/10 hover:text-primary"><Eye className="w-4 h-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => openEditModal(person)} className="hover:bg-primary/10 hover:text-primary"><Edit className="w-4 h-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => setDeletePerson(person)} className="hover:bg-destructive/10 hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
             </CardFooter>
           </Card>
         ))}
       </div>
 
-
-      {/* --- PAGINAÇÃO (SEM ALTERAÇÃO - Sempre visível) --- */}
       {totalPages > 1 && (
         <Pagination>
-          {/* ... (Conteúdo da paginação sem alteração) ... */}
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious
-                href="#"
-                onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }}
-                className={cn(currentPage === 0 ? "pointer-events-none opacity-50" : "")}
-              />
+              <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }} className={cn(currentPage === 0 ? "pointer-events-none opacity-50" : "")} />
             </PaginationItem>
             {getPaginationItems(currentPage, totalPages).map((pageItem, index) => (
               <PaginationItem key={index}>
-                {typeof pageItem === 'string' ? (
-                  <PaginationEllipsis />
-                ) : (
-                  <PaginationLink
-                    href="#"
-                    isActive={pageItem === currentPage}
-                    onClick={(e) => { e.preventDefault(); handlePageChange(pageItem as number); }}
-                  >
-                    {(pageItem as number) + 1}
-                  </PaginationLink>
-                )}
+                {typeof pageItem === 'string' ? <PaginationEllipsis /> : <PaginationLink href="#" isActive={pageItem === currentPage} onClick={(e) => { e.preventDefault(); handlePageChange(pageItem as number); }}>{(pageItem as number) + 1}</PaginationLink>}
               </PaginationItem>
             ))}
             <PaginationItem>
-              <PaginationNext
-                href="#"
-                onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }}
-                className={cn(currentPage >= totalPages - 1 ? "pointer-events-none opacity-50" : "")}
-              />
+              <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }} className={cn(currentPage >= totalPages - 1 ? "pointer-events-none opacity-50" : "")} />
             </PaginationItem>
           </PaginationContent>
         </Pagination>
       )}
 
-
-      {/* ... (Modais - SEM ALTERAÇÃO) ... */}
-      <PersonModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedPerson(null);
-        }}
-        onSave={selectedPerson ? handleUpdatePerson : handleCreatePerson}
-        person={selectedPerson}
-      />
-      <DeleteConfirmModal
-        isOpen={!!deletePerson}
-        onClose={() => setDeletePerson(null)}
-        onConfirm={handleDeletePerson}
-        title="Excluir Pessoa"
-        description={`Tem certeza de que deseja excluir ${deletePerson?.nome}? Esta ação não pode ser desfeita.`}
-      />
+      <PersonModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setSelectedPerson(null); }} onSave={selectedPerson ? handleUpdatePerson : handleCreatePerson} person={selectedPerson} />
+      <DeleteConfirmModal isOpen={!!deletePerson} onClose={() => setDeletePerson(null)} onConfirm={handleDeletePerson} title="Excluir Pessoa" description={`Tem certeza de que deseja excluir ${deletePerson?.nome}?`} />
     </div>
   );
 }

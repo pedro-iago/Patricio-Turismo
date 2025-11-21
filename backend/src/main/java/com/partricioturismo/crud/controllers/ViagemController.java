@@ -2,7 +2,7 @@ package com.partricioturismo.crud.controllers;
 
 import com.partricioturismo.crud.dtos.AssentoDto;
 import com.partricioturismo.crud.dtos.ViagemDto;
-import com.partricioturismo.crud.dtos.ViagemSaveRequestDto; // <-- IMPORT NOVO
+import com.partricioturismo.crud.dtos.ViagemSaveRequestDto;
 import com.partricioturismo.crud.service.AssentoService;
 import com.partricioturismo.crud.service.ViagemService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,9 +25,15 @@ public class ViagemController {
     @Autowired
     AssentoService assentoService;
 
+    // --- ATUALIZADO: Endpoint com Filtros ---
     @GetMapping
-    public ResponseEntity<Page<ViagemDto>> getAll(Pageable pageable) {
-        Page<ViagemDto> listViagem = service.findAll(pageable);
+    public ResponseEntity<Page<ViagemDto>> getAll(
+            @RequestParam(required = false) Integer mes,
+            @RequestParam(required = false) Integer ano,
+            @RequestParam(required = false) String query,
+            Pageable pageable
+    ) {
+        Page<ViagemDto> listViagem = service.findAll(mes, ano, query, pageable);
         return ResponseEntity.status(HttpStatus.OK).body(listViagem);
     }
 
@@ -41,7 +47,6 @@ public class ViagemController {
     }
 
     @PostMapping
-    // --- MUDANÇA AQUI: Usa ViagemSaveRequestDto ---
     public ResponseEntity<Object> save(@RequestBody ViagemSaveRequestDto viagemDto) {
         try {
             var viagemSalva = service.save(viagemDto);
@@ -61,7 +66,6 @@ public class ViagemController {
     }
 
     @PutMapping("/{idViagem}")
-    // --- MUDANÇA AQUI: Usa ViagemSaveRequestDto ---
     public ResponseEntity<Object> update(@PathVariable(value = "idViagem") Long idViagem, @RequestBody ViagemSaveRequestDto viagemDto) {
         try {
             Optional<ViagemDto> viagemAtualizada = service.update(idViagem, viagemDto);

@@ -13,7 +13,6 @@ import com.partricioturismo.crud.repositories.EncomendaRepository;
 import com.partricioturismo.crud.repositories.OnibusRepository;
 import com.partricioturismo.crud.repositories.PassageiroViagemRepository;
 import com.partricioturismo.crud.repositories.ViagemRepository;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -48,7 +47,6 @@ public class ViagemService {
         viagem.setDataHoraPartida(viagemDto.dataHoraPartida());
         viagem.setDataHoraChegada(viagemDto.dataHoraChegada());
 
-        // Busca e vincula a lista de ônibus
         List<Onibus> onibusList = new ArrayList<>();
         if (viagemDto.onibusIds() != null && !viagemDto.onibusIds().isEmpty()) {
             onibusList = onibusRepository.findAllById(viagemDto.onibusIds());
@@ -57,7 +55,6 @@ public class ViagemService {
 
         var viagemSalva = viagemRepository.save(viagem);
 
-        // Gera assentos para todos os ônibus
         List<Assento> novosAssentos = new ArrayList<>();
         for (Onibus onibus : onibusList) {
             int capacidade = onibus.getCapacidadePassageiros();
@@ -66,12 +63,7 @@ public class ViagemService {
                 assento.setNumero(String.valueOf(i));
                 assento.setOcupado(false);
                 assento.setViagem(viagemSalva);
-
-                // --- CORREÇÃO CRÍTICA PARA V12 ---
-                // Agora vinculamos o assento ao ônibus específico
                 assento.setOnibus(onibus);
-                // ---------------------------------
-
                 novosAssentos.add(assento);
             }
         }
@@ -102,8 +94,10 @@ public class ViagemService {
         );
     }
 
-    public Page<ViagemDto> findAll(Pageable pageable) {
-        return viagemRepository.findAll(pageable).map(this::toDto);
+    // --- ATUALIZADO: RECEBE OS FILTROS ---
+    public Page<ViagemDto> findAll(Integer mes, Integer ano, String query, Pageable pageable) {
+        return viagemRepository.findAllWithFilters(mes, ano, query, pageable)
+                .map(this::toDto);
     }
 
     public Optional<ViagemDto> findById(Long id) {

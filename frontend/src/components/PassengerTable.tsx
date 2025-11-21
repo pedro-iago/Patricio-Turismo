@@ -11,7 +11,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortablePassengerGroup, useSortableGroup } from './SortablePassengerGroup';
 
-// --- Componente do Handle ---
+// --- Componente do Handle (Desktop) ---
 function DragHandle() {
     const context = useSortableGroup();
     if (!context) return <div className="w-4 h-4" />;
@@ -119,6 +119,7 @@ export default function PassengerTable({
     useSensor(KeyboardSensor)
   );
 
+  // Conta quantos membros cada grupo tem
   const groupCounts = useMemo(() => {
     const counts = new Map<string, number>();
     passengers.forEach(p => {
@@ -129,6 +130,7 @@ export default function PassengerTable({
     return counts;
   }, [passengers]);
 
+  // Agrupa os passageiros em arrays de arrays
   const groupedPassengers = useMemo(() => {
     const groups: PassengerData[][] = [];
     let currentGroup: PassengerData[] = [];
@@ -150,7 +152,6 @@ export default function PassengerTable({
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    
     if (over && active.id !== over.id && onReorder) {
         const oldGroupIndex = groupedPassengers.findIndex(g => g[0].id === active.id);
         const newGroupIndex = groupedPassengers.findIndex(g => g[0].id === over.id);
@@ -177,6 +178,7 @@ export default function PassengerTable({
 
   return (
     <>
+    {/* --- VERSÃO DESKTOP (TABELA) --- */}
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 pt-print-clean hidden md:block overflow-hidden">
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <Table>
@@ -221,37 +223,31 @@ export default function PassengerTable({
                             const canLinkToAbove = isFirstInGroup && prevGroup; 
                             const previousPassenger = prevGroup ? prevGroup[prevGroup.length - 1] : null;
 
-                            const rowBg = isGrouped ? "bg-orange-50/30 hover:bg-orange-50/50" : "hover:bg-slate-50";
+                            // Borda superior APENAS no primeiro do grupo
+                            const borderTopClass = isGrouped && isFirstInGroup ? "border-t-2 border-orange-200" : "border-t-0";
+                            
+                            // Borda inferior APENAS no último do grupo
+                            let borderBottomClass = "border-b";
+                            if (isGrouped) {
+                                if (isLastInGroup) borderBottomClass = "border-b-2 border-orange-200";
+                                else borderBottomClass = "border-b-0 border-transparent";
+                            }
 
-                            // === CLASSE AUXILIAR DE BORDAS PARA AS CÉLULAS ===
-                            // Isso garante que a borda apareça, pois é aplicada diretamente na célula
+                            const rowBg = isGrouped ? "bg-orange-50/30 hover:bg-orange-50/50" : "hover:bg-slate-50";
                             const cellBorderClass = isGrouped 
-                                ? cn(
-                                    isFirstInGroup && "border-t-2 border-orange-200", 
-                                    isLastInGroup && "border-b-2 border-orange-200"
-                                  )
+                                ? cn(isFirstInGroup && "border-t-2 border-orange-200", isLastInGroup && "border-b-2 border-orange-200")
                                 : "";
 
                             return (
                                 <TableRow 
                                     key={passenger.id} 
-                                    // Se agrupado, removemos a borda padrão (border-b) para desenhar a nossa nas células
-                                    className={cn("transition-colors group", rowBg, isGrouped ? "border-b-0" : "border-b")}
+                                    className={cn("transition-colors group", rowBg, borderTopClass, borderBottomClass)}
                                 >
                                     {/* 1. DRAG & TAG */}
                                     {!isPrintView && (
-                                        <TableCell className={cn("w-8 p-0 relative align-middle border-l-2", isGrouped ? "border-orange-200" : "border-transparent", cellBorderClass)}>
-                                            <div className="absolute left-0 top-1 bottom-1 w-1.5 rounded-r-md z-20" 
-                                                style={{ backgroundColor: passenger.corTag || 'transparent', printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }} 
-                                            />
-                                            
-                                            {isFirstInGroup ? (
-                                                <DragHandle />
-                                            ) : (
-                                                <div className="flex items-center justify-center h-full w-full min-h-[40px]">
-                                                    <div className="w-px h-full bg-orange-100 absolute top-0 bottom-0"></div>
-                                                </div>
-                                            )}
+                                        <TableCell className={cn("w-8 p-0 relative border-l-2 align-middle", isGrouped ? "border-orange-200" : "border-transparent", cellBorderClass)}>
+                                            <div className="absolute left-0 top-1 bottom-1 w-1.5 rounded-r-md z-20" style={{ backgroundColor: passenger.corTag || 'transparent', printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }} />
+                                            {isFirstInGroup ? <DragHandle /> : <div className="flex items-center justify-center h-full w-full min-h-[40px]"><div className="w-px h-full bg-orange-100 absolute top-0 bottom-0"></div></div>}
                                         </TableCell>
                                     )}
 
@@ -266,19 +262,12 @@ export default function PassengerTable({
                                             )}
                                             <div className="relative z-10 flex items-center justify-center h-full py-3">
                                                 {isLinkedToPrevious ? (
-                                                    <Button variant="ghost" size="icon"
-                                                        className="group/btn w-6 h-6 rounded-full bg-orange-50 border border-orange-200 text-orange-400 hover:bg-red-50 hover:border-red-200 hover:text-red-500 p-0 transition-all"
-                                                        onClick={() => onUnlink?.(passenger)}
-                                                        title="Desvincular do grupo"
-                                                    >
+                                                    <Button variant="ghost" size="icon" className="group/btn w-6 h-6 rounded-full bg-orange-50 border border-orange-200 text-orange-400 hover:bg-red-50 hover:border-red-200 hover:text-red-500 p-0 transition-all" onClick={() => onUnlink?.(passenger)} title="Desvincular do grupo">
                                                         <LinkIcon className="w-3 h-3 block group-hover/btn:hidden" />
                                                         <Unlink className="w-3 h-3 hidden group-hover/btn:block" />
                                                     </Button>
                                                 ) : canLinkToAbove ? (
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-300 hover:text-orange-400 hover:bg-orange-50 p-0"
-                                                        onClick={() => previousPassenger && onLink?.(passenger, previousPassenger)}
-                                                        title="Vincular ao grupo de cima"
-                                                    >
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-300 hover:text-orange-400 hover:bg-orange-50 p-0" onClick={() => previousPassenger && onLink?.(passenger, previousPassenger)} title="Vincular ao grupo de cima">
                                                         <LinkIcon className="w-3 h-3" />
                                                     </Button>
                                                 ) : null}
@@ -286,7 +275,7 @@ export default function PassengerTable({
                                         </TableCell>
                                     )}
 
-                                    {/* 3. DADOS (Aplicamos cellBorderClass em TODAS as células) */}
+                                    {/* 3. DADOS */}
                                     <TableCell className={cn("p-2 text-center relative align-middle", cellBorderClass)}>
                                         <span className="relative z-10 font-bold text-xs text-gray-600">{globalIndex + 1}</span>
                                         {!isPrintView && (
@@ -333,6 +322,98 @@ export default function PassengerTable({
           </SortableContext>
         </Table>
       </DndContext>
+    </div>
+
+    {/* --- VERSÃO MOBILE (CARDS UNIFICADOS POR GRUPO) --- */}
+    <div className="block md:hidden space-y-4">
+        {groupedPassengers.map((group) => {
+            // Verifica se é um grupo real (mais de 1 pessoa)
+            const isGrouped = group.length > 1;
+            // Estilos do Card (Container)
+            const cardContainerClass = isGrouped 
+                ? "bg-orange-50/30 border-orange-300 shadow-md" // Estilo de Grupo (Laranja)
+                : "bg-white border-gray-200 shadow-sm"; // Estilo Padrão (Branco)
+
+            // Usamos o ID do primeiro passageiro como chave
+            return (
+                <Card key={group[0].id} className={cn("relative border overflow-hidden", cardContainerClass)}>
+                    
+                    {/* Tag Lateral de Grupo (Só se for grupo) */}
+                    {isGrouped && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-orange-300 z-10" />
+                    )}
+
+                    {/* Renderizamos os membros do grupo dentro do mesmo Card */}
+                    {group.map((passenger, index) => {
+                        const globalIndex = passengers.findIndex(p => p.id === passenger.id);
+                        const bus = passenger.onibusId && busMap ? busMap.get(passenger.onibusId) : undefined;
+                        const busSigla = getBusSigla(bus);
+                        const isLastInCard = index === group.length - 1;
+
+                        return (
+                            <div key={passenger.id} className={cn("relative", !isLastInCard && "border-b border-orange-200/50")}>
+                                {/* Tag de Cor Individual (Sobrepõe a do grupo se existir) */}
+                                <div className="absolute left-0 top-0 bottom-0 w-1.5 z-20" style={{ backgroundColor: passenger.corTag || 'transparent' }} />
+
+                                <CardHeader className="pl-5 py-3 pb-2">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <CardTitle className="text-base font-bold flex items-center gap-2">
+                                                <span className="text-xs text-gray-400 mr-1">#{globalIndex + 1}</span> 
+                                                {passenger.pessoa.nome}
+                                            </CardTitle>
+                                            <div className="flex flex-col mt-1">
+                                                <div className="flex items-center text-xs text-muted-foreground gap-2"><Phone className="w-3 h-3" /> {passenger.pessoa.telefone || 'S/N'}</div>
+                                                <div className="flex items-center text-xs text-muted-foreground gap-2 mt-0.5"><User className="w-3 h-3" /> {passenger.pessoa.cpf || 'S/DOC'}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <div className="flex items-center gap-1">
+                                                {busSigla && (<span className="text-[10px] font-mono text-gray-500 bg-gray-50 px-1 rounded border">{busSigla}</span>)}
+                                                <span className="text-xs font-bold bg-gray-100 px-2 py-1 rounded border">Assento: {passenger.numeroAssento || '-'}</span>
+                                            </div>
+                                            {passenger.pago ? (<span className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">Pago</span>) : (<span className="text-[10px] font-bold text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">Pendente</span>)}
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                
+                                <CardContent className="pl-5 py-2 text-sm space-y-2 border-t border-dashed border-gray-100 bg-white/40">
+                                    <div className="grid grid-cols-[20px_1fr] gap-1 items-start"><span className="font-bold text-xs text-gray-700">C:</span><span className="text-xs text-gray-600 leading-tight">{formatAddress(passenger.enderecoColeta)}</span></div>
+                                    <div className="grid grid-cols-[20px_1fr] gap-1 items-start"><span className="font-bold text-xs text-gray-700">E:</span><span className="text-xs text-gray-600 leading-tight">{formatAddress(passenger.enderecoEntrega)}</span></div>
+                                    
+                                    <div className="grid grid-cols-3 gap-2 text-[10px] text-gray-500 pt-1 border-t border-gray-100 mt-1">
+                                        <div><span className="font-bold block">Coleta (TC):</span> {passenger.taxistaColeta?.pessoa.nome || '-'}</div>
+                                        <div><span className="font-bold block">Entrega (TE):</span> {passenger.taxistaEntrega?.pessoa.nome || '-'}</div>
+                                        <div><span className="font-bold block">Comis (C):</span> {passenger.comisseiro?.pessoa.nome || '-'}</div>
+                                    </div>
+
+                                    <div className="flex justify-between items-center pt-2 mt-2 border-t border-gray-100">
+                                        <div><span className="text-xs text-muted-foreground block">Valor</span><span className="font-bold text-gray-900">{formatCurrency(passenger.valor)}</span></div>
+                                        <div><span className="text-xs text-muted-foreground block text-right">Bagagem</span><span className="font-bold text-gray-900 block text-right">{passenger.luggageCount} vol</span></div>
+                                    </div>
+                                </CardContent>
+                                
+                                <CardFooter className="pl-5 py-2 bg-gray-50/50 border-t border-gray-100 flex justify-between items-center">
+                                    <Popover>
+                                        <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Palette className="w-4 h-4 text-gray-500" /></Button></PopoverTrigger>
+                                        <PopoverContent className="w-48 p-2 grid grid-cols-4 gap-2">
+                                            {TAG_COLORS.map(c => (<button key={c.hex} className="w-6 h-6 rounded-full border" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(passenger.id, c.hex)} />))}
+                                            <button className="w-6 h-6 rounded-full border flex items-center justify-center text-[10px]" onClick={() => handleColorChange(passenger.id, null)}>X</button>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <div className="flex gap-1">
+                                        {!passenger.pago && (<Button size="sm" variant="ghost" onClick={() => onMarkAsPaid?.(passenger.id)} className="h-8 px-2 text-gray-700 hover:text-gray-800 hover:bg-gray-100"><DollarSign className="w-4 h-4 mr-1" /> Pagar</Button>)}
+                                        <Button size="sm" variant="ghost" onClick={() => onOpenLuggage?.(passenger)} className="h-8 w-8 p-0"><Briefcase className="w-4 h-4" /></Button>
+                                        <Button size="sm" variant="ghost" onClick={() => onEdit?.(passenger)} className="h-8 w-8 p-0 text-gray-600"><Edit className="w-4 h-4" /></Button>
+                                        <Button size="sm" variant="ghost" onClick={() => onDelete?.(passenger)} className="h-8 w-8 p-0 text-red-600"><Trash2 className="w-4 h-4" /></Button>
+                                    </div>
+                                </CardFooter>
+                            </div>
+                        );
+                    })}
+                </Card>
+            );
+        })}
     </div>
     </>
   );

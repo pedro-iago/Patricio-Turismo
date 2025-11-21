@@ -84,7 +84,6 @@ export default function TripDetailsPage() {
     const [selectedPackage, setSelectedPackage] = useState<PackageData | null>(null);
     const [deleteItem, setDeleteItem] = useState<{ type: 'passenger' | 'package'; item: any } | null>(null);
     
-    // NOVO ESTADO PARA O MODAL DE DESVINCULAR
     const [passengerToUnlink, setPassengerToUnlink] = useState<PassengerData | null>(null);
 
     const [filterTaxista, setFilterTaxista] = useState<string>("todos");
@@ -179,12 +178,10 @@ export default function TripDetailsPage() {
         }
     };
 
-    // === MODIFICADO: Apenas abre o modal ===
     const handleUnlinkPassenger = (passenger: PassengerData) => {
         setPassengerToUnlink(passenger);
     };
 
-    // === NOVO: Confirma a ação no modal ===
     const confirmUnlinkGroup = async () => {
         if (!passengerToUnlink) return;
         try {
@@ -272,8 +269,24 @@ export default function TripDetailsPage() {
       
     const uniqueTaxistas = useMemo(() => Array.from(new Set(passengers.map(p => p.taxistaColeta?.pessoa?.nome).concat(passengers.map(p => p.taxistaEntrega?.pessoa?.nome)).concat(packages.flatMap(p => [p.taxistaColeta?.pessoa?.nome, p.taxistaEntrega?.pessoa?.nome])).filter(Boolean))), [passengers, packages]);
     const uniqueComisseiros = useMemo(() => Array.from(new Set(passengers.map(p => p.comisseiro?.pessoa?.nome).concat(packages.map(p => p.comisseiro?.pessoa?.nome)).filter(Boolean))), [passengers, packages]);
-    const uniqueCidades = useMemo(() => Array.from(new Set(passengers.map(p => p.cidadeDestino || (p.enderecoEntrega as any)?.cidade).concat(packages.flatMap(p => [p.enderecoColeta?.cidade, p.enderecoEntrega?.cidade])).filter(Boolean))), [passengers, packages]);
     const uniqueOnibusIds = useMemo(() => Array.from(new Set(passengers.map(p => p.onibusId).filter(Boolean))), [passengers]);
+
+    // === CORREÇÃO NO FILTRO DE CIDADES: Coleta E Entrega ===
+    const uniqueCidades = useMemo(() => {
+        const cidades = new Set<string>();
+        
+        passengers.forEach(p => {
+            if (p.enderecoColeta?.cidade) cidades.add(p.enderecoColeta.cidade);
+            if (p.enderecoEntrega?.cidade) cidades.add(p.enderecoEntrega.cidade);
+        });
+
+        packages.forEach(p => {
+            if (p.enderecoColeta?.cidade) cidades.add(p.enderecoColeta.cidade);
+            if (p.enderecoEntrega?.cidade) cidades.add(p.enderecoEntrega.cidade);
+        });
+
+        return Array.from(cidades).sort();
+    }, [passengers, packages]);
 
     const filteredPassengers = useMemo(() => {
         return passengers.filter((passenger) => {
@@ -282,8 +295,12 @@ export default function TripDetailsPage() {
             const matchesTaxista = filterTaxista === "todos" || passenger.taxistaColeta?.pessoa?.nome === filterTaxista || passenger.taxistaEntrega?.pessoa?.nome === filterTaxista;
             const matchesComisseiro = filterComisseiro === "todos" || passenger.comisseiro?.pessoa?.nome === filterComisseiro;
             const matchesOnibus = filterOnibus === "todos" || String(passenger.onibusId) === filterOnibus;
-            const city = passenger.cidadeDestino || (passenger.enderecoEntrega as any)?.cidade;
-            const matchesCidade = filterCidade === "todos" || city === filterCidade;
+            
+            // Filtro de Cidade (Coleta OU Entrega)
+            const matchesCidade = filterCidade === "todos" || 
+                passenger.enderecoColeta?.cidade === filterCidade || 
+                passenger.enderecoEntrega?.cidade === filterCidade;
+
             return matchesSearch && matchesTaxista && matchesComisseiro && matchesOnibus && matchesCidade;
         });
     }, [passengers, passengerSearchTerm, filterTaxista, filterComisseiro, filterOnibus, filterCidade]);
@@ -298,9 +315,11 @@ export default function TripDetailsPage() {
             
             const matchesTaxista = filterTaxista === "todos" || pkg.taxistaColeta?.pessoa?.nome === filterTaxista || pkg.taxistaEntrega?.pessoa?.nome === filterTaxista;
             const matchesComisseiro = filterComisseiro === "todos" || pkg.comisseiro?.pessoa?.nome === filterComisseiro;
-            const cityColeta = pkg.enderecoColeta?.cidade;
-            const cityEntrega = pkg.enderecoEntrega?.cidade;
-            const matchesCidade = filterCidade === "todos" || cityColeta === filterCidade || cityEntrega === filterCidade;
+            
+            // Filtro de Cidade (Coleta OU Entrega)
+            const matchesCidade = filterCidade === "todos" || 
+                pkg.enderecoColeta?.cidade === filterCidade || 
+                pkg.enderecoEntrega?.cidade === filterCidade;
 
             return matchesSearch && matchesTaxista && matchesComisseiro && matchesCidade;
         });
