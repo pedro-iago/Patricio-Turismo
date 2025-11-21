@@ -16,6 +16,7 @@ interface DeleteConfirmModalProps {
   onConfirm: () => void;
   title: string;
   description: string;
+  confirmLabel?: string; // <--- NOVA PROP OPCIONAL
 }
 
 export default function DeleteConfirmModal({
@@ -24,6 +25,7 @@ export default function DeleteConfirmModal({
   onConfirm,
   title,
   description,
+  confirmLabel, // <--- Recebendo a prop
 }: DeleteConfirmModalProps) {
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
@@ -38,7 +40,8 @@ export default function DeleteConfirmModal({
             onClick={onConfirm}
             className="bg-destructive hover:bg-destructive/90"
           >
-            Excluir
+            {/* Se passar label, usa ela. Se não, usa o padrão "Excluir" */}
+            {confirmLabel || 'Excluir'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

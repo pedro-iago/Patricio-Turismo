@@ -17,7 +17,11 @@ public record PassengerResponseDto(
         boolean pago,
         String numeroAssento,
         Long onibusId,
-        String corTag, // <-- O campo existe aqui
+        String corTag,
+        // === NOVOS CAMPOS ADICIONADOS AQUI ===
+        Integer ordem,
+        String grupoId,
+        // =====================================
         ViagemDto viagem
 ) {
     public PassengerResponseDto(PassageiroViagem pv) {
@@ -41,9 +45,12 @@ public record PassengerResponseDto(
                         ? pv.getAssento().getOnibus().getIdOnibus()
                         : null,
 
-                // --- CORREÇÃO: ADICIONE ESTA LINHA PARA MAPEAR O corTag ---
                 pv.getCorTag(),
-                // --------------------------------------------------------
+
+                // === MAPEAMENTO DOS NOVOS CAMPOS ===
+                pv.getOrdem(),
+                pv.getGrupoId(),
+                // ===================================
 
                 pv.getViagem() != null ? new ViagemDto(
                         pv.getViagem().getId(),

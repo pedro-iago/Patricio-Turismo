@@ -24,6 +24,50 @@ public class PassageiroViagemService {
     @Autowired private ComisseiroRepository comisseiroRepository;
     @Autowired private AssentoRepository assentoRepository;
 
+    // === NOVO MÉTODO: REORDENAR (CORRIGIDO) ===
+    @Transactional
+    public void reordenarPassageiros(List<Long> ids) {
+        for (int i = 0; i < ids.size(); i++) {
+            Long id = ids.get(i);
+
+            // CORREÇÃO: Criamos uma variável "final" para usar dentro do lambda
+            final int novaOrdem = i;
+
+            repository.findById(id).ifPresent(pv -> {
+                pv.setOrdem(novaOrdem); // Usamos 'novaOrdem' em vez de 'i'
+                repository.save(pv);
+            });
+        }
+    }
+
+    // === NOVO MÉTODO: DESVINCULAR ===
+    @Transactional
+    public void desvincularGrupo(Long id) {
+        PassageiroViagem p = repository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Passageiro não encontrado"));
+        p.setGrupoId(null); // Remove do grupo
+        repository.save(p);
+    }
+
+    // === NOVO MÉTODO: VINCULAR GRUPO ===
+    @Transactional
+    public void vincularGrupo(Long idOrigem, Long idDestino) {
+        PassageiroViagem p1 = repository.findById(idOrigem)
+                .orElseThrow(() -> new EntityNotFoundException("Passageiro origem não encontrado"));
+        PassageiroViagem p2 = repository.findById(idDestino)
+                .orElseThrow(() -> new EntityNotFoundException("Passageiro destino não encontrado"));
+
+        String grupo = p1.getGrupoId();
+        if (grupo == null) {
+            grupo = java.util.UUID.randomUUID().toString();
+            p1.setGrupoId(grupo);
+            repository.save(p1);
+        }
+        p2.setGrupoId(grupo);
+        repository.save(p2);
+    }
+    // ===================================
+
     @Transactional
     public PassengerResponseDto save(PassengerSaveRequestDto dto) {
         Pessoa pessoa = pessoaRepository.findById(dto.pessoaId())

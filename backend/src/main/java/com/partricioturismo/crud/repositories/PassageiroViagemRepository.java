@@ -20,10 +20,10 @@ public interface PassageiroViagemRepository extends JpaRepository<PassageiroViag
             "LEFT JOIN FETCH pv.taxistaEntrega " +
             "LEFT JOIN FETCH pv.comisseiro " +
             "WHERE pv.viagem.id = :viagemId " +
-            "ORDER BY pv.id ASC")
+            "ORDER BY pv.ordem ASC, pv.id ASC") // <-- ALTERADO AQUI
     List<PassageiroViagem> findByViagemId(@Param("viagemId") Long viagemId);
 
-    // ... (Mantenha as outras queries complexas de relatório que já existiam) ...
+    // ... (Outros métodos permanecem inalterados, copiei apenas os principais para brevidade, mas mantenha os que você já tem no arquivo original) ...
 
     @Query("SELECT pv FROM PassageiroViagem pv " +
             "JOIN FETCH pv.pessoa " +

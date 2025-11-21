@@ -17,7 +17,11 @@ import api from '../services/api';
 import { CSVLink } from 'react-csv'; 
 import { cn } from './ui/utils';
 
-import PassengerTable from './PassengerTable';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortablePassengerGroup } from './SortablePassengerGroup';
+
+import PassengerTable, { PassengerData } from './PassengerTable';
 import PackageTable from './PackageTable';
 import SeatMap from './SeatMap'; 
 import SeatBinderModal from './SeatBinderModal';
@@ -25,31 +29,20 @@ import SeatBinderModal from './SeatBinderModal';
 // --- Interfaces ---
 interface Bus { id: number; modelo: string; placa: string; capacidadePassageiros: number; layoutJson?: string; }
 interface TripDto { id: number; dataHoraPartida: string; dataHoraChegada: string; onibus: Bus[]; }
-interface Page<T> { content: T[]; } 
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
 
 interface PassengerSaveDto {
   pessoaId: number; enderecoColetaId: number; enderecoEntregaId: number;
-  taxistaId?: number; comisseiroId?: number; valor?: number; metodoPagamento?: string; pago?: boolean; assentoId?: number | null;
+  taxistaColetaId?: number; taxistaEntregaId?: number; comisseiroId?: number;
+  valor?: number; metodoPagamento?: string; pago?: boolean; assentoId?: number | null;
 }
 interface PackageSaveDto {
   descricao: string; remetenteId: number; destinatarioId: number; enderecoColetaId: number; enderecoEntregaId: number;
-  taxistaId?: number; comisseiroId?: number; valor?: number; metodoPagamento?: string; pago?: boolean;
+  taxistaColetaId?: number; taxistaEntregaId?: number; comisseiroId?: number;
+  valor?: number; metodoPagamento?: string; pago?: boolean;
 }
 
-interface PassengerData { 
-    id: number; pessoa: { id: number; nome: string; cpf: string; telefone?: string }; 
-    enderecoColeta: { id: number; logradouro?: string; bairro?: string; cidade?: string }; 
-    enderecoEntrega: { id: number; logradouro?: string; bairro?: string; cidade?: string }; 
-    valor?: number; metodoPagamento?: string; pago?: boolean;
-    taxista?: Affiliate; comisseiro?: Affiliate;
-    assentoId: number | null; numeroAssento?: string; luggageCount?: number; 
-    onibusId?: number; 
-    onibus?: { id: number }; 
-    cidadeDestino?: string; 
-    [key: string]: any; 
-}
 interface PackageData { 
     id: number; descricao: string;
     remetente: { id: number, nome: string; telefone?: string }; destinatario: { id: number, nome: string; telefone?: string };
@@ -69,17 +62,15 @@ export default function TripDetailsPage() {
 
     const [trip, setTrip] = useState<TripDto | null>(null);
     const [busMap, setBusMap] = useState<Map<number, Bus>>(new Map());
+    
     const [passengers, setPassengers] = useState<PassengerData[]>([]);
     const [packages, setPackages] = useState<PackageData[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentBusId, setCurrentBusId] = useState<number | null>(null);
     
-    // Estado da Barra Lateral (Desktop)
     const [isMapOpen, setIsMapOpen] = useState(true);
-    // Estado da Visualização Mobile (Lista ou Mapa)
     const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
     
-    // Modais e Ações
     const [isSeatBinderModalOpen, setIsSeatBinderModalOpen] = useState(false);
     const [seatTargetId, setSeatTargetId] = useState<number | null>(null); 
     const [seatTargetNumber, setSeatTargetNumber] = useState('');
@@ -93,7 +84,9 @@ export default function TripDetailsPage() {
     const [selectedPackage, setSelectedPackage] = useState<PackageData | null>(null);
     const [deleteItem, setDeleteItem] = useState<{ type: 'passenger' | 'package'; item: any } | null>(null);
     
-    // Filtros
+    // NOVO ESTADO PARA O MODAL DE DESVINCULAR
+    const [passengerToUnlink, setPassengerToUnlink] = useState<PassengerData | null>(null);
+
     const [filterTaxista, setFilterTaxista] = useState<string>("todos");
     const [filterComisseiro, setFilterComisseiro] = useState<string>("todos");
     const [filterOnibus, setFilterOnibus] = useState<string>("todos");
@@ -107,13 +100,8 @@ export default function TripDetailsPage() {
             if (!tripIdNum || isNaN(tripIdNum)) { setLoading(false); return; }
             setLoading(true);
             try {
-                const [tripResponse, taxistasRes, comisseirosRes] = await Promise.all([
-                    api.get<TripDto>(`/api/viagem/${tripIdNum}`), 
-                    api.get<Page<Affiliate>>('/api/v1/affiliates/taxistas'), 
-                    api.get<Page<Affiliate>>('/api/v1/affiliates/comisseiros')
-                ]);
-                
-                const tripData = tripResponse.data;
+                const response = await api.get<TripDto>(`/api/viagem/${tripIdNum}`);
+                const tripData = response.data;
                 setTrip(tripData);
 
                 const newBusMap = new Map<number, Bus>();
@@ -136,7 +124,7 @@ export default function TripDetailsPage() {
         
         try {
             const [passengersResponse, packagesResponse] = await Promise.all([
-                api.get<PassengerData[]>(`/api/v1/reports/passageiros/viagem/${tripIdNum}`), 
+                api.get<PassengerData[]>(`/api/passageiroviagem/viagem/${tripIdNum}`), 
                 api.get<PackageData[]>(`/api/v1/reports/encomendas/viagem/${tripIdNum}`)     
             ]);
             
@@ -144,66 +132,84 @@ export default function TripDetailsPage() {
             
             const passengersWithLuggage = await Promise.all( 
                 passengersData.map(async (passenger) => { 
-                    // ... (lógica de onibusId e bagagem mantida) ...
                     const realOnibusId = passenger.onibusId || (passenger.onibus && passenger.onibus.id);
+                    let luggageCount = 0;
                     try {
-                        const luggageResponse = await api.get(`/api/bagagem/passageiro/${passenger.id}`);
-                        return { 
-                            ...passenger, 
-                            luggageCount: luggageResponse.data.length,
-                            onibusId: realOnibusId ? Number(realOnibusId) : null
-                        };
-                    } catch { 
-                        return { 
-                            ...passenger, 
-                            luggageCount: 0,
-                            onibusId: realOnibusId ? Number(realOnibusId) : null
-                        }; 
-                    }
+                         if(passenger['bagagens']) {
+                             luggageCount = (passenger['bagagens'] as any[]).length;
+                         } else {
+                             const luggageResponse = await api.get(`/api/bagagem/passageiro/${passenger.id}`);
+                             luggageCount = luggageResponse.data.length;
+                         }
+                    } catch { luggageCount = 0; }
+
+                    return { 
+                        ...passenger, 
+                        luggageCount,
+                        onibusId: realOnibusId ? Number(realOnibusId) : null
+                    };
                 })
             );
-            
-            // === CORREÇÃO AQUI: ORDENAÇÃO ESTÁVEL ===
-            // Ordena por Nome (A-Z) para evitar que a linha pule ao editar
-            passengersWithLuggage.sort((a, b) => a.pessoa.nome.localeCompare(b.pessoa.nome));
             
             setPassengers(passengersWithLuggage);
             setPackages(packagesResponse.data); 
             setAvailablePassengers(passengersWithLuggage.filter(p => !p.numeroAssento));
             
-        } catch (error) { 
-            console.error('Erro ao buscar dados filtrados:', error);
-        }
+        } catch (error) { console.error('Erro ao buscar dados:', error); }
     }, [tripIdNum]);
     
     useEffect(() => { fetchFilteredData(); }, [fetchFilteredData]);
 
-    // --- Lógica de Assentos e CRUD ---
-// Substitua a função handleSelectSeat por esta versão robusta
+    // --- Handlers ---
+    const handleReorderPassengers = async (newOrderedList: PassengerData[]) => {
+        setPassengers(newOrderedList);
+        const ids = newOrderedList.map(p => p.id);
+        try { await api.patch('/api/passageiroviagem/reordenar', { ids }); } 
+        catch (error) { console.error("Erro ao salvar ordem:", error); }
+    };
+
+    const handleLinkPassengers = async (current: PassengerData, previous: PassengerData) => {
+        if (!current || !previous) return;
+        try {
+            await api.post(`/api/passageiroviagem/${previous.id}/vincular/${current.id}`);
+            await fetchFilteredData();
+        } catch (error) {
+            console.error("Erro ao vincular passageiros:", error);
+            alert("Não foi possível vincular os passageiros.");
+        }
+    };
+
+    // === MODIFICADO: Apenas abre o modal ===
+    const handleUnlinkPassenger = (passenger: PassengerData) => {
+        setPassengerToUnlink(passenger);
+    };
+
+    // === NOVO: Confirma a ação no modal ===
+    const confirmUnlinkGroup = async () => {
+        if (!passengerToUnlink) return;
+        try {
+            await api.post(`/api/passageiroviagem/${passengerToUnlink.id}/desvincular`);
+            await fetchFilteredData();
+            setPassengerToUnlink(null);
+        } catch (error) {
+            console.error("Erro ao desvincular:", error);
+            alert("Erro ao desvincular passageiro.");
+        }
+    };
+
     const handleSelectSeat = (identifier: number, seatNumber: string, isOccupied: boolean) => {
         setSeatTargetId(identifier); 
         setSeatTargetNumber(seatNumber); 
-        
         if (isOccupied) {
-            // 1. Tenta encontrar pelo ID direto (Vem do SeatMap)
             let passenger = passengers.find(p => p.id === identifier);
-            
-            // 2. Fallback: Se não achou por ID, tenta pelo número do assento (Ignorando zeros: "02" == "2")
             if (!passenger) {
-                console.warn("Passageiro não encontrado por ID, tentando por número de assento...");
                 passenger = passengers.find(p => {
                     const seatA = parseInt(p.numeroAssento || '0', 10);
                     const seatB = parseInt(seatNumber || '0', 10);
                     return seatA === seatB && p.onibusId === currentBusId;
                 });
             }
-
-            if (passenger) {
-                setPassengerToDesassociate(passenger);
-            } else {
-                console.error("ERRO CRÍTICO: Não foi possível identificar o passageiro para desvincular.", { identifier, seatNumber });
-                alert("Erro ao identificar passageiro. Tente recarregar a página.");
-            }
+            if (passenger) setPassengerToDesassociate(passenger);
         } else {
             setIsSeatBinderModalOpen(true);
         }
@@ -264,8 +270,7 @@ export default function TripDetailsPage() {
         try { await api.patch(url); await fetchFilteredData(); } catch (e) { console.error(e); }
     };
       
-    // --- Filtros ---
-    const uniqueTaxistas = useMemo(() => Array.from(new Set(passengers.map(p => p.taxista?.pessoa?.nome).concat(packages.flatMap(p => [p.taxistaColeta?.pessoa?.nome, p.taxistaEntrega?.pessoa?.nome])).filter(Boolean))), [passengers, packages]);
+    const uniqueTaxistas = useMemo(() => Array.from(new Set(passengers.map(p => p.taxistaColeta?.pessoa?.nome).concat(passengers.map(p => p.taxistaEntrega?.pessoa?.nome)).concat(packages.flatMap(p => [p.taxistaColeta?.pessoa?.nome, p.taxistaEntrega?.pessoa?.nome])).filter(Boolean))), [passengers, packages]);
     const uniqueComisseiros = useMemo(() => Array.from(new Set(passengers.map(p => p.comisseiro?.pessoa?.nome).concat(packages.map(p => p.comisseiro?.pessoa?.nome)).filter(Boolean))), [passengers, packages]);
     const uniqueCidades = useMemo(() => Array.from(new Set(passengers.map(p => p.cidadeDestino || (p.enderecoEntrega as any)?.cidade).concat(packages.flatMap(p => [p.enderecoColeta?.cidade, p.enderecoEntrega?.cidade])).filter(Boolean))), [passengers, packages]);
     const uniqueOnibusIds = useMemo(() => Array.from(new Set(passengers.map(p => p.onibusId).filter(Boolean))), [passengers]);
@@ -274,7 +279,7 @@ export default function TripDetailsPage() {
         return passengers.filter((passenger) => {
             const searchLower = passengerSearchTerm.toLowerCase();
             const matchesSearch = !searchLower || passenger.pessoa.nome.toLowerCase().includes(searchLower);
-            const matchesTaxista = filterTaxista === "todos" || passenger.taxista?.pessoa?.nome === filterTaxista;
+            const matchesTaxista = filterTaxista === "todos" || passenger.taxistaColeta?.pessoa?.nome === filterTaxista || passenger.taxistaEntrega?.pessoa?.nome === filterTaxista;
             const matchesComisseiro = filterComisseiro === "todos" || passenger.comisseiro?.pessoa?.nome === filterComisseiro;
             const matchesOnibus = filterOnibus === "todos" || String(passenger.onibusId) === filterOnibus;
             const city = passenger.cidadeDestino || (passenger.enderecoEntrega as any)?.cidade;
@@ -290,23 +295,25 @@ export default function TripDetailsPage() {
                 (pkg.descricao && pkg.descricao.toLowerCase().includes(searchLower)) ||
                 (pkg.remetente?.nome && pkg.remetente.nome.toLowerCase().includes(searchLower)) ||
                 (pkg.destinatario?.nome && pkg.destinatario.nome.toLowerCase().includes(searchLower));
+            
             const matchesTaxista = filterTaxista === "todos" || pkg.taxistaColeta?.pessoa?.nome === filterTaxista || pkg.taxistaEntrega?.pessoa?.nome === filterTaxista;
             const matchesComisseiro = filterComisseiro === "todos" || pkg.comisseiro?.pessoa?.nome === filterComisseiro;
             const cityColeta = pkg.enderecoColeta?.cidade;
             const cityEntrega = pkg.enderecoEntrega?.cidade;
             const matchesCidade = filterCidade === "todos" || cityColeta === filterCidade || cityEntrega === filterCidade;
+
             return matchesSearch && matchesTaxista && matchesComisseiro && matchesCidade;
         });
     }, [packages, packageSearchTerm, filterTaxista, filterComisseiro, filterCidade]);
     
+    const isFiltering = filterTaxista !== 'todos' || filterComisseiro !== 'todos' || filterOnibus !== 'todos' || filterCidade !== 'todos' || passengerSearchTerm !== '';
+
     const resetFilters = () => { setFilterTaxista("todos"); setFilterComisseiro("todos"); setFilterOnibus("todos"); setFilterCidade("todos"); setPassengerSearchTerm(""); setPackageSearchTerm(""); };
-    const hasPassengerFilters = filterTaxista !== 'todos' || filterComisseiro !== 'todos' || filterOnibus !== 'todos' || filterCidade !== 'todos' || passengerSearchTerm !== '';
-    const hasPackageFilters = filterTaxista !== 'todos' || filterComisseiro !== 'todos' || filterCidade !== 'todos' || packageSearchTerm !== '';
     const passengerTabLabel = filteredPassengers.length === passengers.length ? `Passageiros (${passengers.length})` : `Passageiros (${filteredPassengers.length}/${passengers.length})`;
     const packageTabLabel = filteredPackages.length === packages.length ? `Encomendas (${packages.length})` : `Encomendas (${filteredPackages.length}/${packages.length})`;
 
-    const getPassengerCsvData = () => { /* ... */ return { headers: [], data: [] }}; 
-    const getPackageCsvData = () => { /* ... */ return { headers: [], data: [] }};
+    const getPassengerCsvData = () => { return { headers: [], data: [] }}; 
+    const getPackageCsvData = () => { return { headers: [], data: [] }};
     
     if (loading && !trip) return <div className="p-8 text-center">Carregando...</div>;
     if (!trip && !loading) return <div className="p-8 text-center">Viagem não encontrada.</div>;
@@ -314,7 +321,6 @@ export default function TripDetailsPage() {
 
     return (
         <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
-            
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
@@ -324,13 +330,11 @@ export default function TripDetailsPage() {
                         <p className="text-xs md:text-sm text-muted-foreground">Gerenciamento de passageiros</p>
                     </div>
                 </div>
-                
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
                     <Button variant="outline" size="sm" onClick={() => setIsMapOpen(!isMapOpen)} className="hidden xl:flex gap-2 whitespace-nowrap">
                         {isMapOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
                         {isMapOpen ? 'Ocultar Mapa' : 'Mostrar Mapa'}
                     </Button>
-
                     <Button variant="outline" size="sm" onClick={() => navigate(`/trips/${tripId}/print`)} className="whitespace-nowrap"><Printer className="w-4 h-4 mr-2" /> Imprimir</Button>
                     <div className="hidden md:flex gap-2">
                         <CSVLink data={getPassengerCsvData().data} headers={getPassengerCsvData().headers} filename={`passageiros.csv`}><Button variant="outline" size="sm" className="whitespace-nowrap"><FileDown className="w-4 h-4 mr-2" /> CSV Pax</Button></CSVLink>
@@ -357,7 +361,6 @@ export default function TripDetailsPage() {
                                 <div className="flex flex-col"><span className="text-[10px] font-semibold text-foreground uppercase">Frota</span><span>{currentBus?.placa || 'N/A'}</span></div>
                             </div>
                         </div>
-                        
                         <div className="flex gap-4 pt-2 border-t xl:border-t-0 xl:border-l xl:pl-4 border-slate-200">
                              <div className="flex items-center gap-2">
                                 <div className="p-1.5 bg-blue-100 rounded text-blue-600"><Users className="w-4 h-4" /></div>
@@ -378,27 +381,22 @@ export default function TripDetailsPage() {
                 <button onClick={() => setMobileView('map')} className={cn("py-2 text-sm font-medium rounded-md transition-all", mobileView === 'map' ? "bg-white shadow text-primary" : "text-slate-500")}><div className="flex items-center justify-center gap-2"><MapIcon className="w-4 h-4"/> Mapa</div></button>
             </div>
 
-            {/* === GRID PRINCIPAL === */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                
-                {/* --- COLUNA ESQUERDA (TABELA) --- */}
-                <div className={cn(
-                    "transition-all duration-500 ease-in-out",
-                    isMapOpen ? "xl:col-span-9" : "xl:col-span-12", // Lógica CORRIGIDA
-                    mobileView === 'map' ? "hidden xl:block" : "block"
-                )}>
+                {/* --- COLUNA ESQUERDA --- */}
+                <div className={cn("transition-all duration-500 ease-in-out", isMapOpen ? "xl:col-span-9" : "xl:col-span-12", mobileView === 'map' ? "hidden xl:block" : "block")}>
                     <Tabs defaultValue="passengers" className="space-y-4">
                         <TabsList className="grid w-full max-w-md grid-cols-2">
                             <TabsTrigger value="passengers">{passengerTabLabel}</TabsTrigger>
                             <TabsTrigger value="packages">{packageTabLabel}</TabsTrigger>
                         </TabsList>
                         
+                        {/* ABA PASSAGEIROS */}
                         <TabsContent value="passengers" className="space-y-4">
                             <div className="bg-white p-3 md:p-4 rounded-lg border shadow-sm space-y-3">
                                 <div className="flex flex-col lg:flex-row gap-3">
                                     <div className="relative flex-1"><Input placeholder="Pesquisar nome..." value={passengerSearchTerm} onChange={(e) => setPassengerSearchTerm(e.target.value)} /></div>
                                     <div className="flex items-center gap-2 justify-between lg:justify-start">
-                                        {hasPassengerFilters && (<Button variant="ghost" size="sm" onClick={resetFilters} className="text-red-500 h-9"><X className="w-4 h-4 mr-1" /> Limpar</Button>)}
+                                        {isFiltering && (<Button variant="ghost" size="sm" onClick={resetFilters} className="text-red-500 h-9"><X className="w-4 h-4 mr-1" /> Limpar</Button>)}
                                         <Button onClick={() => { setSelectedPassenger(null); setIsPassengerModalOpen(true); }} className="bg-primary hover:bg-primary/90 gap-2 w-full lg:w-auto"><Plus className="w-4 h-4" /> Novo</Button>
                                     </div>
                                 </div>
@@ -409,15 +407,29 @@ export default function TripDetailsPage() {
                                     <Select value={filterCidade} onValueChange={setFilterCidade}><SelectTrigger className="bg-background text-xs h-9"><SelectValue placeholder="Cidade" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas Cidades</SelectItem>{uniqueCidades.map((c:any)=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
                                 </div>
                             </div>
-                            <PassengerTable passengers={filteredPassengers} loading={loading} busMap={busMap} onMarkAsPaid={(id) => handleMarkAsPaid('passenger', id)} onOpenLuggage={(p) => { setSelectedPassenger(p); setIsLuggageModalOpen(true); }} onEdit={(p) => { setSelectedPassenger(p); setIsPassengerModalOpen(true); }} onDelete={(p) => setDeleteItem({ type: 'passenger', item: p })} onRefreshData={fetchFilteredData} />
+                            
+                            <PassengerTable 
+                                passengers={filteredPassengers} 
+                                loading={loading} 
+                                busMap={busMap} 
+                                onMarkAsPaid={(id) => handleMarkAsPaid('passenger', id)} 
+                                onOpenLuggage={(p) => { setSelectedPassenger(p); setIsLuggageModalOpen(true); }} 
+                                onEdit={(p) => { setSelectedPassenger(p); setIsPassengerModalOpen(true); }} 
+                                onDelete={(p) => setDeleteItem({ type: 'passenger', item: p })} 
+                                onRefreshData={fetchFilteredData} 
+                                onReorder={!isFiltering ? handleReorderPassengers : undefined}
+                                onLink={handleLinkPassengers}
+                                onUnlink={handleUnlinkPassenger}
+                            />
                         </TabsContent>
                         
+                        {/* ABA ENCOMENDAS */}
                         <TabsContent value="packages" className="space-y-4">
                              <div className="bg-white p-3 md:p-4 rounded-lg border shadow-sm space-y-3">
                                 <div className="flex flex-col lg:flex-row gap-3">
-                                    <div className="relative flex-1"><Input placeholder="Pesquisar..." value={packageSearchTerm} onChange={(e) => setPackageSearchTerm(e.target.value)} /></div>
+                                    <div className="relative flex-1"><Input placeholder="Pesquisar encomendas..." value={packageSearchTerm} onChange={(e) => setPackageSearchTerm(e.target.value)} /></div>
                                     <div className="flex items-center gap-2 justify-between lg:justify-start">
-                                        {hasPackageFilters && (<Button variant="ghost" size="sm" onClick={resetFilters} className="text-red-500 h-9"><X className="w-4 h-4 mr-1" /> Limpar</Button>)}
+                                        {(filterTaxista !== 'todos' || filterComisseiro !== 'todos' || filterCidade !== 'todos' || packageSearchTerm !== '') && (<Button variant="ghost" size="sm" onClick={resetFilters} className="text-red-500 h-9"><X className="w-4 h-4 mr-1" /> Limpar</Button>)}
                                         <Button onClick={() => { setSelectedPackage(null); setIsPackageModalOpen(true); }} className="bg-primary hover:bg-primary/90 gap-2 w-full lg:w-auto"><Plus className="w-4 h-4" /> Nova</Button>
                                     </div>
                                 </div>
@@ -427,17 +439,20 @@ export default function TripDetailsPage() {
                                     <Select value={filterCidade} onValueChange={setFilterCidade}><SelectTrigger className="bg-background text-xs h-8"><SelectValue placeholder="Cidade" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas Cidades</SelectItem>{uniqueCidades.map((c:any)=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
                                 </div>
                             </div>
-                            <PackageTable packages={filteredPackages} loading={loading} onMarkAsPaid={(id) => handleMarkAsPaid('package', id)} onEdit={(p) => { setSelectedPackage(p); setIsPackageModalOpen(true); }} onDelete={(p) => setDeleteItem({ type: 'package', item: p })} onRefreshData={fetchFilteredData} />
+                            <PackageTable 
+                                packages={filteredPackages} 
+                                loading={loading} 
+                                onMarkAsPaid={(id) => handleMarkAsPaid('package', id)} 
+                                onEdit={(p) => { setSelectedPackage(p); setIsPackageModalOpen(true); }} 
+                                onDelete={(p) => setDeleteItem({ type: 'package', item: p })} 
+                                onRefreshData={fetchFilteredData} 
+                            />
                         </TabsContent>
                     </Tabs>
                 </div>
 
-                {/* --- ÁREA DA DIREITA (MAPA) --- */}
-                <div className={cn(
-                    "xl:col-span-3 transition-all duration-500",
-                    mobileView === 'map' ? "block" : "hidden", // Mobile
-                    isMapOpen ? "xl:block" : "xl:hidden" // Desktop: Sobrescreve hidden se estiver aberto
-                )}>
+                {/* Coluna Mapa */}
+                <div className={cn("xl:col-span-3 transition-all duration-500", mobileView === 'map' ? "block" : "hidden", isMapOpen ? "xl:block" : "xl:hidden")}>
                     <div className="sticky top-6 space-y-4">
                         {trip?.onibus && trip.onibus.length > 1 ? (
                             <Tabs defaultValue={currentBusId?.toString()} onValueChange={(val) => setCurrentBusId(parseInt(val))} className="w-full">
@@ -457,16 +472,25 @@ export default function TripDetailsPage() {
                         )}
                     </div>
                 </div>
-
             </div>
 
-            {/* Modais (Mantidos) */}
+            {/* Modais */}
             <PassengerModal isOpen={isPassengerModalOpen} onClose={() => { setIsPassengerModalOpen(false); setSelectedPassenger(null); }} onSave={handleSavePassenger} passenger={selectedPassenger} />
             <PackageModal isOpen={isPackageModalOpen} onClose={() => { setIsPackageModalOpen(false); setSelectedPackage(null); }} onSave={handleSavePackage} package={selectedPackage} />
             <LuggageModal isOpen={isLuggageModalOpen} onClose={() => { setIsLuggageModalOpen(false); setSelectedPassenger(null); fetchFilteredData(); }} passenger={selectedPassenger} />
             <SeatBinderModal isOpen={isSeatBinderModalOpen} onClose={() => { setIsSeatBinderModalOpen(false); setSeatTargetId(null); }} onBind={handleBindPassenger} availablePassengers={availablePassengers} seatId={seatTargetId} seatNumber={seatTargetNumber} />
             <DeleteConfirmModal isOpen={!!passengerToDesassociate} onClose={() => { setPassengerToDesassociate(null); }} onConfirm={handleDesassociateConfirm} title="Desvincular Assento" description={`Tem certeza de que deseja desvincular o assento?`} />
             <DeleteConfirmModal isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDeleteConfirm} title="Excluir Item" description="Tem certeza?" />
+            
+            {/* MODAL DE DESVINCULAR GRUPO */}
+            <DeleteConfirmModal
+                isOpen={!!passengerToUnlink}
+                onClose={() => setPassengerToUnlink(null)}
+                onConfirm={confirmUnlinkGroup}
+                title="Desvincular do Grupo"
+                description={`Tem certeza que deseja desvincular ${passengerToUnlink?.pessoa.nome} do grupo?`}
+                confirmLabel="Desvincular"
+            />
         </div>
     );
 }

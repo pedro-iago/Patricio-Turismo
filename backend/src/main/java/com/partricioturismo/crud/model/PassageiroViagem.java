@@ -55,7 +55,14 @@ public class PassageiroViagem {
     @Column(name = "cor_tag")
     private String corTag;
 
-    // --- IMPORTANTE: MANTIDO PARA EVITAR ERRO DE COMPILAÇÃO ---
+    // === NOVOS CAMPOS ===
+    @Column(name = "ordem")
+    private Integer ordem = 0;
+
+    @Column(name = "grupo_id")
+    private String grupoId;
+    // ====================
+
     @OneToMany(mappedBy = "passageiroViagem", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Bagagem> bagagens = new ArrayList<>();
 
@@ -86,7 +93,12 @@ public class PassageiroViagem {
     public void setAssento(Assento assento) { this.assento = assento; }
     public String getCorTag() { return corTag; }
     public void setCorTag(String corTag) { this.corTag = corTag; }
-
     public List<Bagagem> getBagagens() { return bagagens; }
     public void setBagagens(List<Bagagem> bagagens) { this.bagagens = bagagens; }
+
+    // === NOVOS GETTERS E SETTERS ===
+    public Integer getOrdem() { return ordem; }
+    public void setOrdem(Integer ordem) { this.ordem = ordem; }
+    public String getGrupoId() { return grupoId; }
+    public void setGrupoId(String grupoId) { this.grupoId = grupoId; }
 }
