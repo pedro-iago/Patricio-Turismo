@@ -96,7 +96,11 @@ public class ViagemService {
 
     // --- ATUALIZADO: RECEBE OS FILTROS ---
     public Page<ViagemDto> findAll(Integer mes, Integer ano, String query, Pageable pageable) {
-        return viagemRepository.findAllWithFilters(mes, ano, query, pageable)
+        // Tratamento para garantir que string vazia ("") vire NULL
+        // Isso impede que o banco tente buscar por algo vazio
+        String queryTratada = (query != null && query.trim().isEmpty()) ? null : query;
+
+        return viagemRepository.findAllWithFilters(mes, ano, queryTratada, pageable)
                 .map(this::toDto);
     }
 
