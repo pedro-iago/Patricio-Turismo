@@ -133,6 +133,7 @@ export default function TripDetailsPage() {
     // --- 2. Busca de Dados ---
     const fetchFilteredData = useCallback(async () => {
         if (!tripIdNum || isNaN(tripIdNum)) return;
+        
         try {
             const [passengersResponse, packagesResponse] = await Promise.all([
                 api.get<PassengerData[]>(`/api/v1/reports/passageiros/viagem/${tripIdNum}`), 
@@ -140,8 +141,10 @@ export default function TripDetailsPage() {
             ]);
             
             const passengersData = passengersResponse.data;
+            
             const passengersWithLuggage = await Promise.all( 
                 passengersData.map(async (passenger) => { 
+                    // ... (lógica de onibusId e bagagem mantida) ...
                     const realOnibusId = passenger.onibusId || (passenger.onibus && passenger.onibus.id);
                     try {
                         const luggageResponse = await api.get(`/api/bagagem/passageiro/${passenger.id}`);
@@ -159,10 +162,18 @@ export default function TripDetailsPage() {
                     }
                 })
             );
+            
+            // === CORREÇÃO AQUI: ORDENAÇÃO ESTÁVEL ===
+            // Ordena por Nome (A-Z) para evitar que a linha pule ao editar
+            passengersWithLuggage.sort((a, b) => a.pessoa.nome.localeCompare(b.pessoa.nome));
+            
             setPassengers(passengersWithLuggage);
             setPackages(packagesResponse.data); 
             setAvailablePassengers(passengersWithLuggage.filter(p => !p.numeroAssento));
-        } catch (error) { console.error('Erro ao atualizar dados:', error); }
+            
+        } catch (error) { 
+            console.error('Erro ao buscar dados filtrados:', error);
+        }
     }, [tripIdNum]);
     
     useEffect(() => { fetchFilteredData(); }, [fetchFilteredData]);
