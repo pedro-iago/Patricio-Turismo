@@ -4,13 +4,11 @@ import com.partricioturismo.crud.dtos.EnderecoDto;
 import com.partricioturismo.crud.dtos.ViaCepResponseDto;
 import com.partricioturismo.crud.model.Endereco;
 import com.partricioturismo.crud.repositories.EnderecoRepository;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 
-// --- IMPORTS NOVOS ---
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -33,13 +31,10 @@ public class EnderecoService {
         this.webClient = webClientBuilder.baseUrl("https://viacep.com.br/ws").build();
     }
 
-    // --- MÉTODO ATUALIZADO (Passo 4) ---
     public Page<EnderecoDto> findAll(Pageable pageable) {
         return repository.findAll(pageable)
-                .map(EnderecoDto::new); // Converte a Page<Endereco> para Page<EnderecoDto>
+                .map(EnderecoDto::new);
     }
-
-    // ... (mantenha os outros métodos: findById, save, update, delete, search, consultarCep) ...
 
     public Optional<EnderecoDto> findById(Long id) {
         return repository.findById(id)
@@ -47,40 +42,56 @@ public class EnderecoService {
     }
 
     @Transactional
-    public EnderecoDto save(EnderecoDto enderecoDto) {
+    public EnderecoDto save(EnderecoDto dto) {
         var endereco = new Endereco();
-        BeanUtils.copyProperties(enderecoDto, endereco);
+        // Mapeamento manual é mais seguro para Records do que BeanUtils
+        endereco.setLogradouro(dto.logradouro());
+        endereco.setNumero(dto.numero());
+        endereco.setBairro(dto.bairro());
+        endereco.setCidade(dto.cidade());
+        endereco.setEstado(dto.estado());
+        endereco.setCep(dto.cep());
+
         var enderecoSalvo = repository.save(endereco);
         return new EnderecoDto(enderecoSalvo);
     }
 
     @Transactional
-    public Optional<EnderecoDto> update(Long id, EnderecoDto enderecoDto) {
+    public Optional<EnderecoDto> update(Long id, EnderecoDto dto) {
         Optional<Endereco> enderecoOptional = repository.findById(id);
         if (enderecoOptional.isEmpty()) {
             return Optional.empty();
         }
-        var enderecoModel = enderecoOptional.get();
-        BeanUtils.copyProperties(enderecoDto, enderecoModel, "id");
-        var enderecoAtualizado = repository.save(enderecoModel);
+        var endereco = enderecoOptional.get();
+
+        // Atualiza os campos
+        endereco.setLogradouro(dto.logradouro());
+        endereco.setNumero(dto.numero());
+        endereco.setBairro(dto.bairro());
+        endereco.setCidade(dto.cidade());
+        endereco.setEstado(dto.estado());
+        endereco.setCep(dto.cep());
+
+        var enderecoAtualizado = repository.save(endereco);
         return Optional.of(new EnderecoDto(enderecoAtualizado));
     }
 
     @Transactional
     public boolean delete(Long id) {
-        Optional<Endereco> enderecoOptional = repository.findById(id);
-        if (enderecoOptional.isEmpty()) {
-            return false;
+        if (repository.existsById(id)) {
+            repository.deleteById(id);
+            return true;
         }
-        repository.delete(enderecoOptional.get());
-        return true;
+        return false;
     }
 
+    // --- CORREÇÃO DO ERRO DE COMPILAÇÃO AQUI ---
     public List<EnderecoDto> search(String query) {
         if (query == null || query.trim().isEmpty()) {
             return Collections.emptyList();
         }
-        return repository.findTop10ByLogradouroContainingIgnoreCaseOrCep(query, query)
+        // Agora chama o método correto definido no Repository
+        return repository.search(query)
                 .stream()
                 .map(EnderecoDto::new)
                 .collect(Collectors.toList());
@@ -91,22 +102,29 @@ public class EnderecoService {
         if (cepFormatado.length() != 8) {
             throw new RuntimeException("CEP inválido. Deve conter 8 dígitos.");
         }
-        ViaCepResponseDto viaCepDto = this.webClient.get()
-                .uri("/{cep}/json/", cepFormatado)
-                .retrieve()
-                .bodyToMono(ViaCepResponseDto.class)
-                .block();
-        if (viaCepDto == null || viaCepDto.erro() != null) {
-            throw new RuntimeException("CEP não encontrado.");
+
+        try {
+            ViaCepResponseDto viaCepDto = this.webClient.get()
+                    .uri("/{cep}/json/", cepFormatado)
+                    .retrieve()
+                    .bodyToMono(ViaCepResponseDto.class)
+                    .block();
+
+            if (viaCepDto == null || viaCepDto.erro() != null) {
+                throw new RuntimeException("CEP não encontrado.");
+            }
+
+            return new EnderecoDto(
+                    null,
+                    viaCepDto.logradouro(),
+                    null,
+                    viaCepDto.bairro(),
+                    viaCepDto.localidade(),
+                    viaCepDto.uf(),
+                    viaCepDto.cep()
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao consultar CEP: " + e.getMessage());
         }
-        return new EnderecoDto(
-                null,
-                viaCepDto.logradouro(),
-                null,
-                viaCepDto.bairro(),
-                viaCepDto.localidade(),
-                viaCepDto.uf(),
-                viaCepDto.cep()
-        );
     }
 }
