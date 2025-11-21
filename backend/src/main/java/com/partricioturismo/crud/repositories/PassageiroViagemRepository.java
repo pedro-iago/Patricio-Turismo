@@ -2,7 +2,6 @@ package com.partricioturismo.crud.repositories;
 
 import com.partricioturismo.crud.model.PassageiroViagem;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -13,51 +12,52 @@ import java.util.List;
 @Repository
 public interface PassageiroViagemRepository extends JpaRepository<PassageiroViagem, Long> {
 
-    // --- QUERY PRINCIPAL COM ORDENAÇÃO (ORDER BY pv.ordem ASC) ---
+    // --- MÉTODOS EXISTENTES (ATUALIZADOS COM JOIN FETCH) ---
+
     @Query("SELECT pv FROM PassageiroViagem pv " +
             "JOIN FETCH pv.pessoa " +
             "JOIN FETCH pv.viagem v " +
-            "LEFT JOIN FETCH v.listaOnibus " +
+            "LEFT JOIN FETCH v.onibus " +
+            // --- MUDANÇA: Adiciona fetch para os novos campos ---
             "LEFT JOIN FETCH pv.taxistaColeta " +
             "LEFT JOIN FETCH pv.taxistaEntrega " +
+            // --- FIM DA MUDANÇA ---
             "LEFT JOIN FETCH pv.comisseiro " +
-            "WHERE pv.viagem.id = :viagemId " +
-            "ORDER BY pv.ordem ASC") // Ordenação garantida
+            "WHERE pv.viagem.id = :viagemId")
     List<PassageiroViagem> findByViagemId(@Param("viagemId") Long viagemId);
 
-    // --- UPDATE DE ORDEM OTIMIZADO ---
-    @Modifying
-    @Query("UPDATE PassageiroViagem pv SET pv.ordem = :ordem WHERE pv.id = :id")
-    void updateOrdem(@Param("id") Long id, @Param("ordem") Integer ordem);
-
-    // (Outras queries mantidas sem alteração significativa, apenas adicione ORDER BY se quiser ordem lá também)
-
+    // --- MUDANÇA: Query corrigida para usar taxistaColeta ou taxistaEntrega ---
     @Query("SELECT pv FROM PassageiroViagem pv " +
             "JOIN FETCH pv.pessoa " +
             "JOIN FETCH pv.viagem v " +
-            "LEFT JOIN FETCH v.listaOnibus " +
+            "LEFT JOIN FETCH v.onibus " +
             "LEFT JOIN FETCH pv.taxistaColeta " +
             "LEFT JOIN FETCH pv.taxistaEntrega " +
             "LEFT JOIN FETCH pv.comisseiro " +
             "WHERE pv.viagem.id = :viagemId " +
             "AND (pv.taxistaColeta.id = :taxistaId OR pv.taxistaEntrega.id = :taxistaId)")
     List<PassageiroViagem> findByViagemIdAndTaxistaId(@Param("viagemId") Long viagemId, @Param("taxistaId") Long taxistaId);
+    // --- FIM DA MUDANÇA ---
 
     @Query("SELECT pv FROM PassageiroViagem pv " +
             "JOIN FETCH pv.pessoa " +
             "JOIN FETCH pv.viagem v " +
-            "LEFT JOIN FETCH v.listaOnibus " +
+            "LEFT JOIN FETCH v.onibus " +
+            // --- MUDANÇA: Adiciona fetch para os novos campos ---
             "LEFT JOIN FETCH pv.taxistaColeta " +
             "LEFT JOIN FETCH pv.taxistaEntrega " +
+            // --- FIM DA MUDANÇA ---
             "LEFT JOIN FETCH pv.comisseiro " +
             "WHERE pv.viagem.id = :viagemId AND pv.comisseiro.id = :comisseiroId")
     List<PassageiroViagem> findByViagemIdAndComisseiroId(@Param("viagemId") Long viagemId, @Param("comisseiroId") Long comisseiroId);
 
-    // --- RELATÓRIOS (Mantidos) ---
+    // --- MÉTODOS DE RELATÓRIO (ATUALIZADOS COM JOIN FETCH) ---
+
+    // --- MUDANÇA: Query corrigida para usar taxistaColeta ou taxistaEntrega ---
     @Query("SELECT pv FROM PassageiroViagem pv " +
             "JOIN FETCH pv.pessoa " +
             "JOIN FETCH pv.viagem v " +
-            "LEFT JOIN FETCH v.listaOnibus " +
+            "LEFT JOIN FETCH v.onibus " +
             "LEFT JOIN FETCH pv.taxistaColeta " +
             "LEFT JOIN FETCH pv.taxistaEntrega " +
             "LEFT JOIN FETCH pv.comisseiro " +
@@ -67,13 +67,16 @@ public interface PassageiroViagemRepository extends JpaRepository<PassageiroViag
             @Param("taxistaId") Long taxistaId,
             @Param("inicio") LocalDateTime inicio,
             @Param("fim") LocalDateTime fim);
+    // --- FIM DA MUDANÇA ---
 
     @Query("SELECT pv FROM PassageiroViagem pv " +
             "JOIN FETCH pv.pessoa " +
             "JOIN FETCH pv.viagem v " +
-            "LEFT JOIN FETCH v.listaOnibus " +
+            "LEFT JOIN FETCH v.onibus " +
+            // --- MUDANÇA: Adiciona fetch para os novos campos ---
             "LEFT JOIN FETCH pv.taxistaColeta " +
             "LEFT JOIN FETCH pv.taxistaEntrega " +
+            // --- FIM DA MUDANÇA ---
             "LEFT JOIN FETCH pv.comisseiro " +
             "WHERE pv.comisseiro.id = :comisseiroId AND v.dataHoraPartida BETWEEN :inicio AND :fim")
     List<PassageiroViagem> findByComisseiroIdAndViagemDataHoraPartidaBetween(
@@ -81,13 +84,15 @@ public interface PassageiroViagemRepository extends JpaRepository<PassageiroViag
             @Param("inicio") LocalDateTime inicio,
             @Param("fim") LocalDateTime fim);
 
-    // --- HISTÓRICO (Mantido) ---
+    // --- NOVO MÉTODO PARA HISTÓRICO DA PESSOA ---
     @Query("SELECT pv FROM PassageiroViagem pv " +
             "JOIN FETCH pv.pessoa p " +
             "JOIN FETCH pv.viagem v " +
-            "LEFT JOIN FETCH v.listaOnibus " +
+            "LEFT JOIN FETCH v.onibus o " +
+            // --- MUDANÇA: Adiciona fetch para os novos campos ---
             "LEFT JOIN FETCH pv.taxistaColeta " +
             "LEFT JOIN FETCH pv.taxistaEntrega " +
+            // --- FIM DA MUDANÇA ---
             "LEFT JOIN FETCH pv.comisseiro " +
             "WHERE p.id = :pessoaId ORDER BY v.dataHoraPartida DESC")
     List<PassageiroViagem> findByPessoaIdWithHistory(@Param("pessoaId") Long pessoaId);
