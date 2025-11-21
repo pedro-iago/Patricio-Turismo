@@ -18,7 +18,6 @@ public interface ViagemRepository extends JpaRepository<Viagem, Long> {
                     "AND (:ano IS NULL OR EXTRACT(YEAR FROM v.dataHoraPartida) = :ano) " +
                     "AND (:query IS NULL OR LOWER(o.placa) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(o.modelo) LIKE LOWER(CONCAT('%', :query, '%')))",
 
-            // === AQUI ESTÁ A CORREÇÃO: QUERY ESPECÍFICA PARA CONTAGEM ===
             countQuery = "SELECT COUNT(DISTINCT v) FROM Viagem v " +
                     "LEFT JOIN v.listaOnibus o " +
                     "WHERE (:mes IS NULL OR EXTRACT(MONTH FROM v.dataHoraPartida) = :mes) " +

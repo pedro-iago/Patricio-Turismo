@@ -13,6 +13,7 @@ import com.partricioturismo.crud.repositories.EncomendaRepository;
 import com.partricioturismo.crud.repositories.OnibusRepository;
 import com.partricioturismo.crud.repositories.PassageiroViagemRepository;
 import com.partricioturismo.crud.repositories.ViagemRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,6 +42,24 @@ public class ViagemService {
     @Autowired
     private EncomendaRepository encomendaRepository;
 
+    // === MÉTODO CORRIGIDO ===
+    @Transactional(readOnly = true)
+    public Page<ViagemDto> findAll(Integer mes, Integer ano, String query, Pageable pageable) {
+        // Tratamento: Se a busca for uma string vazia (""), transformamos em NULL
+        // para que o Repositório ignore o filtro e traga tudo.
+        String queryTratada = (query != null && query.trim().isEmpty()) ? null : query;
+
+        return viagemRepository.findAllWithFilters(mes, ano, queryTratada, pageable)
+                .map(this::toDto);
+    }
+    // ========================
+
+    @Transactional(readOnly = true)
+    public ViagemDto findById(Long id) {
+        Viagem v = viagemRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Viagem não encontrada"));
+        return toDto(v);
+    }
+
     @Transactional
     public ViagemDto save(ViagemSaveRequestDto viagemDto) {
         Viagem viagem = new Viagem();
@@ -55,6 +74,7 @@ public class ViagemService {
 
         var viagemSalva = viagemRepository.save(viagem);
 
+        // Cria assentos automaticamente para cada ônibus
         List<Assento> novosAssentos = new ArrayList<>();
         for (Onibus onibus : onibusList) {
             int capacidade = onibus.getCapacidadePassageiros();
@@ -94,20 +114,6 @@ public class ViagemService {
         );
     }
 
-    // --- ATUALIZADO: RECEBE OS FILTROS ---
-    public Page<ViagemDto> findAll(Integer mes, Integer ano, String query, Pageable pageable) {
-        // Tratamento para garantir que string vazia ("") vire NULL
-        // Isso impede que o banco tente buscar por algo vazio
-        String queryTratada = (query != null && query.trim().isEmpty()) ? null : query;
-
-        return viagemRepository.findAllWithFilters(mes, ano, queryTratada, pageable)
-                .map(this::toDto);
-    }
-
-    public Optional<ViagemDto> findById(Long id) {
-        return viagemRepository.findById(id).map(this::toDto);
-    }
-
     @Transactional
     public Optional<ViagemDto> update(Long id, ViagemSaveRequestDto viagemDto) {
         Optional<Viagem> viagemOptional = viagemRepository.findById(id);
@@ -131,6 +137,7 @@ public class ViagemService {
         if (!viagemRepository.existsById(id)) {
             return false;
         }
+        // Limpeza em cascata manual se necessário (Dependendo do seu banco)
         List<PassageiroViagem> passageiros = passageiroViagemRepository.findByViagemId(id);
         for (PassageiroViagem p : passageiros) {
             passageiroViagemService.delete(p.getId());
