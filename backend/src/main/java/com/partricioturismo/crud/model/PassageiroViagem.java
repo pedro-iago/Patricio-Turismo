@@ -50,64 +50,41 @@ public class PassageiroViagem {
     @JoinColumn(name = "assento_id")
     private Assento assento;
 
-    // --- NOVOS CAMPOS (V11) ---
     @Column(name = "cor_tag")
     private String corTag;
 
-    @Column(name = "ordem_grid")
-    private Integer ordemGrid = 0;
-    // --------------------------
+    // --- COLUNA DE ORDEM ---
+    @Column(name = "ordem")
+    private Integer ordem = 0;
 
-    // Getters e Setters existentes...
+    // Getters e Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Pessoa getPessoa() { return pessoa; }
     public void setPessoa(Pessoa pessoa) { this.pessoa = pessoa; }
     public Viagem getViagem() { return viagem; }
-    // ... (mantenha os outros getters/setters) ...
-
     public void setViagem(Viagem viagem) { this.viagem = viagem; }
     public Endereco getEnderecoColeta() { return enderecoColeta; }
     public void setEnderecoColeta(Endereco enderecoColeta) { this.enderecoColeta = enderecoColeta; }
     public Endereco getEnderecoEntrega() { return enderecoEntrega; }
     public void setEnderecoEntrega(Endereco enderecoEntrega) { this.enderecoEntrega = enderecoEntrega; }
-
     public Taxista getTaxistaColeta() { return taxistaColeta; }
     public void setTaxistaColeta(Taxista taxistaColeta) { this.taxistaColeta = taxistaColeta; }
-
     public Taxista getTaxistaEntrega() { return taxistaEntrega; }
     public void setTaxistaEntrega(Taxista taxistaEntrega) { this.taxistaEntrega = taxistaEntrega; }
-
     public Comisseiro getComisseiro() { return comisseiro; }
     public void setComisseiro(Comisseiro comisseiro) { this.comisseiro = comisseiro; }
-
     public BigDecimal getValor() { return valor; }
     public void setValor(BigDecimal valor) { this.valor = valor; }
-
     public String getMetodoPagamento() { return metodoPagamento; }
     public void setMetodoPagamento(String metodoPagamento) { this.metodoPagamento = metodoPagamento; }
-
     public boolean isPago() { return pago; }
     public void setPago(boolean pago) { this.pago = pago; }
-
     public Assento getAssento() { return assento; }
     public void setAssento(Assento assento) { this.assento = assento; }
+    public String getCorTag() { return corTag; }
+    public void setCorTag(String corTag) { this.corTag = corTag; }
 
-    // --- NOVOS GETTERS E SETTERS ---
-    public String getCorTag() {
-        return corTag;
-    }
-
-    public void setCorTag(String corTag) {
-        this.corTag = corTag;
-    }
-
-    public Integer getOrdemGrid() {
-        return ordemGrid;
-    }
-
-    public void setOrdemGrid(Integer ordemGrid) {
-        this.ordemGrid = ordemGrid;
-    }
-    // -------------------------------
+    public Integer getOrdem() { return ordem; }
+    public void setOrdem(Integer ordem) { this.ordem = ordem; }
 }

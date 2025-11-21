@@ -22,7 +22,7 @@ import PackageTable from './PackageTable';
 import SeatMap from './SeatMap'; 
 import SeatBinderModal from './SeatBinderModal';
 
-// --- Interfaces ---
+// --- Interfaces (MANTIDAS) ---
 interface Bus { id: number; modelo: string; placa: string; capacidadePassageiros: number; layoutJson?: string; }
 interface TripDto { id: number; dataHoraPartida: string; dataHoraChegada: string; onibus: Bus[]; }
 interface Page<T> { content: T[]; } 
@@ -133,7 +133,6 @@ export default function TripDetailsPage() {
     // --- 2. Busca de Dados ---
     const fetchFilteredData = useCallback(async () => {
         if (!tripIdNum || isNaN(tripIdNum)) return;
-        
         try {
             const [passengersResponse, packagesResponse] = await Promise.all([
                 api.get<PassengerData[]>(`/api/v1/reports/passageiros/viagem/${tripIdNum}`), 
@@ -141,10 +140,8 @@ export default function TripDetailsPage() {
             ]);
             
             const passengersData = passengersResponse.data;
-            
             const passengersWithLuggage = await Promise.all( 
                 passengersData.map(async (passenger) => { 
-                    // ... (lógica de onibusId e bagagem mantida) ...
                     const realOnibusId = passenger.onibusId || (passenger.onibus && passenger.onibus.id);
                     try {
                         const luggageResponse = await api.get(`/api/bagagem/passageiro/${passenger.id}`);
@@ -162,48 +159,31 @@ export default function TripDetailsPage() {
                     }
                 })
             );
-            
-            // === CORREÇÃO AQUI: ORDENAÇÃO ESTÁVEL ===
-            // Ordena por Nome (A-Z) para evitar que a linha pule ao editar
-            passengersWithLuggage.sort((a, b) => a.pessoa.nome.localeCompare(b.pessoa.nome));
-            
             setPassengers(passengersWithLuggage);
             setPackages(packagesResponse.data); 
             setAvailablePassengers(passengersWithLuggage.filter(p => !p.numeroAssento));
-            
-        } catch (error) { 
-            console.error('Erro ao buscar dados filtrados:', error);
-        }
+        } catch (error) { console.error('Erro ao atualizar dados:', error); }
     }, [tripIdNum]);
     
     useEffect(() => { fetchFilteredData(); }, [fetchFilteredData]);
 
     // --- Lógica de Assentos e CRUD ---
-// Substitua a função handleSelectSeat por esta versão robusta
     const handleSelectSeat = (identifier: number, seatNumber: string, isOccupied: boolean) => {
         setSeatTargetId(identifier); 
         setSeatTargetNumber(seatNumber); 
         
         if (isOccupied) {
-            // 1. Tenta encontrar pelo ID direto (Vem do SeatMap)
             let passenger = passengers.find(p => p.id === identifier);
-            
-            // 2. Fallback: Se não achou por ID, tenta pelo número do assento (Ignorando zeros: "02" == "2")
             if (!passenger) {
-                console.warn("Passageiro não encontrado por ID, tentando por número de assento...");
+                console.warn("Passageiro não encontrado por ID, tentando fallback...");
                 passenger = passengers.find(p => {
                     const seatA = parseInt(p.numeroAssento || '0', 10);
                     const seatB = parseInt(seatNumber || '0', 10);
                     return seatA === seatB && p.onibusId === currentBusId;
                 });
             }
-
-            if (passenger) {
-                setPassengerToDesassociate(passenger);
-            } else {
-                console.error("ERRO CRÍTICO: Não foi possível identificar o passageiro para desvincular.", { identifier, seatNumber });
-                alert("Erro ao identificar passageiro. Tente recarregar a página.");
-            }
+            if (passenger) setPassengerToDesassociate(passenger);
+            else alert("Erro ao identificar passageiro.");
         } else {
             setIsSeatBinderModalOpen(true);
         }
@@ -231,6 +211,8 @@ export default function TripDetailsPage() {
     
     const handleBindPassenger = (pid: number) => updatePassengerAssento(pid, seatTargetNumber, false);
     const handleDesassociateConfirm = () => passengerToDesassociate && updatePassengerAssento(passengerToDesassociate.id, null, true);
+    
+    // --- Mover Passageiros (Não funcional backend ainda, removido visual) ---
     
     const handleSavePassenger = async (dto: PassengerSaveDto) => {
         if (!tripIdNum) return;
@@ -305,9 +287,17 @@ export default function TripDetailsPage() {
     const passengerTabLabel = filteredPassengers.length === passengers.length ? `Passageiros (${passengers.length})` : `Passageiros (${filteredPassengers.length}/${passengers.length})`;
     const packageTabLabel = filteredPackages.length === packages.length ? `Encomendas (${packages.length})` : `Encomendas (${filteredPackages.length}/${packages.length})`;
 
-    const getPassengerCsvData = () => { /* ... */ return { headers: [], data: [] }}; 
-    const getPackageCsvData = () => { /* ... */ return { headers: [], data: [] }};
-    
+    const getPassengerCsvData = () => { 
+        const headers = [{ label: "Nome", key: "pessoa.nome" }, { label: "CPF", key: "pessoa.cpf" }, { label: "Telefone", key: "pessoa.telefone" }, { label: "Assento", key: "numeroAssento" }, { label: "Coleta", key: "enderecoColeta.cidade" }, { label: "Entrega", key: "enderecoEntrega.cidade" }, { label: "Valor", key: "valor" }, { label: "Status", key: "statusPagamento" }, { label: "Taxista", key: "taxista.pessoa.nome" }];
+        const data = filteredPassengers.map(p => ({ ...p, statusPagamento: p.pago ? 'Pago' : 'Pendente', numeroAssento: p.numeroAssento || 'N/A' }));
+        return { headers, data };
+    };
+    const getPackageCsvData = () => {
+        const headers = [{ label: "Descrição", key: "descricao" }, { label: "Remetente", key: "remetente.nome" }, { label: "Destinatário", key: "destinatario.nome" }, { label: "Valor", key: "valor" }, { label: "Status", key: "statusPagamento" }];
+        const data = filteredPackages.map(p => ({ ...p, statusPagamento: p.pago ? 'Pago' : 'Pendente' }));
+        return { headers, data };
+    };
+
     if (loading && !trip) return <div className="p-8 text-center">Carregando...</div>;
     if (!trip && !loading) return <div className="p-8 text-center">Viagem não encontrada.</div>;
     const currentBus = trip.onibus ? trip.onibus.find(b => b.id === currentBusId) : null; 
@@ -325,14 +315,15 @@ export default function TripDetailsPage() {
                     </div>
                 </div>
                 
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                {/* BOTÕES (FLEX-WRAP PARA MOBILE) */}
+                <div className="flex items-center gap-2 flex-wrap">
                     <Button variant="outline" size="sm" onClick={() => setIsMapOpen(!isMapOpen)} className="hidden xl:flex gap-2 whitespace-nowrap">
                         {isMapOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
                         {isMapOpen ? 'Ocultar Mapa' : 'Mostrar Mapa'}
                     </Button>
 
                     <Button variant="outline" size="sm" onClick={() => navigate(`/trips/${tripId}/print`)} className="whitespace-nowrap"><Printer className="w-4 h-4 mr-2" /> Imprimir</Button>
-                    <div className="hidden md:flex gap-2">
+                    <div className="flex gap-2">
                         <CSVLink data={getPassengerCsvData().data} headers={getPassengerCsvData().headers} filename={`passageiros.csv`}><Button variant="outline" size="sm" className="whitespace-nowrap"><FileDown className="w-4 h-4 mr-2" /> CSV Pax</Button></CSVLink>
                         <CSVLink data={getPackageCsvData().data} headers={getPackageCsvData().headers} filename={`encomendas.csv`}><Button variant="outline" size="sm" className="whitespace-nowrap"><FileDown className="w-4 h-4 mr-2" /> CSV Enc</Button></CSVLink>
                     </div>
@@ -384,7 +375,7 @@ export default function TripDetailsPage() {
                 {/* --- COLUNA ESQUERDA (TABELA) --- */}
                 <div className={cn(
                     "transition-all duration-500 ease-in-out",
-                    isMapOpen ? "xl:col-span-9" : "xl:col-span-12", // Lógica CORRIGIDA
+                    isMapOpen ? "xl:col-span-9" : "xl:col-span-12", 
                     mobileView === 'map' ? "hidden xl:block" : "block"
                 )}>
                     <Tabs defaultValue="passengers" className="space-y-4">
@@ -402,6 +393,7 @@ export default function TripDetailsPage() {
                                         <Button onClick={() => { setSelectedPassenger(null); setIsPassengerModalOpen(true); }} className="bg-primary hover:bg-primary/90 gap-2 w-full lg:w-auto"><Plus className="w-4 h-4" /> Novo</Button>
                                     </div>
                                 </div>
+                                {/* Filtros... */}
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                                     <Select value={filterTaxista} onValueChange={setFilterTaxista}><SelectTrigger className="bg-background text-xs h-9"><SelectValue placeholder="Taxista" /></SelectTrigger><SelectContent><SelectItem value="todos">Todos Taxistas</SelectItem>{uniqueTaxistas.map((t:any)=><SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select>
                                     <Select value={filterComisseiro} onValueChange={setFilterComisseiro}><SelectTrigger className="bg-background text-xs h-9"><SelectValue placeholder="Comisseiro" /></SelectTrigger><SelectContent><SelectItem value="todos">Todos Comisseiros</SelectItem>{uniqueComisseiros.map((c:any)=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
@@ -409,7 +401,14 @@ export default function TripDetailsPage() {
                                     <Select value={filterCidade} onValueChange={setFilterCidade}><SelectTrigger className="bg-background text-xs h-9"><SelectValue placeholder="Cidade" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas Cidades</SelectItem>{uniqueCidades.map((c:any)=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
                                 </div>
                             </div>
-                            <PassengerTable passengers={filteredPassengers} loading={loading} busMap={busMap} onMarkAsPaid={(id) => handleMarkAsPaid('passenger', id)} onOpenLuggage={(p) => { setSelectedPassenger(p); setIsLuggageModalOpen(true); }} onEdit={(p) => { setSelectedPassenger(p); setIsPassengerModalOpen(true); }} onDelete={(p) => setDeleteItem({ type: 'passenger', item: p })} onRefreshData={fetchFilteredData} />
+                            <PassengerTable 
+                                passengers={filteredPassengers} loading={loading} busMap={busMap} 
+                                onMarkAsPaid={(id) => handleMarkAsPaid('passenger', id)} 
+                                onOpenLuggage={(p) => { setSelectedPassenger(p); setIsLuggageModalOpen(true); }} 
+                                onEdit={(p) => { setSelectedPassenger(p); setIsPassengerModalOpen(true); }} 
+                                onDelete={(p) => setDeleteItem({ type: 'passenger', item: p })} 
+                                onRefreshData={fetchFilteredData} 
+                            />
                         </TabsContent>
                         
                         <TabsContent value="packages" className="space-y-4">
@@ -435,8 +434,8 @@ export default function TripDetailsPage() {
                 {/* --- ÁREA DA DIREITA (MAPA) --- */}
                 <div className={cn(
                     "xl:col-span-3 transition-all duration-500",
-                    mobileView === 'map' ? "block" : "hidden", // Mobile
-                    isMapOpen ? "xl:block" : "xl:hidden" // Desktop: Sobrescreve hidden se estiver aberto
+                    mobileView === 'map' ? "block" : "hidden", // Mobile Logic
+                    isMapOpen ? "xl:block" : "xl:hidden" // Desktop Logic
                 )}>
                     <div className="sticky top-6 space-y-4">
                         {trip?.onibus && trip.onibus.length > 1 ? (
@@ -460,7 +459,7 @@ export default function TripDetailsPage() {
 
             </div>
 
-            {/* Modais (Mantidos) */}
+            {/* Modais */}
             <PassengerModal isOpen={isPassengerModalOpen} onClose={() => { setIsPassengerModalOpen(false); setSelectedPassenger(null); }} onSave={handleSavePassenger} passenger={selectedPassenger} />
             <PackageModal isOpen={isPackageModalOpen} onClose={() => { setIsPackageModalOpen(false); setSelectedPackage(null); }} onSave={handleSavePackage} package={selectedPackage} />
             <LuggageModal isOpen={isLuggageModalOpen} onClose={() => { setIsLuggageModalOpen(false); setSelectedPassenger(null); fetchFilteredData(); }} passenger={selectedPassenger} />
