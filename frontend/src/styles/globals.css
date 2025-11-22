@@ -132,6 +132,16 @@ html {
 
 /* REGRAS DE IMPRESSÃO: O que acontece ao clicar em "Imprimir" */
 @media print {
+  /* Evita que uma linha da tabela seja cortada ao meio na virada de página */
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid; /* Para maior compatibilidade com navegadores */
+  }
+  
+  /* Opcional: Garante que a tabela em si também tente não quebrar */
+  table {
+    break-inside: auto;
+  }
   
   /* 1. Esconde o layout e tudo com a classe .pt-no-print */
   aside, header, .pt-no-print, [role="tablist"] {
