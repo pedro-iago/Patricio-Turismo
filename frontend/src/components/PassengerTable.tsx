@@ -11,7 +11,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortablePassengerGroup, useSortableGroup } from './SortablePassengerGroup';
 
-// --- Componente do Handle (Desktop) ---
+// --- Componente do Handle ---
 function DragHandle() {
     const context = useSortableGroup();
     if (!context) return <div className="w-4 h-4" />;
@@ -119,7 +119,6 @@ export default function PassengerTable({
     useSensor(KeyboardSensor)
   );
 
-  // Conta quantos membros cada grupo tem
   const groupCounts = useMemo(() => {
     const counts = new Map<string, number>();
     passengers.forEach(p => {
@@ -130,7 +129,6 @@ export default function PassengerTable({
     return counts;
   }, [passengers]);
 
-  // Agrupa os passageiros em arrays de arrays
   const groupedPassengers = useMemo(() => {
     const groups: PassengerData[][] = [];
     let currentGroup: PassengerData[] = [];
@@ -152,6 +150,7 @@ export default function PassengerTable({
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    
     if (over && active.id !== over.id && onReorder) {
         const oldGroupIndex = groupedPassengers.findIndex(g => g[0].id === active.id);
         const newGroupIndex = groupedPassengers.findIndex(g => g[0].id === over.id);
@@ -178,7 +177,6 @@ export default function PassengerTable({
 
   return (
     <>
-    {/* --- VERSÃO DESKTOP (TABELA) --- */}
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 pt-print-clean hidden md:block overflow-hidden">
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <Table>
@@ -223,10 +221,7 @@ export default function PassengerTable({
                             const canLinkToAbove = isFirstInGroup && prevGroup; 
                             const previousPassenger = prevGroup ? prevGroup[prevGroup.length - 1] : null;
 
-                            // Borda superior APENAS no primeiro do grupo
                             const borderTopClass = isGrouped && isFirstInGroup ? "border-t-2 border-orange-200" : "border-t-0";
-                            
-                            // Borda inferior APENAS no último do grupo
                             let borderBottomClass = "border-b";
                             if (isGrouped) {
                                 if (isLastInGroup) borderBottomClass = "border-b-2 border-orange-200";
@@ -243,7 +238,6 @@ export default function PassengerTable({
                                     key={passenger.id} 
                                     className={cn("transition-colors group", rowBg, borderTopClass, borderBottomClass)}
                                 >
-                                    {/* 1. DRAG & TAG */}
                                     {!isPrintView && (
                                         <TableCell className={cn("w-8 p-0 relative border-l-2 align-middle", isGrouped ? "border-orange-200" : "border-transparent", cellBorderClass)}>
                                             <div className="absolute left-0 top-1 bottom-1 w-1.5 rounded-r-md z-20" style={{ backgroundColor: passenger.corTag || 'transparent', printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }} />
@@ -251,7 +245,6 @@ export default function PassengerTable({
                                         </TableCell>
                                     )}
 
-                                    {/* 2. LINKS */}
                                     {!isPrintView && (
                                         <TableCell className={cn("p-0 text-center relative w-8 align-middle", cellBorderClass)}>
                                             {isLinkedToPrevious && (
@@ -275,8 +268,19 @@ export default function PassengerTable({
                                         </TableCell>
                                     )}
 
-                                    {/* 3. DADOS */}
                                     <TableCell className={cn("p-2 text-center relative align-middle", cellBorderClass)}>
+                                        {isPrintView && (
+                                            <div 
+                                                className="absolute left-0 top-1 bottom-1 w-1.5 rounded-r-md z-20" 
+                                                style={{ 
+                                                    boxShadow: `inset 0 0 0 10px ${passenger.corTag || 'transparent'}`,
+                                                    borderLeft: `6px solid ${passenger.corTag || 'transparent'}`,
+                                                    backgroundColor: passenger.corTag || 'transparent', 
+                                                    printColorAdjust: 'exact', 
+                                                    WebkitPrintColorAdjust: 'exact'
+                                                }} 
+                                            />
+                                        )}
                                         <span className="relative z-10 font-bold text-xs text-gray-600">{globalIndex + 1}</span>
                                         {!isPrintView && (
                                             <div className="absolute right-0 top-0 bottom-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 bg-white/90 backdrop-blur-sm">
@@ -299,7 +303,20 @@ export default function PassengerTable({
                                     <TableCell className={cn("pt-print-col-endereco align-middle", cellBorderClass)}><div className="text-xs"><b>C:</b> {formatAddress(passenger.enderecoColeta)}</div><div className="text-xs"><b>E:</b> {formatAddress(passenger.enderecoEntrega)}</div></TableCell>
                                     <TableCell className={cn("pt-print-col-afiliado align-middle", cellBorderClass)}><div className="text-xs"><b>TC:</b> {passenger.taxistaColeta?.pessoa.nome || '-'}</div><div className="text-xs"><b>TE:</b> {passenger.taxistaEntrega?.pessoa.nome || '-'}</div><div className="text-xs"><b>C:</b> {passenger.comisseiro?.pessoa.nome || '-'}</div></TableCell>
                                     <TableCell className={cn("pt-print-col-valor align-middle", cellBorderClass)}>{formatCurrency(passenger.valor)}</TableCell>
-                                    <TableCell className={cn("pt-print-col-status align-middle", cellBorderClass)}>{passenger.pago ? <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 border border-green-200 print:border-0">Pago</span> : <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200 print:border-0">Pendente</span>}</TableCell>
+                                    
+                                    {/* === CORREÇÃO DE STATUS AQUI === */}
+                                    <TableCell className={cn("pt-print-col-status align-middle", cellBorderClass)}>
+                                        {passenger.pago ? (
+                                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 border border-green-200 print:border-0">Pago</span>
+                                        ) : (
+                                            // Na impressão, mostra "Pend.", fonte pequena e padding mínimo
+                                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200 print:border-0 print:text-[10px] print:px-1 print:py-0">
+                                                {isPrintView ? "Pend." : "Pendente"}
+                                            </span>
+                                        )}
+                                    </TableCell>
+                                    {/* =============================== */}
+
                                     <TableCell className={cn("pt-print-col-assento text-center align-middle", cellBorderClass)}><div className="flex flex-col items-center justify-center"><span className="text-sm font-bold">{passenger.numeroAssento || '-'}</span>{busSigla && (<span className="text-[10px] font-mono text-gray-500 bg-gray-100 px-1 rounded border border-gray-200 mt-0.5" title={`Ônibus: ${bus?.placa}`}>{busSigla}</span>)}</div></TableCell>
                                     <TableCell className={cn("pt-print-col-bagagem text-center align-middle", cellBorderClass)}>{passenger.luggageCount}</TableCell>
                                     
@@ -324,26 +341,14 @@ export default function PassengerTable({
       </DndContext>
     </div>
 
-    {/* --- VERSÃO MOBILE (CARDS UNIFICADOS POR GRUPO) --- */}
     <div className="block md:hidden space-y-4">
         {groupedPassengers.map((group) => {
-            // Verifica se é um grupo real (mais de 1 pessoa)
             const isGrouped = group.length > 1;
-            // Estilos do Card (Container)
-            const cardContainerClass = isGrouped 
-                ? "bg-orange-50/30 border-orange-300 shadow-md" // Estilo de Grupo (Laranja)
-                : "bg-white border-gray-200 shadow-sm"; // Estilo Padrão (Branco)
+            const cardContainerClass = isGrouped ? "bg-orange-50/30 border-orange-300 shadow-md" : "bg-white border-gray-200 shadow-sm";
 
-            // Usamos o ID do primeiro passageiro como chave
             return (
                 <Card key={group[0].id} className={cn("relative border overflow-hidden", cardContainerClass)}>
-                    
-                    {/* Tag Lateral de Grupo (Só se for grupo) */}
-                    {isGrouped && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-orange-300 z-10" />
-                    )}
-
-                    {/* Renderizamos os membros do grupo dentro do mesmo Card */}
+                    {isGrouped && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-orange-300 z-10" />}
                     {group.map((passenger, index) => {
                         const globalIndex = passengers.findIndex(p => p.id === passenger.id);
                         const bus = passenger.onibusId && busMap ? busMap.get(passenger.onibusId) : undefined;
@@ -352,9 +357,7 @@ export default function PassengerTable({
 
                         return (
                             <div key={passenger.id} className={cn("relative", !isLastInCard && "border-b border-orange-200/50")}>
-                                {/* Tag de Cor Individual (Sobrepõe a do grupo se existir) */}
                                 <div className="absolute left-0 top-0 bottom-0 w-1.5 z-20" style={{ backgroundColor: passenger.corTag || 'transparent' }} />
-
                                 <CardHeader className="pl-5 py-3 pb-2">
                                     <div className="flex justify-between items-start">
                                         <div>
@@ -376,23 +379,14 @@ export default function PassengerTable({
                                         </div>
                                     </div>
                                 </CardHeader>
-                                
                                 <CardContent className="pl-5 py-2 text-sm space-y-2 border-t border-dashed border-gray-100 bg-white/40">
                                     <div className="grid grid-cols-[20px_1fr] gap-1 items-start"><span className="font-bold text-xs text-gray-700">C:</span><span className="text-xs text-gray-600 leading-tight">{formatAddress(passenger.enderecoColeta)}</span></div>
                                     <div className="grid grid-cols-[20px_1fr] gap-1 items-start"><span className="font-bold text-xs text-gray-700">E:</span><span className="text-xs text-gray-600 leading-tight">{formatAddress(passenger.enderecoEntrega)}</span></div>
-                                    
-                                    <div className="grid grid-cols-3 gap-2 text-[10px] text-gray-500 pt-1 border-t border-gray-100 mt-1">
-                                        <div><span className="font-bold block">Coleta (TC):</span> {passenger.taxistaColeta?.pessoa.nome || '-'}</div>
-                                        <div><span className="font-bold block">Entrega (TE):</span> {passenger.taxistaEntrega?.pessoa.nome || '-'}</div>
-                                        <div><span className="font-bold block">Comis (C):</span> {passenger.comisseiro?.pessoa.nome || '-'}</div>
-                                    </div>
-
                                     <div className="flex justify-between items-center pt-2 mt-2 border-t border-gray-100">
                                         <div><span className="text-xs text-muted-foreground block">Valor</span><span className="font-bold text-gray-900">{formatCurrency(passenger.valor)}</span></div>
                                         <div><span className="text-xs text-muted-foreground block text-right">Bagagem</span><span className="font-bold text-gray-900 block text-right">{passenger.luggageCount} vol</span></div>
                                     </div>
                                 </CardContent>
-                                
                                 <CardFooter className="pl-5 py-2 bg-gray-50/50 border-t border-gray-100 flex justify-between items-center">
                                     <Popover>
                                         <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Palette className="w-4 h-4 text-gray-500" /></Button></PopoverTrigger>
