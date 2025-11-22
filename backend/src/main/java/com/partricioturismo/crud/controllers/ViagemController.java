@@ -5,7 +5,7 @@ import com.partricioturismo.crud.dtos.ViagemDto;
 import com.partricioturismo.crud.dtos.ViagemSaveRequestDto;
 import com.partricioturismo.crud.service.AssentoService;
 import com.partricioturismo.crud.service.ViagemService;
-import jakarta.persistence.EntityNotFoundException; // Import necessário para o erro 404
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/viagem")
@@ -26,20 +25,24 @@ public class ViagemController {
     @Autowired
     AssentoService assentoService;
 
-    // Endpoint de listagem com Filtros (Mês, Ano, Busca)
     @GetMapping
-    public ResponseEntity<Page<ViagemDto>> getAll(
+    public ResponseEntity<?> getAll(
             @RequestParam(required = false) Integer mes,
             @RequestParam(required = false) Integer ano,
             @RequestParam(required = false) String query,
             Pageable pageable
     ) {
-        Page<ViagemDto> listViagem = service.findAll(mes, ano, query, pageable);
-        return ResponseEntity.status(HttpStatus.OK).body(listViagem);
+        try {
+            Page<ViagemDto> listViagem = service.findAll(mes, ano, query, pageable);
+            return ResponseEntity.status(HttpStatus.OK).body(listViagem);
+        } catch (Exception e) {
+            // ISSO VAI IMPRIMIR O ERRO REAL NO SEU TERMINAL
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erro interno ao buscar viagens: " + e.getMessage());
+        }
     }
 
-    // === CORREÇÃO AQUI ===
-    // O service.findById agora retorna o objeto direto ou lança exceção
     @GetMapping("/{idViagem}")
     public ResponseEntity<Object> getById(@PathVariable(value = "idViagem") Long idViagem) {
         try {
@@ -49,7 +52,6 @@ public class ViagemController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Viagem não existente");
         }
     }
-    // =====================
 
     @PostMapping
     public ResponseEntity<Object> save(@RequestBody ViagemSaveRequestDto viagemDto) {
@@ -73,7 +75,7 @@ public class ViagemController {
     @PutMapping("/{idViagem}")
     public ResponseEntity<Object> update(@PathVariable(value = "idViagem") Long idViagem, @RequestBody ViagemSaveRequestDto viagemDto) {
         try {
-            Optional<ViagemDto> viagemAtualizada = service.update(idViagem, viagemDto);
+            var viagemAtualizada = service.update(idViagem, viagemDto);
             if (viagemAtualizada.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Viagem não existente");
             }

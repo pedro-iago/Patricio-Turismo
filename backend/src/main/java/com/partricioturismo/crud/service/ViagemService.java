@@ -13,10 +13,12 @@ import com.partricioturismo.crud.repositories.EncomendaRepository;
 import com.partricioturismo.crud.repositories.OnibusRepository;
 import com.partricioturismo.crud.repositories.PassageiroViagemRepository;
 import com.partricioturismo.crud.repositories.ViagemRepository;
+import com.partricioturismo.crud.service.ViagemSpecs; // <--- IMPORTANTE
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification; // <--- IMPORTANTE
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,17 +44,20 @@ public class ViagemService {
     @Autowired
     private EncomendaRepository encomendaRepository;
 
-    // === MÉTODO CORRIGIDO ===
+    // === MÉTODO ATUALIZADO: USA SPECIFICATIONS ===
     @Transactional(readOnly = true)
     public Page<ViagemDto> findAll(Integer mes, Integer ano, String query, Pageable pageable) {
-        // Tratamento: Se a busca for uma string vazia (""), transformamos em NULL
-        // para que o Repositório ignore o filtro e traga tudo.
-        String queryTratada = (query != null && query.trim().isEmpty()) ? null : query;
 
-        return viagemRepository.findAllWithFilters(mes, ano, queryTratada, pageable)
+        // 1. Cria a especificação (filtro) usando a classe auxiliar ViagemSpecs
+        // Isso trata nulos e tipos de dados (Integer/Double) automaticamente
+        Specification<Viagem> spec = ViagemSpecs.comFiltros(mes, ano, query);
+
+        // 2. Chama o repositório passando a Spec + Paginação
+        // O Spring gera o SQL correto para o seu banco (PostgreSQL)
+        return viagemRepository.findAll(spec, pageable)
                 .map(this::toDto);
     }
-    // ========================
+    // =============================================
 
     @Transactional(readOnly = true)
     public ViagemDto findById(Long id) {
@@ -137,7 +142,6 @@ public class ViagemService {
         if (!viagemRepository.existsById(id)) {
             return false;
         }
-        // Limpeza em cascata manual se necessário (Dependendo do seu banco)
         List<PassageiroViagem> passageiros = passageiroViagemRepository.findByViagemId(id);
         for (PassageiroViagem p : passageiros) {
             passageiroViagemService.delete(p.getId());
