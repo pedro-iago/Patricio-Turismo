@@ -350,6 +350,13 @@ export default function TripDetailsPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => navigate(`/trips/${tripId}/passar-lista`)} 
+                        className="whitespace-nowrap">
+                        <ListIcon className="w-4 h-4 mr-2" /> Passar Lista
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => setIsMapOpen(!isMapOpen)} className="hidden xl:flex gap-2 whitespace-nowrap">
                         {isMapOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
                         {isMapOpen ? 'Ocultar Mapa' : 'Mostrar Mapa'}

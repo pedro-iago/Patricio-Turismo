@@ -12,16 +12,17 @@ import AffiliatesPage from './components/AffiliatesPage';
 import PrintReportPage from './components/PrintReportPage';
 import TaxistaDetailsPage from './components/TaxistaDetailsPage';
 import ComisseiroDetailsPage from './components/ComisseiroDetailsPage';
-
-// --- IMPORTE A NOVA PÁGINA DE HISTÓRICO ---
+import PassListTripPage from './components/PassListTripPage';
 import PessoaDetailsPage from './components/PessoaDetailsPage';
+
+// --- 1. Importe a nova página de relatório ---
+import TaxistaReportPage from './components/TaxistaReportPage';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ... (handleLogin, handleLogout, useEffect de verificação - sem alteração) ...
   const handleLogin = useCallback((username: string) => {
     setIsAuthenticated(true);
     setCurrentUser(username);
@@ -48,7 +49,6 @@ export default function App() {
   if (isLoading) {
     return <div className="flex h-screen items-center justify-center">Carregando...</div>;
   }
-
 
   return (
     <BrowserRouter>
@@ -78,6 +78,10 @@ export default function App() {
           <Route index element={<Navigate to="/trips" replace />} />
           <Route path="trips" element={<TripsPage />} />
           <Route path="trips/:id" element={<TripDetailsPage />} />
+          
+          {/* Rota de passar lista */}
+          <Route path="trips/:id/passar-lista" element={<PassListTripPage />} />
+          
           <Route path="people" element={<PeoplePage />} />
           <Route path="fleet" element={<FleetPage />} />
           <Route path="addresses" element={<AddressesPage />} />
@@ -85,19 +89,27 @@ export default function App() {
           
           <Route path="taxistas/:id" element={<TaxistaDetailsPage />} />
           <Route path="comisseiros/:id" element={<ComisseiroDetailsPage />} />
-          
-          {/* === ADICIONE A NOVA ROTA DE HISTÓRICO AQUI === */}
           <Route path="pessoas/:id" element={<PessoaDetailsPage />} />
-          {/* ============================================== */}
-          
         </Route>
 
-        {/* --- ROTA DE IMPRESSÃO (SEM LAYOUT) --- */}
+        {/* --- ROTAS DE IMPRESSÃO (SEM LAYOUT) --- */}
         <Route
           path="/trips/:id/print"
           element={
             isAuthenticated ? (
               <PrintReportPage />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+
+        {/* --- 2. Nova Rota de Relatório PDF por Taxista --- */}
+        <Route
+          path="/trips/:id/relatorio-taxistas"
+          element={
+            isAuthenticated ? (
+              <TaxistaReportPage />
             ) : (
               <Navigate to="/login" replace />
             )

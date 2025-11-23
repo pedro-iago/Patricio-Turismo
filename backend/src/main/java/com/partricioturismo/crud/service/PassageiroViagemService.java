@@ -24,17 +24,17 @@ public class PassageiroViagemService {
     @Autowired private ComisseiroRepository comisseiroRepository;
     @Autowired private AssentoRepository assentoRepository;
 
-    // === NOVO MÉTODO: REORDENAR (CORRIGIDO) ===
+    // INJEÇÃO DO SERVIÇO DE ENCOMENDAS
+    @Autowired private EncomendaService encomendaService;
+
+    // === NOVO MÉTODO: REORDENAR ===
     @Transactional
     public void reordenarPassageiros(List<Long> ids) {
         for (int i = 0; i < ids.size(); i++) {
             Long id = ids.get(i);
-
-            // CORREÇÃO: Criamos uma variável "final" para usar dentro do lambda
             final int novaOrdem = i;
-
             repository.findById(id).ifPresent(pv -> {
-                pv.setOrdem(novaOrdem); // Usamos 'novaOrdem' em vez de 'i'
+                pv.setOrdem(novaOrdem);
                 repository.save(pv);
             });
         }
@@ -45,7 +45,7 @@ public class PassageiroViagemService {
     public void desvincularGrupo(Long id) {
         PassageiroViagem p = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Passageiro não encontrado"));
-        p.setGrupoId(null); // Remove do grupo
+        p.setGrupoId(null);
         repository.save(p);
     }
 
@@ -66,7 +66,37 @@ public class PassageiroViagemService {
         p2.setGrupoId(grupo);
         repository.save(p2);
     }
-    // ===================================
+
+    // === ATRIBUIÇÃO EM MASSA (ATUALIZADO) ===
+    @Transactional
+    public void atribuirTaxistaEmMassa(List<Long> passageiroIds, List<Long> encomendaIds, Long taxistaId, String tipo) {
+        Taxista taxista = null;
+
+        // Se o ID for enviado, busca o taxista. Se for null, taxista permanece null (para desvincular)
+        if (taxistaId != null) {
+            taxista = taxistaRepository.findById(taxistaId)
+                    .orElseThrow(() -> new EntityNotFoundException("Taxista não encontrado"));
+        }
+
+        // 1. Atualiza Passageiros
+        if (passageiroIds != null && !passageiroIds.isEmpty()) {
+            List<PassageiroViagem> lista = repository.findAllById(passageiroIds);
+            for (PassageiroViagem pv : lista) {
+                if ("COLETA".equalsIgnoreCase(tipo)) {
+                    pv.setTaxistaColeta(taxista);
+                } else if ("ENTREGA".equalsIgnoreCase(tipo)) {
+                    pv.setTaxistaEntrega(taxista);
+                }
+                repository.save(pv);
+            }
+        }
+
+        // 2. Atualiza Encomendas (Delegando para o EncomendaService)
+        if (encomendaIds != null && !encomendaIds.isEmpty()) {
+            encomendaService.atribuirTaxistaEmMassa(encomendaIds, taxistaId, tipo);
+        }
+    }
+    // ========================================
 
     @Transactional
     public PassengerResponseDto save(PassengerSaveRequestDto dto) {

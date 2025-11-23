@@ -24,8 +24,41 @@ public class EncomendaService {
     @Autowired private TaxistaRepository taxistaRepository;
     @Autowired private ComisseiroRepository comisseiroRepository;
 
-    // --- Métodos findAll, findByViagemId, findById, save, update, delete, markAsPaid MANTIDOS IGUAIS ---
-    // (Copie o conteúdo original aqui para manter o que já funciona)
+    // === NOVO MÉTODO: ATRIBUIR TAXISTA EM MASSA ===
+    @Transactional
+    public void atribuirTaxistaEmMassa(List<Long> ids, Long taxistaId, String tipo) {
+        if (ids == null || ids.isEmpty()) return;
+
+        // Busca o taxista (pode ser null se for para desvincular)
+        Taxista taxista = null;
+        if (taxistaId != null) {
+            taxista = taxistaRepository.findById(taxistaId)
+                    .orElseThrow(() -> new EntityNotFoundException("Taxista não encontrado"));
+        }
+
+        List<Encomenda> lista = repository.findAllById(ids);
+
+        for (Encomenda enc : lista) {
+            if ("COLETA".equalsIgnoreCase(tipo)) {
+                enc.setTaxistaColeta(taxista);
+            } else if ("ENTREGA".equalsIgnoreCase(tipo)) {
+                enc.setTaxistaEntrega(taxista);
+            }
+            repository.save(enc);
+        }
+    }
+    // ==============================================
+
+    // --- NOVO MÉTODO: ATUALIZAR COR (V11) ---
+    @Transactional
+    public EncomendaResponseDto updateCor(Long id, String cor) {
+        Encomenda encomenda = repository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Encomenda não encontrada"));
+        encomenda.setCorTag(cor);
+        return convertToDto(repository.save(encomenda));
+    }
+
+    // ... (Restante dos métodos findAll, findById, save, update, delete mantidos iguais) ...
 
     @Transactional(readOnly = true)
     public List<EncomendaResponseDto> findAll() {
@@ -40,28 +73,6 @@ public class EncomendaService {
     @Transactional(readOnly = true)
     public Optional<EncomendaResponseDto> findById(Long id) {
         return repository.findById(id).map(this::convertToDto);
-    }
-
-    // ... (Mantenha carregarEntidades, save, update, delete, markAsPaid como estavam) ...
-
-    private Encomenda carregarEntidades(Encomenda encomenda, EncomendaSaveRequestDto dto) {
-        // (Seu código original de carregarEntidades)
-        Viagem viagem = viagemRepository.findById(dto.viagemId()).orElseThrow(() -> new EntityNotFoundException("Viagem não encontrada!"));
-        Pessoa remetente = pessoaRepository.findById(dto.remetenteId()).orElseThrow(() -> new EntityNotFoundException("Remetente não encontrado!"));
-        Pessoa destinatario = pessoaRepository.findById(dto.destinatarioId()).orElseThrow(() -> new EntityNotFoundException("Destinatário não encontrado!"));
-
-        encomenda.setViagem(viagem);
-        encomenda.setRemetente(remetente);
-        encomenda.setDestinatario(destinatario);
-        // ... (resto das entidades)
-        if(dto.enderecoColetaId() != null) encomenda.setEnderecoColeta(enderecoRepository.findById(dto.enderecoColetaId()).orElse(null));
-        if(dto.enderecoEntregaId() != null) encomenda.setEnderecoEntrega(enderecoRepository.findById(dto.enderecoEntregaId()).orElse(null));
-
-        encomenda.setValor(dto.valor());
-        encomenda.setMetodoPagamento(dto.metodoPagamento());
-        if (dto.pago() != null) encomenda.setPago(dto.pago());
-
-        return encomenda;
     }
 
     @Transactional
@@ -97,17 +108,29 @@ public class EncomendaService {
         });
     }
 
-    // --- NOVO MÉTODO: ATUALIZAR COR ---
-    @Transactional
-    public EncomendaResponseDto updateCor(Long id, String cor) {
-        Encomenda encomenda = repository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Encomenda não encontrada"));
+    private Encomenda carregarEntidades(Encomenda encomenda, EncomendaSaveRequestDto dto) {
+        Viagem viagem = viagemRepository.findById(dto.viagemId()).orElseThrow(() -> new EntityNotFoundException("Viagem não encontrada!"));
+        Pessoa remetente = pessoaRepository.findById(dto.remetenteId()).orElseThrow(() -> new EntityNotFoundException("Remetente não encontrado!"));
+        Pessoa destinatario = pessoaRepository.findById(dto.destinatarioId()).orElseThrow(() -> new EntityNotFoundException("Destinatário não encontrado!"));
 
-        encomenda.setCorTag(cor); // Certifique-se que a Entidade Encomenda tem esse campo
+        encomenda.setViagem(viagem);
+        encomenda.setRemetente(remetente);
+        encomenda.setDestinatario(destinatario);
 
-        return convertToDto(repository.save(encomenda));
+        if(dto.enderecoColetaId() != null) encomenda.setEnderecoColeta(enderecoRepository.findById(dto.enderecoColetaId()).orElse(null));
+        if(dto.enderecoEntregaId() != null) encomenda.setEnderecoEntrega(enderecoRepository.findById(dto.enderecoEntregaId()).orElse(null));
+
+        encomenda.setValor(dto.valor());
+        encomenda.setMetodoPagamento(dto.metodoPagamento());
+        if (dto.pago() != null) encomenda.setPago(dto.pago());
+
+        // Mapear taxistas/comisseiros se vierem no DTO de save/update
+        if (dto.taxistaColetaId() != null) encomenda.setTaxistaColeta(taxistaRepository.findById(dto.taxistaColetaId()).orElse(null));
+        if (dto.taxistaEntregaId() != null) encomenda.setTaxistaEntrega(taxistaRepository.findById(dto.taxistaEntregaId()).orElse(null));
+        if (dto.comisseiroId() != null) encomenda.setComisseiro(comisseiroRepository.findById(dto.comisseiroId()).orElse(null));
+
+        return encomenda;
     }
-    // ----------------------------------
 
     private EncomendaResponseDto convertToDto(Encomenda e) {
         return new EncomendaResponseDto(e);

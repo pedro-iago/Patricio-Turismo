@@ -1,9 +1,6 @@
 package com.partricioturismo.crud.controllers;
 
-import com.partricioturismo.crud.dtos.CorRequestDto;
-import com.partricioturismo.crud.dtos.PassengerSaveRequestDto;
-import com.partricioturismo.crud.dtos.PassengerResponseDto;
-import com.partricioturismo.crud.dtos.ReorderRequestDto; // <-- Importe o DTO
+import com.partricioturismo.crud.dtos.*;
 import com.partricioturismo.crud.service.PassageiroViagemService;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -22,14 +19,14 @@ public class PassageiroViagemController {
     @Autowired
     PassageiroViagemService service;
 
-    // === NOVO ENDPOINT: REORDENAR ===
+    // === REORDENAR ===
     @PatchMapping("/reordenar")
     public ResponseEntity<Void> reordenar(@RequestBody ReorderRequestDto dto) {
         service.reordenarPassageiros(dto.ids());
         return ResponseEntity.noContent().build();
     }
 
-    // === NOVO ENDPOINT: VINCULAR ===
+    // === VINCULAR GRUPO ===
     @PostMapping("/{id}/vincular/{targetId}")
     public ResponseEntity<Void> vincular(@PathVariable Long id, @PathVariable Long targetId) {
         try {
@@ -39,7 +36,27 @@ public class PassageiroViagemController {
             return ResponseEntity.notFound().build();
         }
     }
-    // ================================
+
+    // === DESVINCULAR GRUPO ===
+    @PostMapping("/{id}/desvincular")
+    public ResponseEntity<Void> desvincular(@PathVariable Long id) {
+        service.desvincularGrupo(id);
+        return ResponseEntity.ok().build();
+    }
+
+    // === ATRIBUIÇÃO EM MASSA (CORRIGIDO) ===
+    @PostMapping("/atribuir-massa")
+    public ResponseEntity<Void> atribuirEmMassa(@RequestBody BulkAssignRequestDto dto) {
+        // CORREÇÃO AQUI: Passando dto.encomendaIds()
+        service.atribuirTaxistaEmMassa(
+                dto.passageiroIds(),
+                dto.encomendaIds(), // <--- Novo argumento obrigatório
+                dto.taxistaId(),
+                dto.tipo()
+        );
+        return ResponseEntity.ok().build();
+    }
+    // =======================================
 
     @GetMapping
     public ResponseEntity<List<PassengerResponseDto>> getAll() { return ResponseEntity.ok(service.findAll()); }
@@ -99,12 +116,5 @@ public class PassageiroViagemController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
-    }
-
-    // === NOVO ENDPOINT: DESVINCULAR ===
-    @PostMapping("/{id}/desvincular")
-    public ResponseEntity<Void> desvincular(@PathVariable Long id) {
-        service.desvincularGrupo(id);
-        return ResponseEntity.ok().build();
     }
 }
