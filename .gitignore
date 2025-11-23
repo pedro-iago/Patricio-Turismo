@@ -73,3 +73,10 @@ docker-compose.override.yml
 *~
 *.bak
 *.swp
+
+# Ignorar chaves de segurança
+**/*.pem
+**/*.key
+
+# Ignorar configurações locais específicas
+backend/src/main/resources/application-dev.properties

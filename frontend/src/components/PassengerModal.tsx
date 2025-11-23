@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from './ui/checkbox';
 import api from '../services/api';
 
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Pencil } from "lucide-react";
 import { cn } from './ui/utils';
 import {
   Command,
@@ -28,46 +28,11 @@ import { AddressSearchCombobox } from './AddressSearchCombobox';
 import PersonModal from './PersonModal';
 import AddressModal from './AddressModal';
 
-// --- Interfaces ---
-interface Person { id: number; nome: string; cpf: string; }
+// Interfaces
 interface PersonSaveDto { nome: string; cpf: string; telefone: string | null; idade: number | null; }
 interface AddressSaveDto { logradouro: string; numero: string; bairro: string; cidade: string; estado: string; cep: string; }
-interface Address { id: number; logradouro: string; numero: string; bairro: string; cidade: string; }
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
-
-interface PassengerData {
-  id: number;
-  pessoa: Person; 
-  enderecoColeta?: Address; // Opcional
-  enderecoEntrega?: Address; // Opcional
-  taxistaColeta?: Affiliate; 
-  taxistaEntrega?: Affiliate; 
-  comisseiro?: Affiliate;
-  valor?: number;
-  metodoPagamento?: string;
-  pago?: boolean;
-}
-
-interface PassengerSaveDto {
-  pessoaId: number;
-  enderecoColetaId?: number; // Opcional no DTO
-  enderecoEntregaId?: number; // Opcional no DTO
-  taxistaColetaId?: number;
-  taxistaEntregaId?: number;
-  comisseiroId?: number;
-  valor?: number;
-  metodoPagamento?: string;
-  pago?: boolean;
-}
-
-interface PassengerModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (passengerDto: PassengerSaveDto) => void;
-  passenger: PassengerData | null;
-}
-
 interface Page<T> { content: T[]; }
 
 const initialFormData = {
@@ -82,7 +47,7 @@ const initialFormData = {
   pago: false,
 };
 
-export default function PassengerModal({ isOpen, onClose, onSave, passenger }: PassengerModalProps) {
+export default function PassengerModal({ isOpen, onClose, onSave, passenger }: any) {
   const [formData, setFormData] = useState(initialFormData);
 
   const [taxistas, setTaxistas] = useState<Affiliate[]>([]);
@@ -95,7 +60,14 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
 
   const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  
+  // Estados para Edição
+  const [editingPerson, setEditingPerson] = useState<any | null>(null);
+  const [editingAddress, setEditingAddress] = useState<any | null>(null);
   const [addressModalTarget, setAddressModalTarget] = useState<'pickupAddressId' | 'dropoffAddressId' | null>(null);
+  
+  // Chave para forçar refresh visual dos comboboxes após edição
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (isOpen) {
@@ -137,14 +109,12 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // --- MUDANÇA: Validação relaxada (apenas Pessoa é obrigatória) ---
     if (!formData.personId) {
         alert("Por favor, selecione o Passageiro.");
         return;
     }
     onSave({
       pessoaId: Number(formData.personId),
-      // Envia undefined se for null, permitindo endereço vazio
       enderecoColetaId: formData.pickupAddressId ? Number(formData.pickupAddressId) : undefined,
       enderecoEntregaId: formData.dropoffAddressId ? Number(formData.dropoffAddressId) : undefined,
       taxistaColetaId: formData.taxistaColetaId ? parseInt(formData.taxistaColetaId) : undefined, 
@@ -156,28 +126,87 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
     });
   };
 
-  const handleSaveNewPessoa = async (personDto: PersonSaveDto) => {
+  // --- LÓGICA DE EDIÇÃO ---
+
+  const handleEditPerson = async () => {
+    if (!formData.personId) return;
     try {
-      const response = await api.post<Person>('/api/pessoa', personDto);
-      const newPerson = response.data;
-      setFormData(prev => ({ ...prev, personId: newPerson.id }));
-      setIsPersonModalOpen(false);
-    } catch (error) {
-      console.error("Erro ao criar nova pessoa:", error);
+        const res = await api.get(`/api/pessoa/${formData.personId}`);
+        setEditingPerson(res.data);
+        setIsPersonModalOpen(true);
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao carregar dados da pessoa.");
     }
   };
 
-  const handleSaveNewEndereco = async (addressDto: AddressSaveDto) => {
+  const handleEditAddress = async (target: 'pickupAddressId' | 'dropoffAddressId') => {
+    const addressId = formData[target];
+    if (!addressId) return;
     try {
-      const response = await api.post<Address>('/api/endereco', addressDto);
-      const newAddress = response.data;
+        const res = await api.get(`/api/endereco/${addressId}`);
+        setEditingAddress(res.data);
+        setAddressModalTarget(target);
+        setIsAddressModalOpen(true);
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao carregar endereço.");
+    }
+  };
+
+  // --- SALVAMENTO (Novo ou Edição) ---
+
+  const handleSavePerson = async (personDto: PersonSaveDto) => {
+    try {
+      const payload = {
+          ...personDto,
+          idade: (personDto.idade === null || personDto.idade.toString() === '') ? null : Number(personDto.idade),
+          telefone: (personDto.telefone === '' || personDto.telefone === null) ? null : personDto.telefone
+      };
+
+      let savedPerson;
+      if (editingPerson) {
+        const response = await api.put(`/api/pessoa/${editingPerson.id}`, payload);
+        savedPerson = response.data;
+      } else {
+        const response = await api.post('/api/pessoa', payload);
+        savedPerson = response.data;
+      }
+      
+      setFormData(prev => ({ ...prev, personId: savedPerson.id }));
+      setIsPersonModalOpen(false);
+      setEditingPerson(null);
+      setRefreshKey(prev => prev + 1); 
+
+    } catch (error: any) {
+      console.error("Erro ao salvar pessoa:", error);
+      const msg = error.response?.data || "Verifique os dados.";
+      alert(`Erro ao salvar: ${msg}`);
+    }
+  };
+
+  const handleSaveAddress = async (addressDto: AddressSaveDto) => {
+    try {
+      let savedAddress;
+      if (editingAddress) {
+        const response = await api.put(`/api/endereco/${editingAddress.id}`, addressDto);
+        savedAddress = response.data;
+      } else {
+        const response = await api.post('/api/endereco', addressDto);
+        savedAddress = response.data;
+      }
+
       if (addressModalTarget) {
-        setFormData(prev => ({ ...prev, [addressModalTarget]: newAddress.id }));
+        setFormData(prev => ({ ...prev, [addressModalTarget]: savedAddress.id }));
       }
       setIsAddressModalOpen(false); 
       setAddressModalTarget(null); 
+      setEditingAddress(null);
+      setRefreshKey(prev => prev + 1);
+
     } catch (error) {
-      console.error("Erro ao criar novo endereço:", error);
+      console.error("Erro ao salvar endereço:", error);
+      alert("Erro ao salvar endereço.");
     }
   };
 
@@ -192,49 +221,101 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"> 
           <DialogHeader>
             <DialogTitle>{passenger ? 'Editar Passageiro' : 'Adicionar Passageiro'}</DialogTitle>
-            <DialogDescription>
-               Selecione um passageiro e seus dados. Endereços são opcionais.
-            </DialogDescription>
+            <DialogDescription>Selecione ou edite os dados do passageiro.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
 
             <div className="space-y-2">
               <Label htmlFor="person">Passageiro (Obrigatório)</Label>
-              <PessoaSearchCombobox
-                value={formData.personId}
-                onSelect={(pessoaId) => setFormData({ ...formData, personId: pessoaId })}
-                onAddNew={() => setIsPersonModalOpen(true)}
-                onClear={() => setFormData({ ...formData, personId: null })}
-              />
+              <div className="flex gap-2">
+                  <div className="flex-1 min-w-0">
+                    <PessoaSearchCombobox
+                        key={`pax-${refreshKey}`}
+                        value={formData.personId}
+                        onSelect={(pessoaId) => setFormData({ ...formData, personId: pessoaId })}
+                        onAddNew={() => {
+                            setEditingPerson(null);
+                            setIsPersonModalOpen(true);
+                        }}
+                        onClear={() => setFormData({ ...formData, personId: null })}
+                    />
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="icon" 
+                    className="shrink-0"
+                    disabled={!formData.personId}
+                    onClick={handleEditPerson}
+                    title="Editar dados pessoais"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+              </div>
             </div>
 
+            {/* === CORREÇÃO AQUI: ADICIONADO min-w-0 NAS DIVS DOS COMBOBOXES === */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="pickup">Coleta (Opcional)</Label>
-                <AddressSearchCombobox
-                  value={formData.pickupAddressId}
-                  placeholder="Endereço de coleta..."
-                  onSelect={(addressId) => setFormData({ ...formData, pickupAddressId: addressId })}
-                  onAddNew={() => {
-                    setAddressModalTarget('pickupAddressId');
-                    setIsAddressModalOpen(true);
-                  }}
-                  onClear={() => setFormData({ ...formData, pickupAddressId: null })}
-                />
+                <div className="flex gap-2">
+                    <div className="flex-1 min-w-0"> {/* min-w-0 impede o estouro */}
+                        <AddressSearchCombobox
+                            key={`pickup-${refreshKey}`}
+                            value={formData.pickupAddressId}
+                            placeholder="Endereço de coleta..."
+                            onSelect={(addressId) => setFormData({ ...formData, pickupAddressId: addressId })}
+                            onAddNew={() => {
+                                setEditingAddress(null);
+                                setAddressModalTarget('pickupAddressId');
+                                setIsAddressModalOpen(true);
+                            }}
+                            onClear={() => setFormData({ ...formData, pickupAddressId: null })}
+                        />
+                    </div>
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="icon" 
+                        className="shrink-0"
+                        disabled={!formData.pickupAddressId}
+                        onClick={() => handleEditAddress('pickupAddressId')}
+                        title="Editar endereço"
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+                </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="dropoff">Entrega (Opcional)</Label>
-                <AddressSearchCombobox
-                  value={formData.dropoffAddressId}
-                  placeholder="Endereço de entrega..."
-                  onSelect={(addressId) => setFormData({ ...formData, dropoffAddressId: addressId })}
-                  onAddNew={() => {
-                    setAddressModalTarget('dropoffAddressId');
-                    setIsAddressModalOpen(true);
-                  }}
-                  onClear={() => setFormData({ ...formData, dropoffAddressId: null })}
-                />
+                <div className="flex gap-2">
+                    <div className="flex-1 min-w-0"> {/* min-w-0 impede o estouro */}
+                        <AddressSearchCombobox
+                            key={`dropoff-${refreshKey}`}
+                            value={formData.dropoffAddressId}
+                            placeholder="Endereço de entrega..."
+                            onSelect={(addressId) => setFormData({ ...formData, dropoffAddressId: addressId })}
+                            onAddNew={() => {
+                                setEditingAddress(null);
+                                setAddressModalTarget('dropoffAddressId');
+                                setIsAddressModalOpen(true);
+                            }}
+                            onClear={() => setFormData({ ...formData, dropoffAddressId: null })}
+                        />
+                    </div>
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="icon" 
+                        className="shrink-0"
+                        disabled={!formData.dropoffAddressId}
+                        onClick={() => handleEditAddress('dropoffAddressId')}
+                        title="Editar endereço"
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+                </div>
               </div>
             </div>
             
@@ -242,10 +323,10 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="taxistaColeta">Taxista (Coleta)</Label>
+                <Label>Taxista (Coleta)</Label>
                 <Popover open={openTaxistaColetaPopover} onOpenChange={setOpenTaxistaColetaPopover} modal={true}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal truncate">
                       {formData.taxistaColetaId ? getSelectedTaxistaColetaName() : getAffiliatePlaceholder()}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -273,10 +354,10 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="taxistaEntrega">Taxista (Entrega)</Label>
+                <Label>Taxista (Entrega)</Label>
                 <Popover open={openTaxistaEntregaPopover} onOpenChange={setOpenTaxistaEntregaPopover} modal={true}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal truncate">
                       {formData.taxistaEntregaId ? getSelectedTaxistaEntregaName() : getAffiliatePlaceholder()}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -304,11 +385,11 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
               </div>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="comisseiro">Comisseiro</Label>
+            <div className="space-y-2 mt-4">
+              <Label>Comisseiro</Label>
               <Popover open={openComisseiroPopover} onOpenChange={setOpenComisseiroPopover} modal={true}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal truncate">
                     {formData.comisseiroId ? getSelectedComisseiroName() : getAffiliatePlaceholder()}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -335,7 +416,7 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
               </Popover>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 mt-4">
                <div className="space-y-2">
                 <Label htmlFor="valor">Valor (R$)</Label>
                 <Input
@@ -392,9 +473,12 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
 
       <PersonModal
         isOpen={isPersonModalOpen}
-        onClose={() => setIsPersonModalOpen(false)}
-        onSave={handleSaveNewPessoa}
-        person={null} 
+        onClose={() => {
+            setIsPersonModalOpen(false);
+            setEditingPerson(null);
+        }}
+        onSave={handleSavePerson}
+        person={editingPerson}
       />
       
       <AddressModal
@@ -402,9 +486,10 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: P
         onClose={() => {
           setIsAddressModalOpen(false);
           setAddressModalTarget(null);
+          setEditingAddress(null);
         }}
-        onSave={handleSaveNewEndereco}
-        address={null}
+        onSave={handleSaveAddress}
+        address={editingAddress}
       />
     </>
   );

@@ -126,4 +126,6 @@ export default function PersonModal({ isOpen, onClose, onSave, person }: PersonM
       </DialogContent>
     </Dialog>
   );
+
+  
 }
