@@ -10,9 +10,37 @@ type ReportType = 'COLETA' | 'ENTREGA';
 // === SUB-COMPONENTE: O DESIGN DA FOLHA A4 ===
 const PrintSheet = ({ data, tripInfo, type }: { data: any, tripInfo: any, type: ReportType }) => {
     
+    // === ATUALIZAÇÃO: Formatação Inteligente de Endereço Completo ===
     const formatAddress = (addr: any) => {
         if (!addr) return "Endereço não informado";
-        return `${addr.logradouro || ''}, ${addr.numero || ''} - ${addr.bairro || ''} (${addr.cidade})`;
+
+        const parts = [];
+
+        // 1. Rua e Número (Ex: Rua Principal, 123)
+        if (addr.logradouro) {
+            let rua = addr.logradouro;
+            if (addr.numero) rua += `, ${addr.numero}`;
+            parts.push(rua);
+        } else if (addr.numero) {
+            // Se não tem rua mas tem número (caso raro)
+            parts.push(`Nº ${addr.numero}`);
+        }
+
+        // 2. Bairro
+        if (addr.bairro) {
+            parts.push(addr.bairro);
+        }
+
+        // 3. Cidade e Estado (Ex: Cícero Dantas - BA)
+        if (addr.cidade) {
+            let cidadeInfo = addr.cidade;
+            if (addr.estado) cidadeInfo += ` - ${addr.estado}`;
+            parts.push(cidadeInfo);
+        }
+
+        // Junta tudo com um separador limpo
+        // Resultado final: "Rua X, 10 - Centro - Cícero Dantas - BA"
+        return parts.join(" - ");
     };
 
     const showColeta = type === 'COLETA' && data.coletas.length > 0;
@@ -62,11 +90,10 @@ const PrintSheet = ({ data, tripInfo, type }: { data: any, tripInfo: any, type: 
                 <div className="mb-6">
                     <table className="w-full text-sm border-collapse">
                         <thead>
-                            {/* Cabeçalho da Tabela em Laranja na Impressão */}
                             <tr className="border-b border-orange-600 text-left bg-orange-600 text-white print:bg-orange-600 print:text-white">
                                 <th className="py-2 pl-2 w-8 border-r border-orange-500/30">#</th>
                                 <th className="py-2 pl-2 w-1/4 border-r border-orange-500/30">Passageiro</th>
-                                <th className="py-2 pl-2 border-r border-orange-500/30">Endereço de Coleta</th>
+                                <th className="py-2 pl-2 border-r border-orange-500/30">Endereço Completo</th>
                                 <th className="py-2 pl-2 text-right w-1/4 pr-2">Obs</th>
                             </tr>
                         </thead>
@@ -78,7 +105,10 @@ const PrintSheet = ({ data, tripInfo, type }: { data: any, tripInfo: any, type: 
                                         {p.pessoa.nome}
                                         <div className="text-xs text-slate-500 flex items-center gap-1"><Phone className="w-3 h-3"/> {p.pessoa.telefone || '-'}</div>
                                     </td>
-                                    <td className="py-2 pl-2 text-slate-700 pr-2 align-top border-r border-slate-200">{formatAddress(p.enderecoColeta)}</td>
+                                    {/* Endereço Completo Aqui */}
+                                    <td className="py-2 pl-2 text-slate-700 pr-2 align-top border-r border-slate-200 font-medium">
+                                        {formatAddress(p.enderecoColeta)}
+                                    </td>
                                     <td className="py-2 pl-2 text-right align-top pr-2 bg-slate-50/50">
                                         {p.bagagens && p.bagagens.length > 0 && (
                                             <div className="text-[10px] mb-1 text-slate-700">
@@ -102,7 +132,7 @@ const PrintSheet = ({ data, tripInfo, type }: { data: any, tripInfo: any, type: 
                             <tr className="border-b border-orange-600 text-left bg-orange-600 text-white print:bg-orange-600 print:text-white">
                                 <th className="py-2 pl-2 w-8 border-r border-orange-500/30">#</th>
                                 <th className="py-2 pl-2 w-1/4 border-r border-orange-500/30">Passageiro</th>
-                                <th className="py-2 pl-2 border-r border-orange-500/30">Endereço de Entrega</th>
+                                <th className="py-2 pl-2 border-r border-orange-500/30">Endereço Completo</th>
                                 <th className="py-2 pl-2 text-right w-1/4 pr-2">Obs</th>
                             </tr>
                         </thead>
@@ -114,7 +144,10 @@ const PrintSheet = ({ data, tripInfo, type }: { data: any, tripInfo: any, type: 
                                         {p.pessoa.nome}
                                         <div className="text-xs text-slate-500 flex items-center gap-1"><Phone className="w-3 h-3"/> {p.pessoa.telefone || '-'}</div>
                                     </td>
-                                    <td className="py-2 pl-2 text-slate-700 pr-2 align-top border-r border-slate-200">{formatAddress(p.enderecoEntrega)}</td>
+                                    {/* Endereço Completo Aqui */}
+                                    <td className="py-2 pl-2 text-slate-700 pr-2 align-top border-r border-slate-200 font-medium">
+                                        {formatAddress(p.enderecoEntrega)}
+                                    </td>
                                     <td className="py-2 pl-2 text-right align-top text-xs pr-2 bg-slate-50/50">
                                         {p.bagagens && p.bagagens.length > 0 ? `${p.bagagens.length} Vols` : ''}
                                     </td>
@@ -227,7 +260,6 @@ export default function TaxistaReportPage() {
                     </div>
                 </div>
                 
-                {/* Botões de Ação em Massa - Estilo Laranja */}
                 <div className="flex gap-2">
                     <Button onClick={() => handlePrint('ALL', 'COLETA')} className="bg-slate-800 hover:bg-slate-900 text-white border border-slate-900 shadow-sm">
                         <Printer className="w-4 h-4 mr-2" /> Todas Coletas
