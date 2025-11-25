@@ -74,14 +74,26 @@ const getBusSigla = (bus?: Bus) => {
     return bus.placa.slice(-4).toUpperCase();
 };
 
+// --- NOVA PALETA DE CORES EXPANDIDA ---
 const TAG_COLORS = [
   { hex: '#ef4444', label: 'Vermelho' },
   { hex: '#f97316', label: 'Laranja' },
+  { hex: '#f59e0b', label: 'Âmbar' },
   { hex: '#eab308', label: 'Amarelo' },
+  { hex: '#84cc16', label: 'Lima' },
   { hex: '#22c55e', label: 'Verde' },
+  { hex: '#10b981', label: 'Esmeralda' },
+  { hex: '#06b6d4', label: 'Ciano' },
   { hex: '#3b82f6', label: 'Azul' },
+  { hex: '#6366f1', label: 'Indigo' },
+  { hex: '#8b5cf6', label: 'Violeta' },
   { hex: '#a855f7', label: 'Roxo' },
+  { hex: '#d946ef', label: 'Fúcsia' },
+  { hex: '#ec4899', label: 'Rosa' },
+  { hex: '#f43f5e', label: 'Rose' },
+  { hex: '#78350f', label: 'Marrom' },
   { hex: '#64748b', label: 'Cinza' },
+  { hex: '#18181b', label: 'Preto' },
 ];
 
 interface PassengerTableProps {
@@ -286,8 +298,8 @@ export default function PassengerTable({
                                             <div className="absolute right-0 top-0 bottom-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 bg-white/90 backdrop-blur-sm">
                                                 <Popover>
                                                     <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><Palette className="w-3 h-3 text-gray-500" /></Button></PopoverTrigger>
-                                                    <PopoverContent className="w-40 p-2 grid grid-cols-4 gap-2 z-50">
-                                                        {TAG_COLORS.map(c => (<button key={c.hex} className="w-6 h-6 rounded-full border border-gray-200 hover:scale-110 transition-transform" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(passenger.id, c.hex)} />))}
+                                                    <PopoverContent className="w-auto p-2 grid grid-cols-5 gap-2 z-50">
+                                                        {TAG_COLORS.map(c => (<button key={c.hex} className="w-6 h-6 rounded-full border border-gray-200 hover:scale-110 transition-transform" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(passenger.id, c.hex)} title={c.label} />))}
                                                         <button className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-[10px] text-gray-500 hover:bg-gray-100" onClick={() => handleColorChange(passenger.id, null)}>X</button>
                                                     </PopoverContent>
                                                 </Popover>
@@ -304,18 +316,15 @@ export default function PassengerTable({
                                     <TableCell className={cn("pt-print-col-afiliado align-middle", cellBorderClass)}><div className="text-xs"><b>TC:</b> {passenger.taxistaColeta?.pessoa.nome || '-'}</div><div className="text-xs"><b>TE:</b> {passenger.taxistaEntrega?.pessoa.nome || '-'}</div><div className="text-xs"><b>C:</b> {passenger.comisseiro?.pessoa.nome || '-'}</div></TableCell>
                                     <TableCell className={cn("pt-print-col-valor align-middle", cellBorderClass)}>{formatCurrency(passenger.valor)}</TableCell>
                                     
-                                    {/* === CORREÇÃO DE STATUS AQUI === */}
                                     <TableCell className={cn("pt-print-col-status align-middle", cellBorderClass)}>
                                         {passenger.pago ? (
                                             <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 border border-green-200 print:border-0">Pago</span>
                                         ) : (
-                                            // Na impressão, mostra "Pend.", fonte pequena e padding mínimo
                                             <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200 print:border-0 print:text-[10px] print:px-1 print:py-0">
                                                 {isPrintView ? "Pend." : "Pendente"}
                                             </span>
                                         )}
                                     </TableCell>
-                                    {/* =============================== */}
 
                                     <TableCell className={cn("pt-print-col-assento text-center align-middle", cellBorderClass)}><div className="flex flex-col items-center justify-center"><span className="text-sm font-bold">{passenger.numeroAssento || '-'}</span>{busSigla && (<span className="text-[10px] font-mono text-gray-500 bg-gray-100 px-1 rounded border border-gray-200 mt-0.5" title={`Ônibus: ${bus?.placa}`}>{busSigla}</span>)}</div></TableCell>
                                     <TableCell className={cn("pt-print-col-bagagem text-center align-middle", cellBorderClass)}>{passenger.luggageCount}</TableCell>
@@ -390,8 +399,8 @@ export default function PassengerTable({
                                 <CardFooter className="pl-5 py-2 bg-gray-50/50 border-t border-gray-100 flex justify-between items-center">
                                     <Popover>
                                         <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Palette className="w-4 h-4 text-gray-500" /></Button></PopoverTrigger>
-                                        <PopoverContent className="w-48 p-2 grid grid-cols-4 gap-2">
-                                            {TAG_COLORS.map(c => (<button key={c.hex} className="w-6 h-6 rounded-full border" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(passenger.id, c.hex)} />))}
+                                        <PopoverContent className="w-auto p-2 grid grid-cols-5 gap-2">
+                                            {TAG_COLORS.map(c => (<button key={c.hex} className="w-6 h-6 rounded-full border" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(passenger.id, c.hex)} title={c.label} />))}
                                             <button className="w-6 h-6 rounded-full border flex items-center justify-center text-[10px]" onClick={() => handleColorChange(passenger.id, null)}>X</button>
                                         </PopoverContent>
                                     </Popover>

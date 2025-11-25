@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from './ui/button';
+import { Button } from './ui/button'; 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
-import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Checkbox } from './ui/checkbox';
 import api from '../services/api';
@@ -16,31 +16,32 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from './ui/command';
+} from './ui/command'; 
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from './ui/popover';
+} from './ui/popover'; 
 
 import { PessoaSearchCombobox } from './PessoaSearchCombobox';
 import { AddressSearchCombobox } from './AddressSearchCombobox';
 import PersonModal from './PersonModal';
 import AddressModal from './AddressModal';
 
-// ... (Interfaces mantidas, apenas certifique-se que estão iguais ao original)
+// --- INTERFACES ---
 interface PersonSaveDto { nome: string; cpf: string; telefone: string | null; idade: number | null; }
 interface AddressSaveDto { logradouro: string; numero: string; bairro: string; cidade: string; estado: string; cep: string; }
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
 interface Page<T> { content: T[]; }
 
+// Dados iniciais do formulário
 const initialFormData = {
-  description: '',
-  senderId: null as number | null,
-  recipientId: null as number | null,
+  descricao: '',
+  remetenteId: null as number | null,
+  destinatarioId: null as number | null,
   pickupAddressId: null as number | null,
-  deliveryAddressId: null as number | null,
+  dropoffAddressId: null as number | null,
   taxistaColetaId: '',
   taxistaEntregaId: '',
   comisseiroId: '',
@@ -49,27 +50,43 @@ const initialFormData = {
   pago: false,
 };
 
-export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: any) {
+interface PackageModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (data: any) => void;
+    pkg?: any; // Objeto da encomenda se for edição
+}
+
+export default function PackageModal({ isOpen, onClose, onSave, pkg }: PackageModalProps) {
   const [formData, setFormData] = useState(initialFormData);
 
+  // Estados de Afiliados
   const [taxistas, setTaxistas] = useState<Affiliate[]>([]);
   const [comisseiros, setComisseiros] = useState<Affiliate[]>([]);
   const [loadingAffiliates, setLoadingAffiliates] = useState(false);
 
+  // Popovers de Afiliados
   const [openTaxistaColetaPopover, setOpenTaxistaColetaPopover] = useState(false);
   const [openTaxistaEntregaPopover, setOpenTaxistaEntregaPopover] = useState(false);
   const [openComisseiroPopover, setOpenComisseiroPopover] = useState(false);
 
+  // Controle dos Modais Filhos (Pessoa e Endereço)
   const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   
-  // Edição
+  // Estados para Edição e Alvo
   const [editingPerson, setEditingPerson] = useState<any | null>(null);
   const [editingAddress, setEditingAddress] = useState<any | null>(null);
-  const [personModalTarget, setPersonModalTarget] = useState<'senderId' | 'recipientId' | null>(null);
-  const [addressModalTarget, setAddressModalTarget] = useState<'pickupAddressId' | 'deliveryAddressId' | null>(null);
+  
+  // Define qual campo está sendo editado/criado ('remetente' ou 'destinatario')
+  const [personModalTarget, setPersonModalTarget] = useState<'remetenteId' | 'destinatarioId' | null>(null);
+  // Define qual endereço está sendo editado/criado
+  const [addressModalTarget, setAddressModalTarget] = useState<'pickupAddressId' | 'dropoffAddressId' | null>(null);
+  
+  // Chave para forçar refresh visual dos comboboxes após edição
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // --- 1. CARREGAR AFILIADOS ---
   useEffect(() => {
     if (isOpen) {
       const fetchAffiliates = async () => {
@@ -90,16 +107,17 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
     }
   }, [isOpen]);
 
+  // --- 2. PREENCHER FORMULÁRIO NA EDIÇÃO ---
   useEffect(() => {
     if (pkg && isOpen) {
       setFormData({
-        description: pkg.descricao || '',
-        senderId: pkg.remetente?.id || null,
-        recipientId: pkg.destinatario?.id || null,
-        pickupAddressId: pkg.enderecoColeta?.id || null,
-        deliveryAddressId: pkg.enderecoEntrega?.id || null,
-        taxistaColetaId: pkg.taxistaColeta?.id?.toString() || '',
-        taxistaEntregaId: pkg.taxistaEntrega?.id?.toString() || '',
+        descricao: pkg.descricao || '',
+        remetenteId: pkg.remetente?.id || null,
+        destinatarioId: pkg.destinatario?.id || null,
+        pickupAddressId: pkg.enderecoColeta?.id || null, 
+        dropoffAddressId: pkg.enderecoEntrega?.id || null,
+        taxistaColetaId: pkg.taxistaColeta?.id?.toString() || '', 
+        taxistaEntregaId: pkg.taxistaEntrega?.id?.toString() || '', 
         comisseiroId: pkg.comisseiro?.id?.toString() || '',
         valor: pkg.valor?.toString() || '',
         metodoPagamento: pkg.metodoPagamento || '',
@@ -110,30 +128,31 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
     }
   }, [pkg, isOpen]);
 
+  // --- SUBMIT PRINCIPAL ---
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.description || !formData.senderId || !formData.recipientId) {
-        alert("Por favor, preencha a Descrição, Remetente e Destinatário.");
-        return;
-    }
+    if (!formData.descricao) { alert("Descrição é obrigatória."); return; }
+    if (!formData.remetenteId) { alert("Remetente é obrigatório."); return; }
+    if (!formData.destinatarioId) { alert("Destinatário é obrigatório."); return; }
 
     onSave({
-      descricao: formData.description,
-      remetenteId: Number(formData.senderId),
-      destinatarioId: Number(formData.recipientId),
+      descricao: formData.descricao,
+      remetenteId: Number(formData.remetenteId),
+      destinatarioId: Number(formData.destinatarioId),
       enderecoColetaId: formData.pickupAddressId ? Number(formData.pickupAddressId) : undefined,
-      enderecoEntregaId: formData.deliveryAddressId ? Number(formData.deliveryAddressId) : undefined,
-      taxistaColetaId: formData.taxistaColetaId ? Number(formData.taxistaColetaId) : undefined,
-      taxistaEntregaId: formData.taxistaEntregaId ? Number(formData.taxistaEntregaId) : undefined,
-      comisseiroId: formData.comisseiroId ? Number(formData.comisseiroId) : undefined,
+      enderecoEntregaId: formData.dropoffAddressId ? Number(formData.dropoffAddressId) : undefined,
+      taxistaColetaId: formData.taxistaColetaId ? parseInt(formData.taxistaColetaId) : undefined, 
+      taxistaEntregaId: formData.taxistaEntregaId ? parseInt(formData.taxistaEntregaId) : undefined, 
+      comisseiroId: formData.comisseiroId ? parseInt(formData.comisseiroId) : undefined,
       valor: formData.valor ? parseFloat(formData.valor) : undefined,
       metodoPagamento: formData.metodoPagamento || undefined,
       pago: formData.pago,
     });
   };
 
-  // --- EDIÇÃO ---
-  const handleEditPerson = async (target: 'senderId' | 'recipientId') => {
+  // --- LÓGICA DE ABERTURA DE MODAIS DE EDIÇÃO ---
+
+  const handleEditPerson = async (target: 'remetenteId' | 'destinatarioId') => {
     const personId = formData[target];
     if (!personId) return;
     try {
@@ -143,11 +162,11 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
         setIsPersonModalOpen(true);
     } catch (e) {
         console.error(e);
-        alert("Erro ao carregar pessoa.");
+        alert("Erro ao carregar dados da pessoa.");
     }
   };
 
-  const handleEditAddress = async (target: 'pickupAddressId' | 'deliveryAddressId') => {
+  const handleEditAddress = async (target: 'pickupAddressId' | 'dropoffAddressId') => {
     const addressId = formData[target];
     if (!addressId) return;
     try {
@@ -161,35 +180,39 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
     }
   };
 
-  // --- SALVAMENTO ---
+  // --- SALVAMENTO DOS MODAIS FILHOS ---
+
   const handleSavePerson = async (personDto: PersonSaveDto) => {
     try {
       const payload = {
           ...personDto,
-          idade: personDto.idade ? Number(personDto.idade) : null,
-          telefone: personDto.telefone || null
+          idade: (personDto.idade === null || personDto.idade.toString() === '') ? null : Number(personDto.idade),
+          telefone: (personDto.telefone === '' || personDto.telefone === null) ? null : personDto.telefone
       };
 
       let savedPerson;
       if (editingPerson) {
         const response = await api.put(`/api/pessoa/${editingPerson.id}`, payload);
         savedPerson = response.data;
-        alert("Pessoa atualizada!");
       } else {
         const response = await api.post('/api/pessoa', payload);
         savedPerson = response.data;
       }
-
+      
+      // Atualiza o campo correto (Remetente ou Destinatário)
       if (personModalTarget) {
-        setFormData(prev => ({ ...prev, [personModalTarget]: savedPerson.id }));
+          setFormData(prev => ({ ...prev, [personModalTarget]: savedPerson.id }));
       }
+
       setIsPersonModalOpen(false);
-      setPersonModalTarget(null);
       setEditingPerson(null);
-      setRefreshKey(prev => prev + 1);
-    } catch (error) {
+      setPersonModalTarget(null);
+      setRefreshKey(prev => prev + 1); 
+
+    } catch (error: any) {
       console.error("Erro ao salvar pessoa:", error);
-      alert("Erro ao salvar pessoa.");
+      const msg = error.response?.data || "Verifique os dados.";
+      alert(`Erro ao salvar: ${msg}`);
     }
   };
 
@@ -199,7 +222,6 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
       if (editingAddress) {
         const response = await api.put(`/api/endereco/${editingAddress.id}`, addressDto);
         savedAddress = response.data;
-        alert("Endereço atualizado!");
       } else {
         const response = await api.post('/api/endereco', addressDto);
         savedAddress = response.data;
@@ -209,9 +231,10 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
         setFormData(prev => ({ ...prev, [addressModalTarget]: savedAddress.id }));
       }
       setIsAddressModalOpen(false); 
-      setAddressModalTarget(null);
+      setAddressModalTarget(null); 
       setEditingAddress(null);
       setRefreshKey(prev => prev + 1);
+
     } catch (error) {
       console.error("Erro ao salvar endereço:", error);
       alert("Erro ao salvar endereço.");
@@ -221,195 +244,220 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
   const getSelectedTaxistaColetaName = () => taxistas.find(t => t.id.toString() === formData.taxistaColetaId)?.pessoa.nome;
   const getSelectedTaxistaEntregaName = () => taxistas.find(t => t.id.toString() === formData.taxistaEntregaId)?.pessoa.nome;
   const getSelectedComisseiroName = () => comisseiros.find(c => c.id.toString() === formData.comisseiroId)?.pessoa.nome;
-  const getAffiliatePlaceholder = () => loadingAffiliates ? `Carregando...` : `Selecione...`;
+  const getAffiliatePlaceholder = () => loadingAffiliates ? "Carregando..." : "Selecione...";
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto"> 
           <DialogHeader>
-            <DialogTitle>{pkg ? 'Editar Encomenda' : 'Adicionar Encomenda'}</DialogTitle>
-            <DialogDescription>
-              Insira as informações.
-            </DialogDescription>
+            <DialogTitle>{pkg ? 'Editar Encomenda' : 'Nova Encomenda'}</DialogTitle>
+            <DialogDescription>Insira os dados da encomenda.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+
+            {/* DESCRIÇÃO */}
             <div className="space-y-2">
-              <Label htmlFor="description">Descrição (Obrigatório)</Label>
+              <Label htmlFor="descricao">Descrição (Obrigatório)</Label>
               <Input
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Ex: Caixa de ferramentas"
-                required
+                  id="descricao"
+                  placeholder="Ex: Caixa de ferramentas, Envelope..."
+                  value={formData.descricao}
+                  onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+                  required
               />
             </div>
 
+            {/* REMETENTE E DESTINATÁRIO */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label>Remetente (Obrigatório)</Label>
+                    <div className="flex gap-2">
+                        <div className="flex-1 min-w-0">
+                            <PessoaSearchCombobox
+                                key={`remetente-${refreshKey}`}
+                                value={formData.remetenteId}
+                                placeholder="Pesquisar remetente..."
+                                onSelect={(id) => setFormData({ ...formData, remetenteId: id })}
+                                onAddNew={() => {
+                                    setEditingPerson(null);
+                                    setPersonModalTarget('remetenteId');
+                                    setIsPersonModalOpen(true);
+                                }}
+                                onClear={() => setFormData({ ...formData, remetenteId: null })}
+                            />
+                        </div>
+                        <Button 
+                            type="button" variant="outline" size="icon" className="shrink-0"
+                            disabled={!formData.remetenteId}
+                            onClick={() => handleEditPerson('remetenteId')}
+                            title="Editar Remetente"
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <Label>Destinatário (Obrigatório)</Label>
+                    <div className="flex gap-2">
+                        <div className="flex-1 min-w-0">
+                            <PessoaSearchCombobox
+                                key={`destinatario-${refreshKey}`}
+                                value={formData.destinatarioId}
+                                placeholder="Pesquisar destinatário..."
+                                onSelect={(id) => setFormData({ ...formData, destinatarioId: id })}
+                                onAddNew={() => {
+                                    setEditingPerson(null);
+                                    setPersonModalTarget('destinatarioId');
+                                    setIsPersonModalOpen(true);
+                                }}
+                                onClear={() => setFormData({ ...formData, destinatarioId: null })}
+                            />
+                        </div>
+                        <Button 
+                            type="button" variant="outline" size="icon" className="shrink-0"
+                            disabled={!formData.destinatarioId}
+                            onClick={() => handleEditPerson('destinatarioId')}
+                            title="Editar Destinatário"
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            {/* ENDEREÇOS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="sender">Remetente (Obrigatório)</Label>
+                <Label htmlFor="pickup">Endereço Coleta (Opcional)</Label>
                 <div className="flex gap-2">
-                    <div className="flex-1">
-                        <PessoaSearchCombobox
-                        key={`sender-${refreshKey}`}
-                        value={formData.senderId}
-                        onSelect={(pessoaId) => setFormData({ ...formData, senderId: pessoaId })}
-                        onAddNew={() => {
-                            setEditingPerson(null);
-                            setPersonModalTarget('senderId');
-                            setIsPersonModalOpen(true);
-                        }}
-                        onClear={() => setFormData({ ...formData, senderId: null })}
+                    <div className="flex-1 min-w-0"> 
+                        <AddressSearchCombobox
+                            key={`pickup-${refreshKey}`}
+                            value={formData.pickupAddressId}
+                            placeholder="Selecione ou crie..."
+                            onSelect={(addressId) => setFormData({ ...formData, pickupAddressId: addressId })}
+                            onAddNew={() => {
+                                setEditingAddress(null);
+                                setAddressModalTarget('pickupAddressId');
+                                setIsAddressModalOpen(true);
+                            }}
+                            onClear={() => setFormData({ ...formData, pickupAddressId: null })}
                         />
                     </div>
-                    <Button type="button" variant="outline" size="icon" disabled={!formData.senderId} onClick={() => handleEditPerson('senderId')}>
+                    <Button 
+                        type="button" variant="outline" size="icon" className="shrink-0"
+                        disabled={!formData.pickupAddressId}
+                        onClick={() => handleEditAddress('pickupAddressId')}
+                        title="Editar endereço"
+                    >
                         <Pencil className="h-4 w-4" />
                     </Button>
                 </div>
               </div>
-              
+
               <div className="space-y-2">
-                <Label htmlFor="recipient">Destinatário (Obrigatório)</Label>
+                <Label htmlFor="dropoff">Endereço Entrega (Opcional)</Label>
                 <div className="flex gap-2">
-                    <div className="flex-1">
-                        <PessoaSearchCombobox
-                        key={`recipient-${refreshKey}`}
-                        value={formData.recipientId}
-                        onSelect={(pessoaId) => setFormData({ ...formData, recipientId: pessoaId })}
-                        onAddNew={() => {
-                            setEditingPerson(null);
-                            setPersonModalTarget('recipientId');
-                            setIsPersonModalOpen(true);
-                        }}
-                        onClear={() => setFormData({ ...formData, recipientId: null })}
+                    <div className="flex-1 min-w-0">
+                        <AddressSearchCombobox
+                            key={`dropoff-${refreshKey}`}
+                            value={formData.dropoffAddressId}
+                            placeholder="Selecione ou crie..."
+                            onSelect={(addressId) => setFormData({ ...formData, dropoffAddressId: addressId })}
+                            onAddNew={() => {
+                                setEditingAddress(null);
+                                setAddressModalTarget('dropoffAddressId');
+                                setIsAddressModalOpen(true);
+                            }}
+                            onClear={() => setFormData({ ...formData, dropoffAddressId: null })}
                         />
                     </div>
-                    <Button type="button" variant="outline" size="icon" disabled={!formData.recipientId} onClick={() => handleEditPerson('recipientId')}>
+                    <Button 
+                        type="button" variant="outline" size="icon" className="shrink-0"
+                        disabled={!formData.dropoffAddressId}
+                        onClick={() => handleEditAddress('dropoffAddressId')}
+                        title="Editar endereço"
+                    >
                         <Pencil className="h-4 w-4" />
                     </Button>
                 </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="pickup">Endereço de Coleta (Opcional)</Label>
-              <div className="flex gap-2">
-                  <div className="flex-1">
-                    <AddressSearchCombobox
-                        key={`pickup-${refreshKey}`}
-                        value={formData.pickupAddressId}
-                        placeholder="Selecione ou crie..."
-                        onSelect={(addressId) => setFormData({ ...formData, pickupAddressId: addressId })}
-                        onAddNew={() => {
-                            setEditingAddress(null);
-                            setAddressModalTarget('pickupAddressId');
-                            setIsAddressModalOpen(true);
-                        }}
-                        onClear={() => setFormData({ ...formData, pickupAddressId: null })}
-                    />
-                  </div>
-                  <Button type="button" variant="outline" size="icon" disabled={!formData.pickupAddressId} onClick={() => handleEditAddress('pickupAddressId')}>
-                        <Pencil className="h-4 w-4" />
-                  </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="delivery">Endereço de Entrega (Opcional)</Label>
-              <div className="flex gap-2">
-                  <div className="flex-1">
-                    <AddressSearchCombobox
-                        key={`delivery-${refreshKey}`}
-                        value={formData.deliveryAddressId}
-                        placeholder="Selecione ou crie..."
-                        onSelect={(addressId) => setFormData({ ...formData, deliveryAddressId: addressId })}
-                        onAddNew={() => {
-                            setEditingAddress(null);
-                            setAddressModalTarget('deliveryAddressId');
-                            setIsAddressModalOpen(true);
-                        }}
-                        onClear={() => setFormData({ ...formData, deliveryAddressId: null })}
-                    />
-                  </div>
-                  <Button type="button" variant="outline" size="icon" disabled={!formData.deliveryAddressId} onClick={() => handleEditAddress('deliveryAddressId')}>
-                        <Pencil className="h-4 w-4" />
-                  </Button>
               </div>
             </div>
             
-            <hr className="my-4" />
+            <hr className="my-2 border-gray-100" />
 
-            {/* ... Resto do formulário mantido ... */}
+            {/* AFILIADOS */}
             <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label>Taxista (Coleta)</Label>
-                    <Popover open={openTaxistaColetaPopover} onOpenChange={setOpenTaxistaColetaPopover} modal={true}>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                                {formData.taxistaColetaId ? getSelectedTaxistaColetaName() : getAffiliatePlaceholder()}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[200px] p-0">
-                            <Command>
-                                <CommandInput placeholder="Pesquisar..." />
-                                <CommandList>
-                                    <CommandEmpty>Nenhum encontrado.</CommandEmpty>
-                                    <CommandGroup>
-                                        {taxistas.map((taxista) => (
-                                            <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
-                                                setFormData({ ...formData, taxistaColetaId: taxista.id.toString() });
-                                                setOpenTaxistaColetaPopover(false);
-                                            }}>
-                                                <Check className={cn("mr-2 h-4 w-4", formData.taxistaColetaId === taxista.id.toString() ? "opacity-100" : "opacity-0")} />
-                                                {taxista.pessoa.nome}
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
-                </div>
-                <div className="space-y-2">
-                    <Label>Taxista (Entrega)</Label>
-                    <Popover open={openTaxistaEntregaPopover} onOpenChange={setOpenTaxistaEntregaPopover} modal={true}>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                                {formData.taxistaEntregaId ? getSelectedTaxistaEntregaName() : getAffiliatePlaceholder()}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[200px] p-0">
-                            <Command>
-                                <CommandInput placeholder="Pesquisar..." />
-                                <CommandList>
-                                    <CommandEmpty>Nenhum encontrado.</CommandEmpty>
-                                    <CommandGroup>
-                                        {taxistas.map((taxista) => (
-                                            <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
-                                                setFormData({ ...formData, taxistaEntregaId: taxista.id.toString() });
-                                                setOpenTaxistaEntregaPopover(false);
-                                            }}>
-                                                <Check className={cn("mr-2 h-4 w-4", formData.taxistaEntregaId === taxista.id.toString() ? "opacity-100" : "opacity-0")} />
-                                                {taxista.pessoa.nome}
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
-                </div>
-            </div>
+              <div className="space-y-2">
+                <Label>Taxista (Coleta)</Label>
+                <Popover open={openTaxistaColetaPopover} onOpenChange={setOpenTaxistaColetaPopover} modal={true}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal truncate">
+                      {formData.taxistaColetaId ? getSelectedTaxistaColetaName() : getAffiliatePlaceholder()}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[200px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Pesquisar..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {taxistas.map((taxista) => (
+                            <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
+                                setFormData({ ...formData, taxistaColetaId: taxista.id.toString() });
+                                setOpenTaxistaColetaPopover(false);
+                            }}>
+                              <Check className={cn("mr-2 h-4 w-4", formData.taxistaColetaId === taxista.id.toString() ? "opacity-100" : "opacity-0")} />
+                              {taxista.pessoa.nome}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
 
-            {/* ... (Comisseiro e Pagamento mantidos) ... */}
+              <div className="space-y-2">
+                <Label>Taxista (Entrega)</Label>
+                <Popover open={openTaxistaEntregaPopover} onOpenChange={setOpenTaxistaEntregaPopover} modal={true}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal truncate">
+                      {formData.taxistaEntregaId ? getSelectedTaxistaEntregaName() : getAffiliatePlaceholder()}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[200px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Pesquisar..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {taxistas.map((taxista) => (
+                            <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
+                                setFormData({ ...formData, taxistaEntregaId: taxista.id.toString() });
+                                setOpenTaxistaEntregaPopover(false);
+                            }}>
+                              <Check className={cn("mr-2 h-4 w-4", formData.taxistaEntregaId === taxista.id.toString() ? "opacity-100" : "opacity-0")} />
+                              {taxista.pessoa.nome}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
             
             <div className="space-y-2 mt-4">
               <Label>Comisseiro</Label>
               <Popover open={openComisseiroPopover} onOpenChange={setOpenComisseiroPopover} modal={true}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal truncate">
                     {formData.comisseiroId ? getSelectedComisseiroName() : getAffiliatePlaceholder()}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -436,8 +484,9 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
               </Popover>
             </div>
             
+            {/* VALORES E PAGAMENTO */}
             <div className="grid grid-cols-2 gap-4 mt-4">
-              <div className="space-y-2">
+               <div className="space-y-2">
                 <Label htmlFor="valor">Valor (R$)</Label>
                 <Input
                   id="valor"
@@ -448,6 +497,7 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                   onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="metodoPagamento">Método de Pagamento</Label>
                 <Select
@@ -473,33 +523,36 @@ export default function PackageModal({ isOpen, onClose, onSave, package: pkg }: 
                 checked={formData.pago}
                 onCheckedChange={(checked) => setFormData({ ...formData, pago: checked as boolean })}
               />
-              <Label htmlFor="pago" className="font-medium">
+              <Label htmlFor="pago" className="font-medium cursor-pointer">
                 Pagamento Efetuado?
               </Label>
             </div>
-            
+
             <DialogFooter className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancelar
               </Button>
               <Button type="submit" className="bg-primary hover:bg-primary/90">
-                {pkg ? 'Atualizar' : 'Adicionar'} Encomenda
+                {pkg ? 'Atualizar Encomenda' : 'Adicionar Encomenda'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-      
+
+      {/* MODAL DE PESSOA (REUTILIZÁVEL) */}
       <PersonModal
         isOpen={isPersonModalOpen}
         onClose={() => {
             setIsPersonModalOpen(false);
             setEditingPerson(null);
+            setPersonModalTarget(null);
         }}
         onSave={handleSavePerson}
         person={editingPerson}
       />
       
+      {/* MODAL DE ENDEREÇO (REUTILIZÁVEL) */}
       <AddressModal
         isOpen={isAddressModalOpen}
         onClose={() => {

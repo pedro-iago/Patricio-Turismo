@@ -35,19 +35,32 @@ const formatCurrency = (value?: number) => {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-// --- Helper para endereço (Adicionado) ---
+// --- Helper para endereço ---
 const formatAddress = (addr?: Address) => {
   if (!addr) return <span className="text-gray-400 italic">Não informado</span>;
   return `${addr.logradouro || ''}, ${addr.numero || ''} - ${addr.bairro || ''}, ${addr.cidade || ''}`;
 };
 
+// --- NOVA PALETA DE CORES EXPANDIDA ---
 const TAG_COLORS = [
   { hex: '#ef4444', label: 'Vermelho' },
   { hex: '#f97316', label: 'Laranja' },
+  { hex: '#f59e0b', label: 'Âmbar' },
   { hex: '#eab308', label: 'Amarelo' },
+  { hex: '#84cc16', label: 'Lima' },
   { hex: '#22c55e', label: 'Verde' },
+  { hex: '#10b981', label: 'Esmeralda' },
+  { hex: '#06b6d4', label: 'Ciano' },
   { hex: '#3b82f6', label: 'Azul' },
+  { hex: '#6366f1', label: 'Indigo' },
+  { hex: '#8b5cf6', label: 'Violeta' },
   { hex: '#a855f7', label: 'Roxo' },
+  { hex: '#d946ef', label: 'Fúcsia' },
+  { hex: '#ec4899', label: 'Rosa' },
+  { hex: '#f43f5e', label: 'Rose' },
+  { hex: '#78350f', label: 'Marrom' },
+  { hex: '#64748b', label: 'Cinza' },
+  { hex: '#18181b', label: 'Preto' },
 ];
 
 interface PackageTableProps {
@@ -110,8 +123,8 @@ export default function PackageTable({
                        <div className="absolute right-0 top-0 bottom-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 bg-white/80">
                          <Popover>
                              <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><Palette className="w-3 h-3 text-gray-500" /></Button></PopoverTrigger>
-                             <PopoverContent className="w-40 p-2 grid grid-cols-3 gap-2 z-50">
-                                 {TAG_COLORS.map(c => (<button key={c.hex} className="w-6 h-6 rounded-full border border-gray-200" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(pkg.id, c.hex)} />))}
+                             <PopoverContent className="w-auto p-2 grid grid-cols-5 gap-2 z-50">
+                                 {TAG_COLORS.map(c => (<button key={c.hex} className="w-6 h-6 rounded-full border border-gray-200 hover:scale-110 transition-transform" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(pkg.id, c.hex)} title={c.label} />))}
                                  <button className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-[10px] text-gray-500 hover:bg-gray-100" onClick={() => handleColorChange(pkg.id, null)}>X</button>
                              </PopoverContent>
                          </Popover>
@@ -175,7 +188,6 @@ export default function PackageTable({
                         </div>
                     </div>
 
-                    {/* --- ENDEREÇOS (ADICIONADO AO MOBILE) --- */}
                     <div className="space-y-1 pt-1">
                          <div className="grid grid-cols-[20px_1fr] gap-1 items-start"><span className="font-bold text-xs text-gray-700">C:</span><span className="text-xs text-gray-600 leading-tight">{formatAddress(pkg.enderecoColeta)}</span></div>
                          <div className="grid grid-cols-[20px_1fr] gap-1 items-start"><span className="font-bold text-xs text-gray-700">E:</span><span className="text-xs text-gray-600 leading-tight">{formatAddress(pkg.enderecoEntrega)}</span></div>
@@ -194,8 +206,9 @@ export default function PackageTable({
                 <CardFooter className="pl-5 py-2 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
                      <Popover>
                         <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Palette className="w-4 h-4 text-gray-500" /></Button></PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 grid grid-cols-3 gap-2">
-                            {TAG_COLORS.map(c => (<button key={c.hex} className="w-6 h-6 rounded-full border" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(pkg.id, c.hex)} />))}
+                        <PopoverContent className="w-auto p-2 grid grid-cols-5 gap-2">
+                            {TAG_COLORS.map(c => (<button key={c.hex} className="w-6 h-6 rounded-full border" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(pkg.id, c.hex)} title={c.label} />))}
+                            <button className="w-6 h-6 rounded-full border flex items-center justify-center text-[10px]" onClick={() => handleColorChange(pkg.id, null)}>X</button>
                         </PopoverContent>
                      </Popover>
                      <div className="flex gap-1">
