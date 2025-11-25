@@ -2,13 +2,104 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Printer, ArrowLeft, X, Filter, FileText, List } from 'lucide-react';
+// Removido Select, SelectItem, etc.
+import { Printer, ArrowLeft, X, Filter, List, Check, ChevronsUpDown } from 'lucide-react';
 import api from '../services/api';
 import PassengerTable from './PassengerTable';
 import PackageTable from './PackageTable';
 import { Skeleton } from './ui/skeleton';
 import logo from '../assets/logo.png';
+
+// --- Imports para o Combobox (Busca) ---
+import { cn } from './ui/utils';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "./ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "./ui/popover"
+
+// --- COMPONENTE SIMPLES DE BUSCA (COMBOBOX) ---
+// Colocamos aqui dentro para não criar arquivos extras
+const FilterCombobox = ({ options, value, onChange, placeholder, width = "w-[140px]" }: any) => {
+  const [open, setOpen] = useState(false);
+
+  // Encontra o label do item selecionado
+  const selectedLabel = useMemo(() => {
+    if (!value || value === 'todos') return placeholder;
+    const found = options.find((opt: any) => opt.value === value);
+    return found ? found.label : value;
+  }, [value, options, placeholder]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={`${width} justify-between bg-white h-9 text-xs font-normal`}
+        >
+          <span className="truncate">{selectedLabel}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0">
+        <Command>
+          <CommandInput placeholder={`Buscar ${placeholder}...`} />
+          <CommandList>
+            <CommandEmpty>Não encontrado.</CommandEmpty>
+            <CommandGroup>
+              {/* Opção para Limpar/Todos */}
+              <CommandItem
+                value="todos"
+                onSelect={() => {
+                  onChange("todos");
+                  setOpen(false);
+                }}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    value === "todos" ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                Todos (Limpar)
+              </CommandItem>
+
+              {/* Lista de Opções */}
+              {options.map((option: any) => (
+                <CommandItem
+                  key={option.value}
+                  value={option.label} // Filtra pelo nome visível
+                  onSelect={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === option.value ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 // --- Interfaces ---
 interface Bus { 
@@ -126,36 +217,49 @@ export default function PrintReportPage() {
     fetchAllData();
   }, [tripId]);
 
-  const uniqueTaxistas = useMemo(() => {
+  // --- PREPARAÇÃO DE DADOS PARA OS FILTROS ---
+  // Agora retornamos objetos { value, label } para o nosso FilterCombobox
+
+  const busOptions = useMemo(() => {
+    if (!trip?.onibus) return [];
+    return trip.onibus.map(b => ({ value: String(b.id), label: b.placa }));
+  }, [trip]);
+
+  const taxistaOptions = useMemo(() => {
       const pList = passengers.flatMap(p => [p.taxista?.pessoa?.nome, p.taxistaColeta?.pessoa?.nome, p.taxistaEntrega?.pessoa?.nome]);
       const pkgList = packages.flatMap(p => [p.taxistaColeta?.pessoa?.nome, p.taxistaEntrega?.pessoa?.nome]);
-      return Array.from(new Set([...pList, ...pkgList].filter(Boolean))).sort();
+      const list = Array.from(new Set([...pList, ...pkgList].filter(Boolean))).sort();
+      return list.map(item => ({ value: item as string, label: item as string }));
   }, [passengers, packages]);
 
-  const uniqueComisseiros = useMemo(() => {
+  const comisseiroOptions = useMemo(() => {
       const pList = passengers.map(p => p.comisseiro?.pessoa?.nome);
       const pkgList = packages.map(p => p.comisseiro?.pessoa?.nome);
-      return Array.from(new Set([...pList, ...pkgList].filter(Boolean))).sort();
+      const list = Array.from(new Set([...pList, ...pkgList].filter(Boolean))).sort();
+      return list.map(item => ({ value: item as string, label: item as string }));
   }, [passengers, packages]);
 
-  const uniqueCidades = useMemo(() => {
+  const cidadeOptions = useMemo(() => {
       const getCities = (addr?: Address) => addr?.cidade;
       const allCities = [
           ...passengers.flatMap(p => [getCities(p.enderecoColeta), getCities(p.enderecoEntrega)]),
           ...packages.flatMap(p => [getCities(p.enderecoColeta), getCities(p.enderecoEntrega)])
       ];
-      return Array.from(new Set(allCities.filter(Boolean))).sort();
+      const list = Array.from(new Set(allCities.filter(Boolean))).sort();
+      return list.map(item => ({ value: item as string, label: item as string }));
   }, [passengers, packages]);
 
-  const uniqueBairros = useMemo(() => {
+  const bairroOptions = useMemo(() => {
       const getBairros = (addr?: Address) => addr?.bairro;
       const allBairros = [
           ...passengers.flatMap(p => [getBairros(p.enderecoColeta), getBairros(p.enderecoEntrega)]),
           ...packages.flatMap(p => [getBairros(p.enderecoColeta), getBairros(p.enderecoEntrega)])
       ];
-      return Array.from(new Set(allBairros.filter(Boolean))).sort();
+      const list = Array.from(new Set(allBairros.filter(Boolean))).sort();
+      return list.map(item => ({ value: item as string, label: item as string }));
   }, [passengers, packages]);
 
+  // --- Lógica de Filtragem (Mantida igual) ---
   const filteredPassengers = useMemo(() => {
       return passengers.filter(p => {
           if (filterBusId !== "todos" && String(p.onibusId) !== filterBusId) return false;
@@ -243,6 +347,7 @@ export default function PrintReportPage() {
   return (
     <div className="min-h-screen bg-white">
       
+      {/* --- BARRA DE FILTROS --- */}
       <div className="sticky top-0 z-50 bg-gray-100 border-b border-gray-200 p-4 print:hidden shadow-sm">
           <div className="max-w-7xl mx-auto flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
               
@@ -256,47 +361,48 @@ export default function PrintReportPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+                  
+                  {/* Combobox Ônibus */}
                   {trip.onibus && trip.onibus.length > 0 && (
-                      <Select value={filterBusId} onValueChange={setFilterBusId}>
-                          <SelectTrigger className="w-[140px] bg-white h-9 text-sm"><SelectValue placeholder="Ônibus" /></SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="todos">Todos Ônibus</SelectItem>
-                              {trip.onibus.map(b => (<SelectItem key={b.id} value={String(b.id)}>{b.placa}</SelectItem>))}
-                          </SelectContent>
-                      </Select>
+                      <FilterCombobox 
+                        options={busOptions} 
+                        value={filterBusId} 
+                        onChange={setFilterBusId} 
+                        placeholder="Ônibus" 
+                      />
                   )}
 
-                  <Select value={filterTaxista} onValueChange={setFilterTaxista}>
-                      <SelectTrigger className="w-[140px] bg-white h-9 text-sm"><SelectValue placeholder="Taxista" /></SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="todos">Todos Taxistas</SelectItem>
-                          {uniqueTaxistas.map(t => <SelectItem key={t} value={t as string}>{t}</SelectItem>)}
-                      </SelectContent>
-                  </Select>
+                  {/* Combobox Taxista */}
+                  <FilterCombobox 
+                    options={taxistaOptions} 
+                    value={filterTaxista} 
+                    onChange={setFilterTaxista} 
+                    placeholder="Taxista" 
+                  />
 
-                  <Select value={filterComisseiro} onValueChange={setFilterComisseiro}>
-                      <SelectTrigger className="w-[140px] bg-white h-9 text-sm"><SelectValue placeholder="Comisseiro" /></SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="todos">Todos Comis.</SelectItem>
-                          {uniqueComisseiros.map(c => <SelectItem key={c} value={c as string}>{c}</SelectItem>)}
-                      </SelectContent>
-                  </Select>
+                  {/* Combobox Comisseiro */}
+                  <FilterCombobox 
+                    options={comisseiroOptions} 
+                    value={filterComisseiro} 
+                    onChange={setFilterComisseiro} 
+                    placeholder="Comisseiro" 
+                  />
 
-                  <Select value={filterCidade} onValueChange={setFilterCidade}>
-                      <SelectTrigger className="w-[140px] bg-white h-9 text-sm"><SelectValue placeholder="Cidade" /></SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="todos">Todas Cidades</SelectItem>
-                          {uniqueCidades.map(c => <SelectItem key={c} value={c as string}>{c}</SelectItem>)}
-                      </SelectContent>
-                  </Select>
+                  {/* Combobox Cidade */}
+                  <FilterCombobox 
+                    options={cidadeOptions} 
+                    value={filterCidade} 
+                    onChange={setFilterCidade} 
+                    placeholder="Cidade" 
+                  />
 
-                  <Select value={filterBairro} onValueChange={setFilterBairro}>
-                      <SelectTrigger className="w-[140px] bg-white h-9 text-sm"><SelectValue placeholder="Bairro" /></SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="todos">Todos Bairros</SelectItem>
-                          {uniqueBairros.map(b => <SelectItem key={b} value={b as string}>{b}</SelectItem>)}
-                      </SelectContent>
-                  </Select>
+                  {/* Combobox Bairro */}
+                  <FilterCombobox 
+                    options={bairroOptions} 
+                    value={filterBairro} 
+                    onChange={setFilterBairro} 
+                    placeholder="Bairro" 
+                  />
                   
                   {hasActiveFilters && (
                       <Button variant="ghost" size="icon" onClick={resetFilters} className="text-red-500 h-9 w-9" title="Limpar Filtros">
@@ -317,6 +423,7 @@ export default function PrintReportPage() {
           </div>
       </div>
 
+      {/* --- MODO 1: RELATÓRIO COMPLETO --- */}
       {printMode === 'FULL' && (
         <div className="p-10 space-y-6 pt-print-container max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
@@ -341,7 +448,6 @@ export default function PrintReportPage() {
             <Card className="border-gray-300 shadow-none">
             <CardHeader className="pb-2"><CardTitle className="text-lg">Informações Gerais</CardTitle></CardHeader>
             <CardContent>
-                {/* === CABEÇALHO SIMPLIFICADO AQUI === */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4 border-b pb-4">
                     <div><p className="text-muted-foreground font-semibold">Data</p><p>{new Date(trip.dataHoraPartida).toLocaleDateString()}</p></div>
                     <div><p className="text-muted-foreground font-semibold">Horários</p><p>{new Date(trip.dataHoraPartida).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ➝ {new Date(trip.dataHoraChegada).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
@@ -351,7 +457,6 @@ export default function PrintReportPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div><p className="text-muted-foreground font-semibold">Passageiros Listados</p><p className="text-lg font-bold">{filteredPassengers.length}</p></div>
                     <div><p className="text-muted-foreground font-semibold">Encomendas Listadas</p><p className="text-lg font-bold">{filteredPackages.length}</p></div>
-                    {/* REMETENTES E DESTINATÁRIOS REMOVIDOS */}
                 </div>
             </CardContent>
             </Card>
@@ -382,6 +487,7 @@ export default function PrintReportPage() {
         </div>
       )}
 
+      {/* --- MODO 2: LISTA SIMPLES --- */}
       {printMode === 'SIMPLE' && (
           <div className="p-8 pt-print-container max-w-5xl mx-auto font-sans">
               <div className="mb-6 border-b-2 border-black pb-2 flex justify-between items-end">

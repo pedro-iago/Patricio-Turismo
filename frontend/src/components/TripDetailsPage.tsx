@@ -2,13 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Plus, Printer, FileDown, X, Calendar, Clock, Bus as BusIcon, Users, Package, 
-  PanelRightClose, PanelRightOpen, Map as MapIcon, List as ListIcon
+  PanelRightClose, PanelRightOpen, Map as MapIcon, List as ListIcon, Check, ChevronsUpDown
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'; 
+// Removido Select antigo
 import PassengerModal from './PassengerModal';
 import PackageModal from './PackageModal';
 import LuggageModal from './LuggageModal';
@@ -17,12 +17,89 @@ import api from '../services/api';
 import { CSVLink } from 'react-csv'; 
 import { cn } from './ui/utils';
 
-// ... Imports dnd-kit mantidos ...
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortablePassengerGroup } from './SortablePassengerGroup';
 
 import PassengerTable, { PassengerData } from './PassengerTable';
 import PackageTable from './PackageTable';
 import SeatMap from './SeatMap'; 
 import SeatBinderModal from './SeatBinderModal';
+
+// --- IMPORTS PARA O COMBOBOX ---
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "./ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "./ui/popover"
+
+// --- COMPONENTE DE BUSCA (COMBOBOX) ---
+const FilterCombobox = ({ options, value, onChange, placeholder, width = "w-full" }: any) => {
+  const [open, setOpen] = useState(false);
+
+  const selectedLabel = useMemo(() => {
+    if (!value || value === 'todos') return placeholder;
+    const found = options.find((opt: any) => opt.value === value);
+    return found ? found.label : value;
+  }, [value, options, placeholder]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={`${width} justify-between bg-background text-xs h-9 font-normal`}
+        >
+          <span className="truncate">{selectedLabel}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0">
+        <Command>
+          <CommandInput placeholder={`Buscar ${placeholder}...`} />
+          <CommandList>
+            <CommandEmpty>Não encontrado.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="todos"
+                onSelect={() => {
+                  onChange("todos");
+                  setOpen(false);
+                }}
+              >
+                <Check className={cn("mr-2 h-4 w-4", value === "todos" ? "opacity-100" : "opacity-0")} />
+                Todos (Limpar)
+              </CommandItem>
+              {options.map((option: any) => (
+                <CommandItem
+                  key={option.value}
+                  value={option.label}
+                  onSelect={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 // --- Interfaces ---
 interface Bus { id: number; modelo: string; placa: string; capacidadePassageiros: number; layoutJson?: string; }
@@ -131,10 +208,8 @@ export default function TripDetailsPage() {
                 passengersData.map(async (passenger) => { 
                     const realOnibusId = passenger.onibusId || (passenger.onibus && passenger.onibus.id);
                     
-                    // === ALTERAÇÃO AQUI: Pegamos a lista completa de bagagens ===
                     let luggageCount = 0;
-                    let bagagensList = []; // Array para guardar os objetos de bagagem
-                    
+                    let bagagensList = [];
                     try {
                          if(passenger['bagagens']) {
                              bagagensList = passenger['bagagens'] as any[];
@@ -152,7 +227,7 @@ export default function TripDetailsPage() {
                     return { 
                         ...passenger, 
                         luggageCount,
-                        bagagens: bagagensList, // Guardamos a lista completa no objeto
+                        bagagens: bagagensList,
                         onibusId: realOnibusId ? Number(realOnibusId) : null
                     };
                 })
@@ -167,10 +242,7 @@ export default function TripDetailsPage() {
     
     useEffect(() => { fetchFilteredData(); }, [fetchFilteredData]);
 
-    // --- Restante do arquivo (Handlers, Renders) permanece igual ---
-    // ... (Copie o resto do seu arquivo TripDetailsPage.tsx original a partir da linha "const handleReorderPassengers...")
-    
-    // --- Handlers (MANTIDOS) ---
+    // --- Handlers ---
     const handleReorderPassengers = async (newOrderedList: PassengerData[]) => {
         setPassengers(newOrderedList);
         const ids = newOrderedList.map(p => p.id);
@@ -278,9 +350,24 @@ export default function TripDetailsPage() {
         try { await api.patch(url); await fetchFilteredData(); } catch (e) { console.error(e); }
     };
       
-    const uniqueTaxistas = useMemo(() => Array.from(new Set(passengers.map(p => p.taxistaColeta?.pessoa?.nome).concat(passengers.map(p => p.taxistaEntrega?.pessoa?.nome)).concat(packages.flatMap(p => [p.taxistaColeta?.pessoa?.nome, p.taxistaEntrega?.pessoa?.nome])).filter(Boolean))), [passengers, packages]);
-    const uniqueComisseiros = useMemo(() => Array.from(new Set(passengers.map(p => p.comisseiro?.pessoa?.nome).concat(packages.map(p => p.comisseiro?.pessoa?.nome)).filter(Boolean))), [passengers, packages]);
-    const uniqueOnibusIds = useMemo(() => Array.from(new Set(passengers.map(p => p.onibusId).filter(Boolean))), [passengers]);
+    // --- PREPARAÇÃO DOS DADOS PARA OS COMBOBOXES ---
+    const uniqueTaxistas = useMemo(() => {
+        const list = Array.from(new Set(passengers.map(p => p.taxistaColeta?.pessoa?.nome).concat(passengers.map(p => p.taxistaEntrega?.pessoa?.nome)).concat(packages.flatMap(p => [p.taxistaColeta?.pessoa?.nome, p.taxistaEntrega?.pessoa?.nome])).filter(Boolean))).sort();
+        return list.map(t => ({ value: t as string, label: t as string }));
+    }, [passengers, packages]);
+
+    const uniqueComisseiros = useMemo(() => {
+        const list = Array.from(new Set(passengers.map(p => p.comisseiro?.pessoa?.nome).concat(packages.map(p => p.comisseiro?.pessoa?.nome)).filter(Boolean))).sort();
+        return list.map(c => ({ value: c as string, label: c as string }));
+    }, [passengers, packages]);
+
+    const uniqueOnibusOptions = useMemo(() => {
+        const ids = Array.from(new Set(passengers.map(p => p.onibusId).filter(Boolean)));
+        return ids.map((id: any) => {
+            const bus = busMap.get(id);
+            return { value: String(id), label: bus ? bus.placa : `ID ${id}` };
+        });
+    }, [passengers, busMap]);
 
     const uniqueCidades = useMemo(() => {
         const cidades = new Set<string>();
@@ -292,8 +379,11 @@ export default function TripDetailsPage() {
             if (p.enderecoColeta?.cidade) cidades.add(p.enderecoColeta.cidade);
             if (p.enderecoEntrega?.cidade) cidades.add(p.enderecoEntrega.cidade);
         });
-        return Array.from(cidades).sort();
+        const list = Array.from(cidades).sort();
+        return list.map(c => ({ value: c, label: c }));
     }, [passengers, packages]);
+
+    // -----------------------------------------------
 
     const filteredPassengers = useMemo(() => {
         return passengers.filter((passenger) => {
@@ -388,10 +478,10 @@ export default function TripDetailsPage() {
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                    <Select value={filterTaxista} onValueChange={setFilterTaxista}><SelectTrigger className="bg-background text-xs h-9"><SelectValue placeholder="Taxista" /></SelectTrigger><SelectContent><SelectItem value="todos">Todos Taxistas</SelectItem>{uniqueTaxistas.map((t:any)=><SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select>
-                                    <Select value={filterComisseiro} onValueChange={setFilterComisseiro}><SelectTrigger className="bg-background text-xs h-9"><SelectValue placeholder="Comisseiro" /></SelectTrigger><SelectContent><SelectItem value="todos">Todos Comisseiros</SelectItem>{uniqueComisseiros.map((c:any)=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
-                                    <Select value={filterOnibus} onValueChange={setFilterOnibus}><SelectTrigger className="bg-background text-xs h-9"><SelectValue placeholder="Ônibus" /></SelectTrigger><SelectContent><SelectItem value="todos">Todos Ônibus</SelectItem>{uniqueOnibusIds.map((id:any)=>{const bus=busMap.get(id);return <SelectItem key={id} value={String(id)}>{bus?bus.placa:`ID ${id}`}</SelectItem>;})}</SelectContent></Select>
-                                    <Select value={filterCidade} onValueChange={setFilterCidade}><SelectTrigger className="bg-background text-xs h-9"><SelectValue placeholder="Cidade" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas Cidades</SelectItem>{uniqueCidades.map((c:any)=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
+                                    <FilterCombobox options={uniqueTaxistas} value={filterTaxista} onChange={setFilterTaxista} placeholder="Taxista" />
+                                    <FilterCombobox options={uniqueComisseiros} value={filterComisseiro} onChange={setFilterComisseiro} placeholder="Comisseiro" />
+                                    <FilterCombobox options={uniqueOnibusOptions} value={filterOnibus} onChange={setFilterOnibus} placeholder="Ônibus" />
+                                    <FilterCombobox options={uniqueCidades} value={filterCidade} onChange={setFilterCidade} placeholder="Cidade" />
                                 </div>
                             </div>
                             <PassengerTable passengers={filteredPassengers} loading={loading} busMap={busMap} onMarkAsPaid={(id) => handleMarkAsPaid('passenger', id)} onOpenLuggage={(p) => { setSelectedPassenger(p); setIsLuggageModalOpen(true); }} onEdit={(p) => { setSelectedPassenger(p); setIsPassengerModalOpen(true); }} onDelete={(p) => setDeleteItem({ type: 'passenger', item: p })} onRefreshData={fetchFilteredData} onReorder={!isFiltering ? handleReorderPassengers : undefined} onLink={handleLinkPassengers} onUnlink={handleUnlinkPassenger}/>
@@ -406,9 +496,9 @@ export default function TripDetailsPage() {
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    <Select value={filterTaxista} onValueChange={setFilterTaxista}><SelectTrigger className="bg-background text-xs h-8"><SelectValue placeholder="Taxista" /></SelectTrigger><SelectContent><SelectItem value="todos">Todos Taxistas</SelectItem>{uniqueTaxistas.map((t:any)=><SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select>
-                                    <Select value={filterComisseiro} onValueChange={setFilterComisseiro}><SelectTrigger className="bg-background text-xs h-8"><SelectValue placeholder="Comisseiro" /></SelectTrigger><SelectContent><SelectItem value="todos">Todos Comisseiros</SelectItem>{uniqueComisseiros.map((c:any)=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
-                                    <Select value={filterCidade} onValueChange={setFilterCidade}><SelectTrigger className="bg-background text-xs h-8"><SelectValue placeholder="Cidade" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas Cidades</SelectItem>{uniqueCidades.map((c:any)=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
+                                    <FilterCombobox options={uniqueTaxistas} value={filterTaxista} onChange={setFilterTaxista} placeholder="Taxista" />
+                                    <FilterCombobox options={uniqueComisseiros} value={filterComisseiro} onChange={setFilterComisseiro} placeholder="Comisseiro" />
+                                    <FilterCombobox options={uniqueCidades} value={filterCidade} onChange={setFilterCidade} placeholder="Cidade" />
                                 </div>
                             </div>
                             <PackageTable packages={filteredPackages} loading={loading} onMarkAsPaid={(id) => handleMarkAsPaid('package', id)} onEdit={(p) => { setSelectedPackage(p); setIsPackageModalOpen(true); }} onDelete={(p) => setDeleteItem({ type: 'package', item: p })} onRefreshData={fetchFilteredData} />
