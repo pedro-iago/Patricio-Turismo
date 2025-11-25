@@ -7,39 +7,38 @@ import { cn } from './ui/utils';
 
 type ReportType = 'COLETA' | 'ENTREGA';
 
+// === HELPER PARA FORMATAR TELEFONES ===
+const formatPhones = (pessoa: any) => {
+    // Verifica se tem a lista nova
+    if (pessoa.telefones && Array.isArray(pessoa.telefones) && pessoa.telefones.length > 0) {
+        return pessoa.telefones.join(' / ');
+    }
+    // Verifica se tem o campo antigo/compatibilidade
+    if (pessoa.telefone) {
+        return pessoa.telefone;
+    }
+    return '-';
+};
+
 // === SUB-COMPONENTE: O DESIGN DA FOLHA A4 ===
 const PrintSheet = ({ data, tripInfo, type }: { data: any, tripInfo: any, type: ReportType }) => {
     
-    // === ATUALIZAÇÃO: Formatação Inteligente de Endereço Completo ===
     const formatAddress = (addr: any) => {
         if (!addr) return "Endereço não informado";
-
         const parts = [];
-
-        // 1. Rua e Número (Ex: Rua Principal, 123)
         if (addr.logradouro) {
             let rua = addr.logradouro;
             if (addr.numero) rua += `, ${addr.numero}`;
             parts.push(rua);
         } else if (addr.numero) {
-            // Se não tem rua mas tem número (caso raro)
             parts.push(`Nº ${addr.numero}`);
         }
-
-        // 2. Bairro
-        if (addr.bairro) {
-            parts.push(addr.bairro);
-        }
-
-        // 3. Cidade e Estado (Ex: Cícero Dantas - BA)
+        if (addr.bairro) parts.push(addr.bairro);
         if (addr.cidade) {
             let cidadeInfo = addr.cidade;
             if (addr.estado) cidadeInfo += ` - ${addr.estado}`;
             parts.push(cidadeInfo);
         }
-
-        // Junta tudo com um separador limpo
-        // Resultado final: "Rua X, 10 - Centro - Cícero Dantas - BA"
         return parts.join(" - ");
     };
 
@@ -49,7 +48,7 @@ const PrintSheet = ({ data, tripInfo, type }: { data: any, tripInfo: any, type: 
 
     return (
         <div className="bg-white text-slate-900 w-full h-auto p-0 text-sm font-sans">
-            {/* CABEÇALHO */}
+            {/* CABEÇALHO DA FOLHA */}
             <div className="border-b-2 border-orange-600 pb-4 mb-6">
                 <div className="flex justify-between items-start">
                     <div>
@@ -74,7 +73,10 @@ const PrintSheet = ({ data, tripInfo, type }: { data: any, tripInfo: any, type: 
                     <div>
                         <span className="text-xs uppercase text-slate-500 font-bold block">Motorista Responsável</span>
                         <span className="text-lg font-bold text-slate-900">{data.taxista.nome}</span>
-                        {data.taxista.telefone && <span className="text-sm text-slate-600 ml-3">({data.taxista.telefone})</span>}
+                        {/* Exibe telefones do taxista também usando o helper */}
+                        <span className="text-sm text-slate-600 ml-3">
+                            ({formatPhones(data.taxista)})
+                        </span>
                     </div>
                 </div>
             </div>
@@ -103,9 +105,11 @@ const PrintSheet = ({ data, tripInfo, type }: { data: any, tripInfo: any, type: 
                                     <td className="py-2 pl-2 font-bold text-slate-500 align-top border-r border-slate-200">{i + 1}</td>
                                     <td className="py-2 pl-2 font-medium align-top border-r border-slate-200">
                                         {p.pessoa.nome}
-                                        <div className="text-xs text-slate-500 flex items-center gap-1"><Phone className="w-3 h-3"/> {p.pessoa.telefone || '-'}</div>
+                                        {/* CORREÇÃO: Exibe todos os telefones */}
+                                        <div className="text-xs text-slate-600 flex items-center gap-1 mt-0.5 font-mono">
+                                            <Phone className="w-3 h-3"/> {formatPhones(p.pessoa)}
+                                        </div>
                                     </td>
-                                    {/* Endereço Completo Aqui */}
                                     <td className="py-2 pl-2 text-slate-700 pr-2 align-top border-r border-slate-200 font-medium">
                                         {formatAddress(p.enderecoColeta)}
                                     </td>
@@ -142,9 +146,11 @@ const PrintSheet = ({ data, tripInfo, type }: { data: any, tripInfo: any, type: 
                                     <td className="py-2 pl-2 font-bold text-slate-500 align-top border-r border-slate-200">{i + 1}</td>
                                     <td className="py-2 pl-2 font-medium align-top border-r border-slate-200">
                                         {p.pessoa.nome}
-                                        <div className="text-xs text-slate-500 flex items-center gap-1"><Phone className="w-3 h-3"/> {p.pessoa.telefone || '-'}</div>
+                                        {/* CORREÇÃO: Exibe todos os telefones */}
+                                        <div className="text-xs text-slate-600 flex items-center gap-1 mt-0.5 font-mono">
+                                            <Phone className="w-3 h-3"/> {formatPhones(p.pessoa)}
+                                        </div>
                                     </td>
-                                    {/* Endereço Completo Aqui */}
                                     <td className="py-2 pl-2 text-slate-700 pr-2 align-top border-r border-slate-200 font-medium">
                                         {formatAddress(p.enderecoEntrega)}
                                     </td>
@@ -244,12 +250,14 @@ export default function TaxistaReportPage() {
                     @media print {
                         @page { margin: 1cm; size: auto; }
                         body { margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        /* CLASSE PARA ESCONDER ELEMENTOS NA IMPRESSÃO */
+                        .no-print { display: none !important; }
                     }
                 `}
             </style>
 
-            {/* --- CONTROLES DE TELA --- */}
-            <div className="max-w-6xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-center gap-4 print:hidden">
+            {/* --- CONTROLES DE TELA (Adicionado classe no-print) --- */}
+            <div className="max-w-6xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-center gap-4 no-print">
                 <div className="flex items-center gap-4">
                     <Button variant="outline" onClick={() => navigate(-1)} className="bg-white border-orange-100 hover:bg-orange-50 text-slate-700">
                         <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
@@ -270,8 +278,8 @@ export default function TaxistaReportPage() {
                 </div>
             </div>
 
-            {/* --- LISTA DE CARTÕES --- */}
-            <div className="max-w-6xl mx-auto grid grid-cols-1 gap-4 print:hidden">
+            {/* --- LISTA DE CARTÕES (Adicionado classe no-print) --- */}
+            <div className="max-w-6xl mx-auto grid grid-cols-1 gap-4 no-print">
                 {groupedData.length === 0 ? (
                     <div className="text-center py-10 text-slate-500 bg-white shadow-sm rounded border border-orange-100">Nenhum taxista vinculado nesta viagem.</div>
                 ) : (
@@ -319,7 +327,7 @@ export default function TaxistaReportPage() {
                 )}
             </div>
 
-            {/* --- ÁREA DE IMPRESSÃO (Escondida na tela) --- */}
+            {/* --- ÁREA DE IMPRESSÃO (Aparece apenas no Print) --- */}
             <div className="hidden print:block">
                 {groupedData.map((group, index) => {
                     if (!printConfig) return null;

@@ -5,9 +5,16 @@ import { Edit, Trash2, DollarSign, Palette, Package, Phone } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import api from '../services/api';
+import { TAG_COLORS } from '../constants'; 
 
 // --- Interfaces ---
-interface Person { id: number; nome: string; telefone?: string | null; }
+// ATUALIZAÇÃO: Suporte a telefones (lista)
+interface Person { 
+    id: number; 
+    nome: string; 
+    telefones?: string[]; 
+    telefone?: string | null; 
+}
 interface Address { id: number; logradouro: string; numero: string; bairro: string; cidade: string; }
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
@@ -35,20 +42,17 @@ const formatCurrency = (value?: number) => {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-// --- Helper para endereço (Adicionado) ---
+// --- Helper para telefone ---
+const formatPhones = (p: Person) => {
+    if (p.telefones && p.telefones.length > 0) return p.telefones.join(' / ');
+    if (p.telefone) return p.telefone;
+    return null; // Retorna null se não houver telefone, para não renderizar ícone à toa
+};
+
 const formatAddress = (addr?: Address) => {
   if (!addr) return <span className="text-gray-400 italic">Não informado</span>;
   return `${addr.logradouro || ''}, ${addr.numero || ''} - ${addr.bairro || ''}, ${addr.cidade || ''}`;
 };
-
-const TAG_COLORS = [
-  { hex: '#ef4444', label: 'Vermelho' },
-  { hex: '#f97316', label: 'Laranja' },
-  { hex: '#eab308', label: 'Amarelo' },
-  { hex: '#22c55e', label: 'Verde' },
-  { hex: '#3b82f6', label: 'Azul' },
-  { hex: '#a855f7', label: 'Roxo' },
-];
 
 interface PackageTableProps {
   packages: PackageData[];
@@ -101,6 +105,9 @@ export default function PackageTable({
         <TableBody>
             {packages.map((pkg, index) => {
               const displayColor = pkg.corTag || pkg.cor || 'transparent';
+              const remetentePhones = formatPhones(pkg.remetente);
+              const destinatarioPhones = formatPhones(pkg.destinatario);
+
               return (
               <TableRow key={pkg.id} className="group">
                  <TableCell className="p-2 text-center relative">
@@ -110,9 +117,17 @@ export default function PackageTable({
                        <div className="absolute right-0 top-0 bottom-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 bg-white/80">
                          <Popover>
                              <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><Palette className="w-3 h-3 text-gray-500" /></Button></PopoverTrigger>
-                             <PopoverContent className="w-40 p-2 grid grid-cols-3 gap-2 z-50">
-                                 {TAG_COLORS.map(c => (<button key={c.hex} className="w-6 h-6 rounded-full border border-gray-200" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(pkg.id, c.hex)} />))}
-                                 <button className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-[10px] text-gray-500 hover:bg-gray-100" onClick={() => handleColorChange(pkg.id, null)}>X</button>
+                             <PopoverContent className="w-56 p-2 flex flex-wrap gap-2 z-50 justify-center">
+                                 {TAG_COLORS.map(c => (
+                                   <button 
+                                     key={c.hex} 
+                                     title={c.label}
+                                     className="w-6 h-6 rounded-full border border-gray-200 hover:scale-110 transition-transform" 
+                                     style={{ backgroundColor: c.hex }} 
+                                     onClick={() => handleColorChange(pkg.id, c.hex)} 
+                                   />
+                                 ))}
+                                 <button title="Remover cor" className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-[10px] text-gray-500 hover:bg-gray-100" onClick={() => handleColorChange(pkg.id, null)}>X</button>
                              </PopoverContent>
                          </Popover>
                        </div>
@@ -120,8 +135,15 @@ export default function PackageTable({
                 </TableCell>
                 <TableCell className="font-medium">{pkg.descricao}</TableCell>
                 <TableCell>
-                  <div className="text-xs"><b>De:</b> {pkg.remetente.nome} {pkg.remetente.telefone && <span className="text-gray-500 font-mono ml-1">({pkg.remetente.telefone})</span>}</div>
-                  <div className="text-xs mt-1"><b>Para:</b> {pkg.destinatario.nome} {pkg.destinatario.telefone && <span className="text-gray-500 font-mono ml-1">({pkg.destinatario.telefone})</span>}</div>
+                  {/* CORREÇÃO AQUI: Exibindo telefones formatados */}
+                  <div className="text-xs">
+                    <b>De:</b> {pkg.remetente.nome} 
+                    {remetentePhones && <span className="text-gray-500 font-mono ml-1">({remetentePhones})</span>}
+                  </div>
+                  <div className="text-xs mt-1">
+                    <b>Para:</b> {pkg.destinatario.nome} 
+                    {destinatarioPhones && <span className="text-gray-500 font-mono ml-1">({destinatarioPhones})</span>}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="text-xs"><b>TC:</b> {pkg.taxistaColeta?.pessoa.nome || '-'}</div>
@@ -151,6 +173,9 @@ export default function PackageTable({
     <div className="block md:hidden space-y-4">
         {packages.map((pkg) => {
             const displayColor = pkg.corTag || pkg.cor || 'transparent';
+            const remetentePhones = formatPhones(pkg.remetente);
+            const destinatarioPhones = formatPhones(pkg.destinatario);
+
             return (
             <Card key={pkg.id} className="relative shadow-sm border border-gray-200">
                 <div className="absolute left-0 top-0 bottom-0 w-2 rounded-l-lg z-10" style={{ backgroundColor: displayColor }} />
@@ -165,17 +190,24 @@ export default function PackageTable({
 
                 <CardContent className="pl-5 py-2 text-sm space-y-3 border-t border-dashed border-gray-100 bg-gray-50/50">
                     <div className="grid grid-cols-1 gap-2">
+                        {/* Remetente Mobile */}
                         <div>
                              <span className="text-xs font-bold text-gray-500 block mb-0.5">De (Remetente):</span>
-                             <div className="flex items-center justify-between"><span className="text-gray-900">{pkg.remetente.nome}</span>{pkg.remetente.telefone && <span className="text-xs text-gray-500 flex items-center gap-1"><Phone className="w-3 h-3"/> {pkg.remetente.telefone}</span>}</div>
+                             <div className="flex items-center justify-between">
+                                <span className="text-gray-900">{pkg.remetente.nome}</span>
+                                {remetentePhones && <span className="text-xs text-gray-500 flex items-center gap-1"><Phone className="w-3 h-3"/> {remetentePhones}</span>}
+                             </div>
                         </div>
+                        {/* Destinatário Mobile */}
                         <div>
                              <span className="text-xs font-bold text-gray-500 block mb-0.5">Para (Destinatário):</span>
-                             <div className="flex items-center justify-between"><span className="text-gray-900">{pkg.destinatario.nome}</span>{pkg.destinatario.telefone && <span className="text-xs text-gray-500 flex items-center gap-1"><Phone className="w-3 h-3"/> {pkg.destinatario.telefone}</span>}</div>
+                             <div className="flex items-center justify-between">
+                                <span className="text-gray-900">{pkg.destinatario.nome}</span>
+                                {destinatarioPhones && <span className="text-xs text-gray-500 flex items-center gap-1"><Phone className="w-3 h-3"/> {destinatarioPhones}</span>}
+                             </div>
                         </div>
                     </div>
 
-                    {/* --- ENDEREÇOS (ADICIONADO AO MOBILE) --- */}
                     <div className="space-y-1 pt-1">
                          <div className="grid grid-cols-[20px_1fr] gap-1 items-start"><span className="font-bold text-xs text-gray-700">C:</span><span className="text-xs text-gray-600 leading-tight">{formatAddress(pkg.enderecoColeta)}</span></div>
                          <div className="grid grid-cols-[20px_1fr] gap-1 items-start"><span className="font-bold text-xs text-gray-700">E:</span><span className="text-xs text-gray-600 leading-tight">{formatAddress(pkg.enderecoEntrega)}</span></div>
@@ -194,8 +226,17 @@ export default function PackageTable({
                 <CardFooter className="pl-5 py-2 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
                      <Popover>
                         <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Palette className="w-4 h-4 text-gray-500" /></Button></PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 grid grid-cols-3 gap-2">
-                            {TAG_COLORS.map(c => (<button key={c.hex} className="w-6 h-6 rounded-full border" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(pkg.id, c.hex)} />))}
+                        <PopoverContent className="w-56 p-2 flex flex-wrap gap-2 justify-center">
+                            {TAG_COLORS.map(c => (
+                              <button 
+                                key={c.hex} 
+                                title={c.label}
+                                className="w-6 h-6 rounded-full border border-gray-200" 
+                                style={{ backgroundColor: c.hex }} 
+                                onClick={() => handleColorChange(pkg.id, c.hex)} 
+                              />
+                            ))}
+                             <button title="Remover cor" className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-[10px] text-gray-500" onClick={() => handleColorChange(pkg.id, null)}>X</button>
                         </PopoverContent>
                      </Popover>
                      <div className="flex gap-1">

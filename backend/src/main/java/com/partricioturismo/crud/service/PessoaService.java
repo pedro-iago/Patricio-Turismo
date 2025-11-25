@@ -3,8 +3,8 @@ package com.partricioturismo.crud.service;
 import com.partricioturismo.crud.dtos.PessoaDto;
 import com.partricioturismo.crud.model.Pessoa;
 import com.partricioturismo.crud.repositories.PessoaRepository;
-import jakarta.persistence.EntityNotFoundException; // Importe isto
-import org.springframework.beans.BeanUtils;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.beans.BeanUtils; // Cuidado com BeanUtils e listas
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,14 +22,10 @@ public class PessoaService {
     @Autowired
     private PessoaRepository repository;
 
+    // Método auxiliar corrigido
     private PessoaDto toDto(Pessoa pessoa) {
-        return new PessoaDto(
-                pessoa.getId(),
-                pessoa.getNome(),
-                pessoa.getCpf(),
-                pessoa.getTelefone(),
-                pessoa.getIdade()
-        );
+        // Agora o DTO se constrói usando a lista da entidade
+        return new PessoaDto(pessoa);
     }
 
     public Page<PessoaDto> findAll(Pageable pageable) {
@@ -42,40 +38,41 @@ public class PessoaService {
 
     @Transactional
     public PessoaDto save(PessoaDto pessoaDto) {
-        // Validação de CPF
-        if (repository.existsByCpf(pessoaDto.cpf())) {
+        if (pessoaDto.cpf() != null && !pessoaDto.cpf().isEmpty() && repository.existsByCpf(pessoaDto.cpf())) {
             throw new RuntimeException("CPF já cadastrado no sistema.");
         }
 
         var pessoa = new Pessoa();
-        BeanUtils.copyProperties(pessoaDto, pessoa);
+        pessoa.setNome(pessoaDto.nome());
+        pessoa.setCpf(pessoaDto.cpf());
+        pessoa.setIdade(pessoaDto.idade());
+
+        // CORREÇÃO: Passando a lista corretamente
+        pessoa.setTelefones(pessoaDto.telefones());
+
         var pessoaSalva = repository.save(pessoa);
         return toDto(pessoaSalva);
     }
 
-    // === CORREÇÃO CRÍTICA DO UPDATE ===
     @Transactional
     public Optional<PessoaDto> update(Long id, PessoaDto pessoaDto) {
-        // 1. Busca a entidade gerenciada
         Pessoa existing = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Pessoa não encontrada"));
 
-        // 2. Validação de CPF (apenas se mudou)
-        if (!existing.getCpf().equals(pessoaDto.cpf()) && repository.existsByCpf(pessoaDto.cpf())) {
+        if (pessoaDto.cpf() != null && !pessoaDto.cpf().equals(existing.getCpf()) && repository.existsByCpf(pessoaDto.cpf())) {
             throw new RuntimeException("Este CPF já pertence a outra pessoa.");
         }
 
-        // 3. Atualiza os campos manualmente (EVITA MUDAR O ID)
         existing.setNome(pessoaDto.nome());
         existing.setCpf(pessoaDto.cpf());
-        existing.setTelefone(pessoaDto.telefone());
         existing.setIdade(pessoaDto.idade());
 
-        // 4. Salva
+        // CORREÇÃO: Atualizando a lista
+        existing.setTelefones(pessoaDto.telefones());
+
         var pessoaAtualizada = repository.save(existing);
         return Optional.of(toDto(pessoaAtualizada));
     }
-    // =================================
 
     @Transactional
     public boolean delete(Long id) {

@@ -6,6 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './ui/card'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import api from '../services/api';
 import { cn } from './ui/utils';
+import { TAG_COLORS } from '../constants';
 
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -33,12 +34,19 @@ function DragHandle() {
 }
 
 // --- Interfaces ---
-interface Person { id: number; nome: string; cpf: string; telefone?: string | null; }
+interface Person { 
+    id: number; 
+    nome: string; 
+    cpf: string; 
+    telefones?: string[]; 
+    telefone?: string | null; 
+}
 interface Address { id: number; logradouro: string; numero: string; bairro: string; cidade: string; }
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
 interface Trip { id: number; }
 interface Bus { id: number; placa: string; modelo: string; }
+interface Bagagem { id: number; descricao: string; }
 
 export interface PassengerData {
   id: number;
@@ -47,6 +55,7 @@ export interface PassengerData {
   enderecoColeta?: Address;
   enderecoEntrega?: Address;
   luggageCount: number;
+  bagagens?: Bagagem[];
   taxistaColeta?: Affiliate;
   taxistaEntrega?: Affiliate;
   comisseiro?: Affiliate;
@@ -69,20 +78,18 @@ const formatCurrency = (value?: number) => {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
+const formatPhones = (p: Person) => {
+    if (p.telefones && p.telefones.length > 0) {
+        return p.telefones.join(' / ');
+    }
+    if (p.telefone) return p.telefone;
+    return '-';
+};
+
 const getBusSigla = (bus?: Bus) => {
     if (!bus) return null;
     return bus.placa.slice(-4).toUpperCase();
 };
-
-const TAG_COLORS = [
-  { hex: '#ef4444', label: 'Vermelho' },
-  { hex: '#f97316', label: 'Laranja' },
-  { hex: '#eab308', label: 'Amarelo' },
-  { hex: '#22c55e', label: 'Verde' },
-  { hex: '#3b82f6', label: 'Azul' },
-  { hex: '#a855f7', label: 'Roxo' },
-  { hex: '#64748b', label: 'Cinza' },
-];
 
 interface PassengerTableProps {
   passengers: PassengerData[];
@@ -165,7 +172,18 @@ export default function PassengerTable({
 
   const handleColorChange = async (passengerId: number, color: string | null) => {
     try {
-        await api.patch(`/api/passageiroviagem/${passengerId}/cor`, { cor: color });
+        const targetPassenger = passengers.find(p => p.id === passengerId);
+
+        if (targetPassenger && targetPassenger.grupoId) {
+            const groupMembers = passengers.filter(p => p.grupoId === targetPassenger.grupoId);
+            const promises = groupMembers.map(member => 
+                api.patch(`/api/passageiroviagem/${member.id}/cor`, { cor: color })
+            );
+            await Promise.all(promises);
+        } else {
+            await api.patch(`/api/passageiroviagem/${passengerId}/cor`, { cor: color });
+        }
+        
         onRefreshData(); 
     } catch (error) {
         console.error("Erro ao salvar cor:", error);
@@ -269,6 +287,7 @@ export default function PassengerTable({
                                     )}
 
                                     <TableCell className={cn("p-2 text-center relative align-middle", cellBorderClass)}>
+                                        {/* Lógica de seleção de cor mantida... */}
                                         {isPrintView && (
                                             <div 
                                                 className="absolute left-0 top-1 bottom-1 w-1.5 rounded-r-md z-20" 
@@ -286,9 +305,17 @@ export default function PassengerTable({
                                             <div className="absolute right-0 top-0 bottom-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 bg-white/90 backdrop-blur-sm">
                                                 <Popover>
                                                     <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><Palette className="w-3 h-3 text-gray-500" /></Button></PopoverTrigger>
-                                                    <PopoverContent className="w-40 p-2 grid grid-cols-4 gap-2 z-50">
-                                                        {TAG_COLORS.map(c => (<button key={c.hex} className="w-6 h-6 rounded-full border border-gray-200 hover:scale-110 transition-transform" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(passenger.id, c.hex)} />))}
-                                                        <button className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-[10px] text-gray-500 hover:bg-gray-100" onClick={() => handleColorChange(passenger.id, null)}>X</button>
+                                                    <PopoverContent className="w-56 p-2 flex flex-wrap gap-2 z-50 justify-center">
+                                                        {TAG_COLORS.map(c => (
+                                                            <button 
+                                                                key={c.hex} 
+                                                                title={c.label}
+                                                                className="w-6 h-6 rounded-full border border-gray-200 hover:scale-110 transition-transform" 
+                                                                style={{ backgroundColor: c.hex }} 
+                                                                onClick={() => handleColorChange(passenger.id, c.hex)} 
+                                                            />
+                                                        ))}
+                                                        <button title="Remover cor" className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-[10px] text-gray-500 hover:bg-gray-100" onClick={() => handleColorChange(passenger.id, null)}>X</button>
                                                     </PopoverContent>
                                                 </Popover>
                                             </div>
@@ -298,24 +325,49 @@ export default function PassengerTable({
                                     <TableCell className={cn("pt-print-col-passageiro align-middle", cellBorderClass)}>
                                         <div className="font-medium">{passenger.pessoa.nome}</div>
                                         <div className="text-xs text-muted-foreground">{passenger.pessoa.cpf}</div>
-                                        <div className="text-xs text-gray-500 font-mono mt-0.5">{passenger.pessoa.telefone || '-'}</div>
+                                        <div className="text-xs text-gray-500 font-mono mt-0.5" title="Telefones">
+                                            {formatPhones(passenger.pessoa)}
+                                        </div>
+                                        
+                                        {/* === BLOCO DE BAGAGEM ATUALIZADO === */}
+                                        {passenger.bagagens && passenger.bagagens.length > 0 && (
+                                            <div className={cn(
+                                                // Estilo Padrão (Tela) - Mantido "Box"
+                                                !isPrintView && "mt-2 flex items-start gap-1.5 p-1.5 bg-slate-50/80 border border-slate-100 rounded-md text-[10px] leading-tight text-slate-600",
+                                                // Estilo Impressão - Otimizado e Compacto
+                                                isPrintView && "mt-0.5 text-[9px] leading-tight text-slate-500 block break-words"
+                                            )}>
+                                                {/* Ícone apenas na tela */}
+                                                {!isPrintView && <Briefcase className="w-3 h-3 text-slate-400 shrink-0" />}
+                                                
+                                                <span>
+                                                    {/* Na impressão, o ícone vira texto ou símbolo simples se quiser */}
+                                                    <span className="font-bold text-slate-700 mr-1">
+                                                        {isPrintView ? `[${passenger.bagagens.length} Vols]:` : passenger.bagagens.length}
+                                                    </span>
+                                                    {/* Lista de itens */}
+                                                    <span className={!isPrintView ? "text-slate-500" : ""}>
+                                                        {passenger.bagagens.map(b => b.descricao).join(', ')}
+                                                    </span>
+                                                </span>
+                                            </div>
+                                        )}
+                                        {/* =========================================== */}
+                                        
                                     </TableCell>
                                     <TableCell className={cn("pt-print-col-endereco align-middle", cellBorderClass)}><div className="text-xs"><b>C:</b> {formatAddress(passenger.enderecoColeta)}</div><div className="text-xs"><b>E:</b> {formatAddress(passenger.enderecoEntrega)}</div></TableCell>
                                     <TableCell className={cn("pt-print-col-afiliado align-middle", cellBorderClass)}><div className="text-xs"><b>TC:</b> {passenger.taxistaColeta?.pessoa.nome || '-'}</div><div className="text-xs"><b>TE:</b> {passenger.taxistaEntrega?.pessoa.nome || '-'}</div><div className="text-xs"><b>C:</b> {passenger.comisseiro?.pessoa.nome || '-'}</div></TableCell>
                                     <TableCell className={cn("pt-print-col-valor align-middle", cellBorderClass)}>{formatCurrency(passenger.valor)}</TableCell>
                                     
-                                    {/* === CORREÇÃO DE STATUS AQUI === */}
                                     <TableCell className={cn("pt-print-col-status align-middle", cellBorderClass)}>
                                         {passenger.pago ? (
                                             <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 border border-green-200 print:border-0">Pago</span>
                                         ) : (
-                                            // Na impressão, mostra "Pend.", fonte pequena e padding mínimo
                                             <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200 print:border-0 print:text-[10px] print:px-1 print:py-0">
                                                 {isPrintView ? "Pend." : "Pendente"}
                                             </span>
                                         )}
                                     </TableCell>
-                                    {/* =============================== */}
 
                                     <TableCell className={cn("pt-print-col-assento text-center align-middle", cellBorderClass)}><div className="flex flex-col items-center justify-center"><span className="text-sm font-bold">{passenger.numeroAssento || '-'}</span>{busSigla && (<span className="text-[10px] font-mono text-gray-500 bg-gray-100 px-1 rounded border border-gray-200 mt-0.5" title={`Ônibus: ${bus?.placa}`}>{busSigla}</span>)}</div></TableCell>
                                     <TableCell className={cn("pt-print-col-bagagem text-center align-middle", cellBorderClass)}>{passenger.luggageCount}</TableCell>
@@ -341,7 +393,9 @@ export default function PassengerTable({
       </DndContext>
     </div>
 
+    {/* --- MOBILE VIEW (MANTIDO) --- */}
     <div className="block md:hidden space-y-4">
+        {/* ... (código mobile igual ao anterior) ... */}
         {groupedPassengers.map((group) => {
             const isGrouped = group.length > 1;
             const cardContainerClass = isGrouped ? "bg-orange-50/30 border-orange-300 shadow-md" : "bg-white border-gray-200 shadow-sm";
@@ -366,7 +420,10 @@ export default function PassengerTable({
                                                 {passenger.pessoa.nome}
                                             </CardTitle>
                                             <div className="flex flex-col mt-1">
-                                                <div className="flex items-center text-xs text-muted-foreground gap-2"><Phone className="w-3 h-3" /> {passenger.pessoa.telefone || 'S/N'}</div>
+                                                <div className="flex items-center text-xs text-muted-foreground gap-2">
+                                                    <Phone className="w-3 h-3" /> 
+                                                    {formatPhones(passenger.pessoa)}
+                                                </div>
                                                 <div className="flex items-center text-xs text-muted-foreground gap-2 mt-0.5"><User className="w-3 h-3" /> {passenger.pessoa.cpf || 'S/DOC'}</div>
                                             </div>
                                         </div>
@@ -386,13 +443,24 @@ export default function PassengerTable({
                                         <div><span className="text-xs text-muted-foreground block">Valor</span><span className="font-bold text-gray-900">{formatCurrency(passenger.valor)}</span></div>
                                         <div><span className="text-xs text-muted-foreground block text-right">Bagagem</span><span className="font-bold text-gray-900 block text-right">{passenger.luggageCount} vol</span></div>
                                     </div>
+                                    {passenger.bagagens && passenger.bagagens.length > 0 && (
+                                        <div className="mt-2 flex items-start gap-1.5 p-2 bg-slate-50 border border-slate-100 rounded-md text-xs text-slate-600">
+                                            <Briefcase className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
+                                            <span>
+                                                <span className="font-bold text-slate-700 mr-1">{passenger.bagagens.length} Vols:</span>
+                                                {passenger.bagagens.map(b => b.descricao).join(', ')}
+                                            </span>
+                                        </div>
+                                    )}
                                 </CardContent>
                                 <CardFooter className="pl-5 py-2 bg-gray-50/50 border-t border-gray-100 flex justify-between items-center">
                                     <Popover>
                                         <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Palette className="w-4 h-4 text-gray-500" /></Button></PopoverTrigger>
-                                        <PopoverContent className="w-48 p-2 grid grid-cols-4 gap-2">
-                                            {TAG_COLORS.map(c => (<button key={c.hex} className="w-6 h-6 rounded-full border" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(passenger.id, c.hex)} />))}
-                                            <button className="w-6 h-6 rounded-full border flex items-center justify-center text-[10px]" onClick={() => handleColorChange(passenger.id, null)}>X</button>
+                                        <PopoverContent className="w-56 p-2 flex flex-wrap gap-2 justify-center">
+                                            {TAG_COLORS.map(c => (
+                                                <button key={c.hex} title={c.label} className="w-6 h-6 rounded-full border border-gray-200" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(passenger.id, c.hex)} />
+                                            ))}
+                                            <button title="Remover cor" className="w-6 h-6 rounded-full border flex items-center justify-center text-[10px] text-gray-500" onClick={() => handleColorChange(passenger.id, null)}>X</button>
                                         </PopoverContent>
                                     </Popover>
                                     <div className="flex gap-1">

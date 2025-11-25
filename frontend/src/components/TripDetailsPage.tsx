@@ -17,9 +17,7 @@ import api from '../services/api';
 import { CSVLink } from 'react-csv'; 
 import { cn } from './ui/utils';
 
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { SortablePassengerGroup } from './SortablePassengerGroup';
+// ... Imports dnd-kit mantidos ...
 
 import PassengerTable, { PassengerData } from './PassengerTable';
 import PackageTable from './PackageTable';
@@ -132,19 +130,29 @@ export default function TripDetailsPage() {
             const passengersWithLuggage = await Promise.all( 
                 passengersData.map(async (passenger) => { 
                     const realOnibusId = passenger.onibusId || (passenger.onibus && passenger.onibus.id);
+                    
+                    // === ALTERAÇÃO AQUI: Pegamos a lista completa de bagagens ===
                     let luggageCount = 0;
+                    let bagagensList = []; // Array para guardar os objetos de bagagem
+                    
                     try {
                          if(passenger['bagagens']) {
-                             luggageCount = (passenger['bagagens'] as any[]).length;
+                             bagagensList = passenger['bagagens'] as any[];
+                             luggageCount = bagagensList.length;
                          } else {
                              const luggageResponse = await api.get(`/api/bagagem/passageiro/${passenger.id}`);
-                             luggageCount = luggageResponse.data.length;
+                             bagagensList = luggageResponse.data;
+                             luggageCount = bagagensList.length;
                          }
-                    } catch { luggageCount = 0; }
+                    } catch { 
+                        luggageCount = 0; 
+                        bagagensList = [];
+                    }
 
                     return { 
                         ...passenger, 
                         luggageCount,
+                        bagagens: bagagensList, // Guardamos a lista completa no objeto
                         onibusId: realOnibusId ? Number(realOnibusId) : null
                     };
                 })
@@ -159,7 +167,10 @@ export default function TripDetailsPage() {
     
     useEffect(() => { fetchFilteredData(); }, [fetchFilteredData]);
 
-    // --- Handlers ---
+    // --- Restante do arquivo (Handlers, Renders) permanece igual ---
+    // ... (Copie o resto do seu arquivo TripDetailsPage.tsx original a partir da linha "const handleReorderPassengers...")
+    
+    // --- Handlers (MANTIDOS) ---
     const handleReorderPassengers = async (newOrderedList: PassengerData[]) => {
         setPassengers(newOrderedList);
         const ids = newOrderedList.map(p => p.id);
@@ -271,20 +282,16 @@ export default function TripDetailsPage() {
     const uniqueComisseiros = useMemo(() => Array.from(new Set(passengers.map(p => p.comisseiro?.pessoa?.nome).concat(packages.map(p => p.comisseiro?.pessoa?.nome)).filter(Boolean))), [passengers, packages]);
     const uniqueOnibusIds = useMemo(() => Array.from(new Set(passengers.map(p => p.onibusId).filter(Boolean))), [passengers]);
 
-    // === CORREÇÃO NO FILTRO DE CIDADES: Coleta E Entrega ===
     const uniqueCidades = useMemo(() => {
         const cidades = new Set<string>();
-        
         passengers.forEach(p => {
             if (p.enderecoColeta?.cidade) cidades.add(p.enderecoColeta.cidade);
             if (p.enderecoEntrega?.cidade) cidades.add(p.enderecoEntrega.cidade);
         });
-
         packages.forEach(p => {
             if (p.enderecoColeta?.cidade) cidades.add(p.enderecoColeta.cidade);
             if (p.enderecoEntrega?.cidade) cidades.add(p.enderecoEntrega.cidade);
         });
-
         return Array.from(cidades).sort();
     }, [passengers, packages]);
 
@@ -295,12 +302,7 @@ export default function TripDetailsPage() {
             const matchesTaxista = filterTaxista === "todos" || passenger.taxistaColeta?.pessoa?.nome === filterTaxista || passenger.taxistaEntrega?.pessoa?.nome === filterTaxista;
             const matchesComisseiro = filterComisseiro === "todos" || passenger.comisseiro?.pessoa?.nome === filterComisseiro;
             const matchesOnibus = filterOnibus === "todos" || String(passenger.onibusId) === filterOnibus;
-            
-            // Filtro de Cidade (Coleta OU Entrega)
-            const matchesCidade = filterCidade === "todos" || 
-                passenger.enderecoColeta?.cidade === filterCidade || 
-                passenger.enderecoEntrega?.cidade === filterCidade;
-
+            const matchesCidade = filterCidade === "todos" || passenger.enderecoColeta?.cidade === filterCidade || passenger.enderecoEntrega?.cidade === filterCidade;
             return matchesSearch && matchesTaxista && matchesComisseiro && matchesOnibus && matchesCidade;
         });
     }, [passengers, passengerSearchTerm, filterTaxista, filterComisseiro, filterOnibus, filterCidade]);
@@ -312,25 +314,17 @@ export default function TripDetailsPage() {
                 (pkg.descricao && pkg.descricao.toLowerCase().includes(searchLower)) ||
                 (pkg.remetente?.nome && pkg.remetente.nome.toLowerCase().includes(searchLower)) ||
                 (pkg.destinatario?.nome && pkg.destinatario.nome.toLowerCase().includes(searchLower));
-            
             const matchesTaxista = filterTaxista === "todos" || pkg.taxistaColeta?.pessoa?.nome === filterTaxista || pkg.taxistaEntrega?.pessoa?.nome === filterTaxista;
             const matchesComisseiro = filterComisseiro === "todos" || pkg.comisseiro?.pessoa?.nome === filterComisseiro;
-            
-            // Filtro de Cidade (Coleta OU Entrega)
-            const matchesCidade = filterCidade === "todos" || 
-                pkg.enderecoColeta?.cidade === filterCidade || 
-                pkg.enderecoEntrega?.cidade === filterCidade;
-
+            const matchesCidade = filterCidade === "todos" || pkg.enderecoColeta?.cidade === filterCidade || pkg.enderecoEntrega?.cidade === filterCidade;
             return matchesSearch && matchesTaxista && matchesComisseiro && matchesCidade;
         });
     }, [packages, packageSearchTerm, filterTaxista, filterComisseiro, filterCidade]);
     
     const isFiltering = filterTaxista !== 'todos' || filterComisseiro !== 'todos' || filterOnibus !== 'todos' || filterCidade !== 'todos' || passengerSearchTerm !== '';
-
     const resetFilters = () => { setFilterTaxista("todos"); setFilterComisseiro("todos"); setFilterOnibus("todos"); setFilterCidade("todos"); setPassengerSearchTerm(""); setPackageSearchTerm(""); };
     const passengerTabLabel = filteredPassengers.length === passengers.length ? `Passageiros (${passengers.length})` : `Passageiros (${filteredPassengers.length}/${passengers.length})`;
     const packageTabLabel = filteredPackages.length === packages.length ? `Encomendas (${packages.length})` : `Encomendas (${filteredPackages.length}/${packages.length})`;
-
     const getPassengerCsvData = () => { return { headers: [], data: [] }}; 
     const getPackageCsvData = () => { return { headers: [], data: [] }};
     
@@ -340,7 +334,6 @@ export default function TripDetailsPage() {
 
     return (
         <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
-            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <Button variant="ghost" size="icon" onClick={() => navigate('/trips')} className="-ml-2"><ArrowLeft className="w-5 h-5" /></Button>
@@ -350,17 +343,8 @@ export default function TripDetailsPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => navigate(`/trips/${tripId}/passar-lista`)} 
-                        className="whitespace-nowrap">
-                        <ListIcon className="w-4 h-4 mr-2" /> Passar Lista
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => setIsMapOpen(!isMapOpen)} className="hidden xl:flex gap-2 whitespace-nowrap">
-                        {isMapOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
-                        {isMapOpen ? 'Ocultar Mapa' : 'Mostrar Mapa'}
-                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => navigate(`/trips/${tripId}/passar-lista`)} className="whitespace-nowrap"><ListIcon className="w-4 h-4 mr-2" /> Passar Lista</Button>
+                    <Button variant="outline" size="sm" onClick={() => setIsMapOpen(!isMapOpen)} className="hidden xl:flex gap-2 whitespace-nowrap">{isMapOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}{isMapOpen ? 'Ocultar Mapa' : 'Mostrar Mapa'}</Button>
                     <Button variant="outline" size="sm" onClick={() => navigate(`/trips/${tripId}/print`)} className="whitespace-nowrap"><Printer className="w-4 h-4 mr-2" /> Imprimir</Button>
                     <div className="hidden md:flex gap-2">
                         <CSVLink data={getPassengerCsvData().data} headers={getPassengerCsvData().headers} filename={`passageiros.csv`}><Button variant="outline" size="sm" className="whitespace-nowrap"><FileDown className="w-4 h-4 mr-2" /> CSV Pax</Button></CSVLink>
@@ -368,55 +352,32 @@ export default function TripDetailsPage() {
                     </div>
                 </div>
             </div>
-
-            {/* INFO CARD */}
             <Card className="border-none shadow-sm bg-slate-50">
                 <CardContent className="p-3 md:p-4">
                     <div className="flex flex-col xl:flex-row justify-between gap-4 text-sm">
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 xl:flex-1">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <Calendar className="w-4 h-4" />
-                                <div className="flex flex-col"><span className="text-[10px] font-semibold text-foreground uppercase">Partida</span><span>{new Date(trip.dataHoraPartida).toLocaleDateString()} {new Date(trip.dataHoraPartida).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span></div>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <Clock className="w-4 h-4" />
-                                <div className="flex flex-col"><span className="text-[10px] font-semibold text-foreground uppercase">Chegada</span><span>{new Date(trip.dataHoraChegada).toLocaleDateString()} {new Date(trip.dataHoraChegada).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span></div>
-                            </div>
-                             <div className="flex items-center gap-2 text-muted-foreground col-span-2 md:col-span-1">
-                                <BusIcon className="w-4 h-4" />
-                                <div className="flex flex-col"><span className="text-[10px] font-semibold text-foreground uppercase">Frota</span><span>{currentBus?.placa || 'N/A'}</span></div>
-                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="w-4 h-4" /><div className="flex flex-col"><span className="text-[10px] font-semibold text-foreground uppercase">Partida</span><span>{new Date(trip.dataHoraPartida).toLocaleDateString()} {new Date(trip.dataHoraPartida).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span></div></div>
+                            <div className="flex items-center gap-2 text-muted-foreground"><Clock className="w-4 h-4" /><div className="flex flex-col"><span className="text-[10px] font-semibold text-foreground uppercase">Chegada</span><span>{new Date(trip.dataHoraChegada).toLocaleDateString()} {new Date(trip.dataHoraChegada).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span></div></div>
+                             <div className="flex items-center gap-2 text-muted-foreground col-span-2 md:col-span-1"><BusIcon className="w-4 h-4" /><div className="flex flex-col"><span className="text-[10px] font-semibold text-foreground uppercase">Frota</span><span>{currentBus?.placa || 'N/A'}</span></div></div>
                         </div>
                         <div className="flex gap-4 pt-2 border-t xl:border-t-0 xl:border-l xl:pl-4 border-slate-200">
-                             <div className="flex items-center gap-2">
-                                <div className="p-1.5 bg-blue-100 rounded text-blue-600"><Users className="w-4 h-4" /></div>
-                                <div><span className="text-xs font-medium text-muted-foreground block md:hidden">Pax</span><span className="text-xs font-medium text-muted-foreground hidden md:block">Passageiros</span><span className="text-lg font-bold leading-none">{passengers.length}</span></div>
-                             </div>
-                             <div className="flex items-center gap-2">
-                                <div className="p-1.5 bg-orange-100 rounded text-orange-600"><Package className="w-4 h-4" /></div>
-                                <div><span className="text-xs font-medium text-muted-foreground block md:hidden">Enc</span><span className="text-xs font-medium text-muted-foreground hidden md:block">Encomendas</span><span className="text-lg font-bold leading-none">{packages.length}</span></div>
-                             </div>
+                             <div className="flex items-center gap-2"><div className="p-1.5 bg-blue-100 rounded text-blue-600"><Users className="w-4 h-4" /></div><div><span className="text-xs font-medium text-muted-foreground block md:hidden">Pax</span><span className="text-xs font-medium text-muted-foreground hidden md:block">Passageiros</span><span className="text-lg font-bold leading-none">{passengers.length}</span></div></div>
+                             <div className="flex items-center gap-2"><div className="p-1.5 bg-orange-100 rounded text-orange-600"><Package className="w-4 h-4" /></div><div><span className="text-xs font-medium text-muted-foreground block md:hidden">Enc</span><span className="text-xs font-medium text-muted-foreground hidden md:block">Encomendas</span><span className="text-lg font-bold leading-none">{packages.length}</span></div></div>
                         </div>
                     </div>
                 </CardContent>
             </Card>
-            
-            {/* Mobile View Switcher */}
             <div className="md:hidden w-full bg-slate-100 p-1 rounded-lg grid grid-cols-2 gap-1 mb-2">
                 <button onClick={() => setMobileView('list')} className={cn("py-2 text-sm font-medium rounded-md transition-all", mobileView === 'list' ? "bg-white shadow text-primary" : "text-slate-500")}><div className="flex items-center justify-center gap-2"><ListIcon className="w-4 h-4"/> Lista</div></button>
                 <button onClick={() => setMobileView('map')} className={cn("py-2 text-sm font-medium rounded-md transition-all", mobileView === 'map' ? "bg-white shadow text-primary" : "text-slate-500")}><div className="flex items-center justify-center gap-2"><MapIcon className="w-4 h-4"/> Mapa</div></button>
             </div>
-
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                {/* --- COLUNA ESQUERDA --- */}
                 <div className={cn("transition-all duration-500 ease-in-out", isMapOpen ? "xl:col-span-9" : "xl:col-span-12", mobileView === 'map' ? "hidden xl:block" : "block")}>
                     <Tabs defaultValue="passengers" className="space-y-4">
                         <TabsList className="grid w-full max-w-md grid-cols-2">
                             <TabsTrigger value="passengers">{passengerTabLabel}</TabsTrigger>
                             <TabsTrigger value="packages">{packageTabLabel}</TabsTrigger>
                         </TabsList>
-                        
-                        {/* ABA PASSAGEIROS */}
                         <TabsContent value="passengers" className="space-y-4">
                             <div className="bg-white p-3 md:p-4 rounded-lg border shadow-sm space-y-3">
                                 <div className="flex flex-col lg:flex-row gap-3">
@@ -433,23 +394,8 @@ export default function TripDetailsPage() {
                                     <Select value={filterCidade} onValueChange={setFilterCidade}><SelectTrigger className="bg-background text-xs h-9"><SelectValue placeholder="Cidade" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas Cidades</SelectItem>{uniqueCidades.map((c:any)=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
                                 </div>
                             </div>
-                            
-                            <PassengerTable 
-                                passengers={filteredPassengers} 
-                                loading={loading} 
-                                busMap={busMap} 
-                                onMarkAsPaid={(id) => handleMarkAsPaid('passenger', id)} 
-                                onOpenLuggage={(p) => { setSelectedPassenger(p); setIsLuggageModalOpen(true); }} 
-                                onEdit={(p) => { setSelectedPassenger(p); setIsPassengerModalOpen(true); }} 
-                                onDelete={(p) => setDeleteItem({ type: 'passenger', item: p })} 
-                                onRefreshData={fetchFilteredData} 
-                                onReorder={!isFiltering ? handleReorderPassengers : undefined}
-                                onLink={handleLinkPassengers}
-                                onUnlink={handleUnlinkPassenger}
-                            />
+                            <PassengerTable passengers={filteredPassengers} loading={loading} busMap={busMap} onMarkAsPaid={(id) => handleMarkAsPaid('passenger', id)} onOpenLuggage={(p) => { setSelectedPassenger(p); setIsLuggageModalOpen(true); }} onEdit={(p) => { setSelectedPassenger(p); setIsPassengerModalOpen(true); }} onDelete={(p) => setDeleteItem({ type: 'passenger', item: p })} onRefreshData={fetchFilteredData} onReorder={!isFiltering ? handleReorderPassengers : undefined} onLink={handleLinkPassengers} onUnlink={handleUnlinkPassenger}/>
                         </TabsContent>
-                        
-                        {/* ABA ENCOMENDAS */}
                         <TabsContent value="packages" className="space-y-4">
                              <div className="bg-white p-3 md:p-4 rounded-lg border shadow-sm space-y-3">
                                 <div className="flex flex-col lg:flex-row gap-3">
@@ -465,33 +411,16 @@ export default function TripDetailsPage() {
                                     <Select value={filterCidade} onValueChange={setFilterCidade}><SelectTrigger className="bg-background text-xs h-8"><SelectValue placeholder="Cidade" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas Cidades</SelectItem>{uniqueCidades.map((c:any)=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
                                 </div>
                             </div>
-                            <PackageTable 
-                                packages={filteredPackages} 
-                                loading={loading} 
-                                onMarkAsPaid={(id) => handleMarkAsPaid('package', id)} 
-                                onEdit={(p) => { setSelectedPackage(p); setIsPackageModalOpen(true); }} 
-                                onDelete={(p) => setDeleteItem({ type: 'package', item: p })} 
-                                onRefreshData={fetchFilteredData} 
-                            />
+                            <PackageTable packages={filteredPackages} loading={loading} onMarkAsPaid={(id) => handleMarkAsPaid('package', id)} onEdit={(p) => { setSelectedPackage(p); setIsPackageModalOpen(true); }} onDelete={(p) => setDeleteItem({ type: 'package', item: p })} onRefreshData={fetchFilteredData} />
                         </TabsContent>
                     </Tabs>
                 </div>
-
-                {/* Coluna Mapa */}
                 <div className={cn("xl:col-span-3 transition-all duration-500", mobileView === 'map' ? "block" : "hidden", isMapOpen ? "xl:block" : "xl:hidden")}>
                     <div className="sticky top-6 space-y-4">
                         {trip?.onibus && trip.onibus.length > 1 ? (
                             <Tabs defaultValue={currentBusId?.toString()} onValueChange={(val) => setCurrentBusId(parseInt(val))} className="w-full">
-                                <TabsList className="w-full mb-2 grid grid-cols-2">
-                                    {trip.onibus.map(bus => (
-                                        <TabsTrigger key={bus.id} value={bus.id.toString()} className="text-xs px-1 truncate">{bus.placa}</TabsTrigger>
-                                    ))}
-                                </TabsList>
-                                {trip.onibus.map(bus => (
-                                    <TabsContent key={bus.id} value={bus.id.toString()} className="mt-0">
-                                        <SeatMap tripId={tripIdNum} busId={bus.id} layoutJson={bus.layoutJson} capacity={bus.capacidadePassageiros} onSelectSeat={handleSelectSeat} passengers={passengers.filter(p => p.onibusId === bus.id)} />
-                                    </TabsContent>
-                                ))}
+                                <TabsList className="w-full mb-2 grid grid-cols-2">{trip.onibus.map(bus => (<TabsTrigger key={bus.id} value={bus.id.toString()} className="text-xs px-1 truncate">{bus.placa}</TabsTrigger>))}</TabsList>
+                                {trip.onibus.map(bus => (<TabsContent key={bus.id} value={bus.id.toString()} className="mt-0"><SeatMap tripId={tripIdNum} busId={bus.id} layoutJson={bus.layoutJson} capacity={bus.capacidadePassageiros} onSelectSeat={handleSelectSeat} passengers={passengers.filter(p => p.onibusId === bus.id)} /></TabsContent>))}
                             </Tabs>
                         ) : (
                             <SeatMap tripId={tripIdNum} busId={currentBusId || 0} layoutJson={currentBus?.layoutJson} capacity={currentBus?.capacidadePassageiros || 0} onSelectSeat={handleSelectSeat} passengers={passengers.filter(p => p.onibusId === (currentBusId || 0))} />
@@ -499,24 +428,13 @@ export default function TripDetailsPage() {
                     </div>
                 </div>
             </div>
-
-            {/* Modais */}
             <PassengerModal isOpen={isPassengerModalOpen} onClose={() => { setIsPassengerModalOpen(false); setSelectedPassenger(null); }} onSave={handleSavePassenger} passenger={selectedPassenger} />
             <PackageModal isOpen={isPackageModalOpen} onClose={() => { setIsPackageModalOpen(false); setSelectedPackage(null); }} onSave={handleSavePackage} package={selectedPackage} />
             <LuggageModal isOpen={isLuggageModalOpen} onClose={() => { setIsLuggageModalOpen(false); setSelectedPassenger(null); fetchFilteredData(); }} passenger={selectedPassenger} />
             <SeatBinderModal isOpen={isSeatBinderModalOpen} onClose={() => { setIsSeatBinderModalOpen(false); setSeatTargetId(null); }} onBind={handleBindPassenger} availablePassengers={availablePassengers} seatId={seatTargetId} seatNumber={seatTargetNumber} />
             <DeleteConfirmModal isOpen={!!passengerToDesassociate} onClose={() => { setPassengerToDesassociate(null); }} onConfirm={handleDesassociateConfirm} title="Desvincular Assento" description={`Tem certeza de que deseja desvincular o assento?`} />
             <DeleteConfirmModal isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDeleteConfirm} title="Excluir Item" description="Tem certeza?" />
-            
-            {/* MODAL DE DESVINCULAR GRUPO */}
-            <DeleteConfirmModal
-                isOpen={!!passengerToUnlink}
-                onClose={() => setPassengerToUnlink(null)}
-                onConfirm={confirmUnlinkGroup}
-                title="Desvincular do Grupo"
-                description={`Tem certeza que deseja desvincular ${passengerToUnlink?.pessoa.nome} do grupo?`}
-                confirmLabel="Desvincular"
-            />
+            <DeleteConfirmModal isOpen={!!passengerToUnlink} onClose={() => setPassengerToUnlink(null)} onConfirm={confirmUnlinkGroup} title="Desvincular do Grupo" description={`Tem certeza que deseja desvincular ${passengerToUnlink?.pessoa.nome} do grupo?`} confirmLabel="Desvincular" />
         </div>
     );
 }

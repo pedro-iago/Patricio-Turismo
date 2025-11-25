@@ -28,8 +28,13 @@ import { AddressSearchCombobox } from './AddressSearchCombobox';
 import PersonModal from './PersonModal';
 import AddressModal from './AddressModal';
 
-// Interfaces
-interface PersonSaveDto { nome: string; cpf: string; telefone: string | null; idade: number | null; }
+// --- INTERFACES ATUALIZADAS ---
+interface PersonSaveDto { 
+  nome: string; 
+  cpf: string; 
+  telefones: string[]; // Agora aceita lista de telefones
+  idade: number | null; 
+}
 interface AddressSaveDto { logradouro: string; numero: string; bairro: string; cidade: string; estado: string; cep: string; }
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
@@ -58,6 +63,7 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: a
   const [openTaxistaEntregaPopover, setOpenTaxistaEntregaPopover] = useState(false);
   const [openComisseiroPopover, setOpenComisseiroPopover] = useState(false);
 
+  // === ESTADOS QUE ESTAVAM FALTANDO (CORRIGIDO) ===
   const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   
@@ -68,6 +74,7 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: a
   
   // Chave para forçar refresh visual dos comboboxes após edição
   const [refreshKey, setRefreshKey] = useState(0);
+  // ================================================
 
   useEffect(() => {
     if (isOpen) {
@@ -161,7 +168,8 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: a
       const payload = {
           ...personDto,
           idade: (personDto.idade === null || personDto.idade.toString() === '') ? null : Number(personDto.idade),
-          telefone: (personDto.telefone === '' || personDto.telefone === null) ? null : personDto.telefone
+          // Backend espera array de telefones
+          telefones: personDto.telefones
       };
 
       let savedPerson;
@@ -254,12 +262,11 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: a
               </div>
             </div>
 
-            {/* === CORREÇÃO AQUI: ADICIONADO min-w-0 NAS DIVS DOS COMBOBOXES === */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="pickup">Coleta (Opcional)</Label>
                 <div className="flex gap-2">
-                    <div className="flex-1 min-w-0"> {/* min-w-0 impede o estouro */}
+                    <div className="flex-1 min-w-0">
                         <AddressSearchCombobox
                             key={`pickup-${refreshKey}`}
                             value={formData.pickupAddressId}
@@ -290,7 +297,7 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: a
               <div className="space-y-2">
                 <Label htmlFor="dropoff">Entrega (Opcional)</Label>
                 <div className="flex gap-2">
-                    <div className="flex-1 min-w-0"> {/* min-w-0 impede o estouro */}
+                    <div className="flex-1 min-w-0">
                         <AddressSearchCombobox
                             key={`dropoff-${refreshKey}`}
                             value={formData.dropoffAddressId}
