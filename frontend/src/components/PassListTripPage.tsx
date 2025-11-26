@@ -2,15 +2,29 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
     ArrowLeft, CheckSquare, Square, MapPin, Save, Car, Link as LinkIcon, X, 
-    Phone, Armchair, Briefcase, User, Printer, Package 
+    Phone, Armchair, Briefcase, User, Printer, Package, ChevronsUpDown, Check 
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Checkbox } from './ui/checkbox';
 import api from '../services/api';
 import { cn } from './ui/utils';
+
+// --- IMPORTS NOVOS PARA A BUSCA ---
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "./ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "./ui/popover"
 
 interface Bus { id: number; placa: string; modelo: string; }
 interface Affiliate { id: number; pessoa: { nome: string }; }
@@ -53,6 +67,9 @@ export default function PassListTripPage() {
     const [selectedUniqueIds, setSelectedUniqueIds] = useState<string[]>([]);
     const [selectedTaxistaId, setSelectedTaxistaId] = useState<string>('');
     const [activeTab, setActiveTab] = useState<'coleta' | 'entrega'>('coleta');
+    
+    // Novo estado para abrir/fechar o combobox de taxista
+    const [openTaxistaCombobox, setOpenTaxistaCombobox] = useState(false);
 
     useEffect(() => { fetchData(); }, [tripId]);
 
@@ -64,7 +81,7 @@ export default function PassListTripPage() {
                 api.get(`/api/viagem/${tripId}`),
                 api.get(`/api/passageiroviagem/viagem/${tripId}`),
                 api.get(`/api/v1/reports/encomendas/viagem/${tripId}`), // Busca encomendas
-                api.get('/api/v1/affiliates/taxistas')
+                api.get('/api/v1/affiliates/taxistas') // Pega TODOS os taxistas (sem paginação se possível, ou page size grande)
             ]);
             
             // Mapeia Ônibus
@@ -209,7 +226,7 @@ export default function PassListTripPage() {
         }
     };
 
-    // === ENVIO PARA O BACKEND (ATUALIZADO) ===
+    // === ENVIO PARA O BACKEND ===
     const handleBulkAssign = async () => {
         if (selectedUniqueIds.length === 0) return;
         
@@ -219,7 +236,6 @@ export default function PassListTripPage() {
 
         const tipoEnvio = activeTab === 'coleta' ? 'COLETA' : 'ENTREGA';
 
-        // Separa os IDs (Passageiros vs Encomendas)
         const passageiroIds: number[] = [];
         const encomendaIds: number[] = [];
 
@@ -233,7 +249,7 @@ export default function PassListTripPage() {
         try {
             await api.post('/api/passageiroviagem/atribuir-massa', {
                 passageiroIds: passageiroIds,
-                encomendaIds: encomendaIds, // Envia a lista separada para o backend
+                encomendaIds: encomendaIds, 
                 taxistaId: taxistaIdToSend,
                 tipo: tipoEnvio
             });
@@ -250,6 +266,13 @@ export default function PassListTripPage() {
     const getAddressText = (item: ListItem) => {
         if (!item.address) return <span className="text-red-400 italic">Sem endereço</span>;
         return `${item.address.logradouro || ''}, ${item.address.bairro || ''}`;
+    };
+
+    // Helper para exibir nome no botão do combobox
+    const getSelectedTaxistaLabel = () => {
+        if (selectedTaxistaId === 'remove') return '(Remover Taxista)';
+        const t = taxistas.find(tax => tax.id.toString() === selectedTaxistaId);
+        return t ? t.pessoa.nome : "Escolha o Taxista...";
     };
 
     return (
@@ -301,7 +324,6 @@ export default function PassListTripPage() {
                                     {itemsList.map((item, idx) => {
                                         const isSelected = selectedUniqueIds.includes(item.uniqueId);
                                         
-                                        // Lógica Visual de Grupo (Só Passageiros)
                                         const groupSize = item.grupoId ? groupCounts[item.grupoId] || 0 : 0;
                                         const hasGroup = item.type === 'PASSENGER' && groupSize > 1;
 
@@ -310,7 +332,6 @@ export default function PassListTripPage() {
                                         const isGroupStart = hasGroup && (!prev || prev.grupoId !== item.grupoId);
                                         const isGroupEnd = hasGroup && (!next || next.grupoId !== item.grupoId);
 
-                                        // Dados
                                         const bagCount = item.bagagens ? item.bagagens.length : 0;
                                         const bagDescription = item.bagagens?.map((b: any) => b.descricao).join(', ');
 
@@ -321,10 +342,7 @@ export default function PassListTripPage() {
                                                     "flex items-start gap-3 p-3 cursor-pointer transition-colors relative",
                                                     !isSelected && "hover:bg-slate-50",
                                                     isSelected && "bg-orange-100/50",
-                                                    
-                                                    // Fundo azul claro para encomendas
                                                     item.type === 'PACKAGE' && !isSelected && "bg-blue-50/30",
-
                                                     hasGroup && [
                                                         "bg-orange-50/30",
                                                         "border-l-[4px] border-l-orange-300 pl-2", 
@@ -341,17 +359,13 @@ export default function PassListTripPage() {
                                                 <Checkbox checked={isSelected} className="mt-1 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500" />
                                                 
                                                 <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                                                    {/* LINHA 1 */}
                                                     <div className="flex justify-between items-start">
                                                         <div className="flex items-center gap-2 overflow-hidden">
                                                             {hasGroup && <LinkIcon className="w-3 h-3 text-orange-400 shrink-0" title="Vinculado" />}
-                                                            
                                                             {item.type === 'PACKAGE' && <Package className="w-4 h-4 text-blue-500 shrink-0" />}
-                                                            
                                                             <span className={cn("font-bold text-sm truncate", item.type === 'PACKAGE' ? "text-blue-700" : "text-slate-800")}>
                                                                 {item.name}
                                                             </span>
-                                                            
                                                             {item.type === 'PACKAGE' && (
                                                                 <span className="text-[9px] uppercase font-bold bg-blue-100 text-blue-700 px-1.5 rounded border border-blue-200">Encomenda</span>
                                                             )}
@@ -363,14 +377,11 @@ export default function PassListTripPage() {
                                                         )}
                                                     </div>
 
-                                                    {/* LINHA 2 */}
                                                     <p className="text-xs text-muted-foreground truncate border-l-2 pl-2 border-slate-200">
                                                         {getAddressText(item)}
                                                     </p>
 
-                                                    {/* LINHA 3: Badges */}
                                                     <div className="flex flex-wrap gap-2 items-center">
-                                                        
                                                         {item.type === 'PACKAGE' && item.descricaoEncomenda && (
                                                             <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[250px]">
                                                                 📦 {item.descricaoEncomenda}
@@ -442,23 +453,64 @@ export default function PassListTripPage() {
                     </div>
                     
                     <div className="flex gap-2">
-                        <Select value={selectedTaxistaId} onValueChange={setSelectedTaxistaId}>
-                            <SelectTrigger className="bg-white border-slate-200 text-slate-900 h-10 focus:ring-orange-500">
-                                <SelectValue placeholder="Escolha o Taxista..." />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white border-slate-200 text-slate-900 shadow-md">
-                                <SelectItem value="remove" className="text-red-500 focus:text-red-600 focus:bg-red-50 font-medium">
-                                    (Remover Taxista)
-                                </SelectItem>
-                                {taxistas.map(t => (
-                                    <SelectItem key={t.id} value={t.id.toString()} className="focus:bg-slate-100 cursor-pointer">
-                                        {t.pessoa.nome}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
                         
-                        <Button onClick={handleBulkAssign} className="bg-orange-500 hover:bg-orange-600 text-white px-6 shadow-sm">
+                        {/* === NOVO COMBOBOX DE TAXISTA COM BUSCA E SCROLL === */}
+                        <Popover open={openTaxistaCombobox} onOpenChange={setOpenTaxistaCombobox}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={openTaxistaCombobox}
+                                    className="flex-1 justify-between bg-white border-slate-200 text-slate-900 h-10 font-normal"
+                                >
+                                    <span className="truncate">
+                                        {selectedTaxistaId ? getSelectedTaxistaLabel() : "Escolha o Taxista..."}
+                                    </span>
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0" side="top" align="start">
+                                <Command>
+                                    <CommandInput placeholder="Buscar taxista..." />
+                                    <CommandList className="max-h-[300px] overflow-y-auto">
+                                        <CommandEmpty>Nenhum taxista encontrado.</CommandEmpty>
+                                        <CommandGroup>
+                                            <CommandItem
+                                                value="remove"
+                                                onSelect={() => {
+                                                    setSelectedTaxistaId("remove");
+                                                    setOpenTaxistaCombobox(false);
+                                                }}
+                                                className="text-red-500 font-medium"
+                                            >
+                                                <Check className={cn("mr-2 h-4 w-4", selectedTaxistaId === "remove" ? "opacity-100" : "opacity-0")} />
+                                                (Remover Taxista)
+                                            </CommandItem>
+                                            {taxistas.map((t) => (
+                                                <CommandItem
+                                                    key={t.id}
+                                                    value={t.pessoa.nome}
+                                                    onSelect={() => {
+                                                        setSelectedTaxistaId(t.id.toString());
+                                                        setOpenTaxistaCombobox(false);
+                                                    }}
+                                                >
+                                                    <Check
+                                                        className={cn(
+                                                            "mr-2 h-4 w-4",
+                                                            selectedTaxistaId === t.id.toString() ? "opacity-100" : "opacity-0"
+                                                        )}
+                                                    />
+                                                    {t.pessoa.nome}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        
+                        <Button onClick={handleBulkAssign} className="bg-orange-500 hover:bg-orange-600 text-white px-6 shadow-sm h-10">
                             <Save className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">Salvar</span>
                         </Button>
                     </div>
