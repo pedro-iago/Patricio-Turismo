@@ -18,7 +18,6 @@ import {
 } from './ui/pagination';
 import { cn } from './ui/utils';
 
-// Atualizado para suportar lista de telefones
 interface Person { id: number; nome: string; cpf: string; telefones?: string[]; telefone?: string; idade?: number; }
 interface Affiliate { id: number; pessoa: Person; }
 type AffiliateType = 'taxista' | 'comisseiro';
@@ -44,7 +43,6 @@ export default function AffiliatesPage() {
   const [comisseiroTotalPages, setComisseiroTotalPages] = useState(0);
 
   // --- FUNÇÕES DE BUSCA ---
-  
   const fetchTaxistas = useCallback(async (page: number, term: string) => {
     try {
       const endpoint = term 
@@ -54,7 +52,7 @@ export default function AffiliatesPage() {
       const response = await api.get<Page<Affiliate>>(endpoint);
       setTaxistas(response.data.content || []); 
       setTaxistaTotalPages(response.data.totalPages || 0);
-      // O backend retorna o número da página atual, atualizamos o estado para sincronizar
+      // Atualiza a página atual com o que veio do backend (garante sincronia)
       if (response.data.number !== undefined) setTaxistaPage(response.data.number);
     } catch (error) { 
         console.error("Erro Taxistas:", error); 
@@ -78,14 +76,15 @@ export default function AffiliatesPage() {
     }
   }, []);
 
-  // --- EFEITOS DE DEBOUNCE ---
-  // Quando o termo muda, reseta para página 0 e busca
+  // --- EFEITOS DE BUSCA (DEBOUNCE) ---
+  // Este efeito cuida da pesquisa E do carregamento inicial (quando term é '')
   useEffect(() => {
     const delay = setTimeout(() => {
+        // Sempre reseta para a página 0 ao pesquisar
         fetchTaxistas(0, taxistaSearchTerm);
     }, 500);
     return () => clearTimeout(delay);
-  }, [taxistaSearchTerm, fetchTaxistas]); // Removido taxistaPage da dependência para evitar loop
+  }, [taxistaSearchTerm, fetchTaxistas]);
 
   useEffect(() => {
     const delay = setTimeout(() => {
@@ -94,40 +93,39 @@ export default function AffiliatesPage() {
     return () => clearTimeout(delay);
   }, [comisseiroSearchTerm, fetchComisseiros]);
 
-  // --- EFEITO DE PAGINAÇÃO ---
-  // Só dispara quando a página muda (e não é 0, pois o efeito de busca já cobre o 0)
-  useEffect(() => {
-      if (taxistaPage > 0) fetchTaxistas(taxistaPage, taxistaSearchTerm);
-  }, [taxistaPage]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-      if (comisseiroPage > 0) fetchComisseiros(comisseiroPage, comisseiroSearchTerm);
-  }, [comisseiroPage]); // eslint-disable-line react-hooks/exhaustive-deps
-
-
+  // --- CARREGAR PESSOAS ---
   const fetchPeople = async () => {
-    try { const response = await api.get<Page<Person>>('/api/pessoa?page=0&size=100'); setPeopleList(response.data.content); } 
-    catch (error) { console.error("Erro:", error); }
+    try { 
+        const response = await api.get<Page<Person>>('/api/pessoa?page=0&size=100'); 
+        setPeopleList(response.data.content); 
+    } catch (error) { console.error("Erro:", error); }
   };
 
   useEffect(() => { fetchPeople(); }, []);
 
-  // --- HANDLERS ---
-
+  // --- HANDLERS DE PAGINAÇÃO CORRIGIDOS ---
+  // Agora chamamos o fetch diretamente ao clicar, garantindo que funcione para página 0
   const handlePageChange = (type: AffiliateType, newPage: number) => {
     if (type === 'taxista') {
-        if (newPage >= 0 && newPage < taxistaTotalPages) setTaxistaPage(newPage);
+        if (newPage >= 0 && newPage < taxistaTotalPages) {
+            setTaxistaPage(newPage); // Atualiza visual
+            fetchTaxistas(newPage, taxistaSearchTerm); // Busca dados
+        }
     } else {
-        if (newPage >= 0 && newPage < comisseiroTotalPages) setComisseiroPage(newPage);
+        if (newPage >= 0 && newPage < comisseiroTotalPages) {
+            setComisseiroPage(newPage);
+            fetchComisseiros(newPage, comisseiroSearchTerm);
+        }
     }
   };
 
+  // --- CRUD HANDLERS ---
   const handleSaveAffiliate = async (pessoaId: string) => {
     try {
       const payload = { pessoaId: parseInt(pessoaId, 10) };
       if (currentAffiliateType === 'taxista') { 
           await api.post('/api/v1/affiliates/taxistas', payload); 
-          fetchTaxistas(0, taxistaSearchTerm); 
+          fetchTaxistas(0, taxistaSearchTerm); // Recarrega página 0
       } else { 
           await api.post('/api/v1/affiliates/comisseiros', payload); 
           fetchComisseiros(0, comisseiroSearchTerm); 
@@ -141,7 +139,7 @@ export default function AffiliatesPage() {
     try {
       if (deleteTarget.type === 'taxista') { 
           await api.delete(`/api/v1/affiliates/taxistas/${deleteTarget.id}`); 
-          fetchTaxistas(taxistaPage, taxistaSearchTerm); 
+          fetchTaxistas(taxistaPage, taxistaSearchTerm); // Mantém na página atual
       } else { 
           await api.delete(`/api/v1/affiliates/comisseiros/${deleteTarget.id}`); 
           fetchComisseiros(comisseiroPage, comisseiroSearchTerm); 
@@ -153,13 +151,12 @@ export default function AffiliatesPage() {
   const openCreateModal = (type: AffiliateType) => { setCurrentAffiliateType(type); setIsModalOpen(true); };
   const openDeleteModal = (affiliate: Affiliate, type: AffiliateType) => { setDeleteTarget({ id: affiliate.id, type: type, name: affiliate.pessoa.nome }); };
 
-  // Helper para exibir telefones
   const formatPhones = (p: Person) => {
       if (p.telefones && p.telefones.length > 0) return p.telefones.join(' / ');
       return p.telefone || '-';
   };
 
-  // Componente de Tabela Reutilizável
+  // Componente de Tabela
   const AffiliateTable = ({ data, type }: { data: Affiliate[]; type: AffiliateType }) => (
     <>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 hidden md:block">
@@ -221,10 +218,7 @@ export default function AffiliatesPage() {
                 type="text" 
                 placeholder="Pesquisar taxista..." 
                 value={taxistaSearchTerm} 
-                onChange={(e) => {
-                    setTaxistaSearchTerm(e.target.value);
-                    // O debounce vai lidar com a busca, mas podemos resetar visualmente algo aqui se necessário
-                }} 
+                onChange={(e) => setTaxistaSearchTerm(e.target.value)} 
                 className="pl-10" 
               />
             </div>
