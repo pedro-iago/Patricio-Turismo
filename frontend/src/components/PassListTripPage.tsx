@@ -11,7 +11,7 @@ import { Checkbox } from './ui/checkbox';
 import api from '../services/api';
 import { cn } from './ui/utils';
 
-// --- IMPORTS NOVOS PARA A BUSCA ---
+// --- IMPORTS DA BUSCA (Combobox) ---
 import {
   Command,
   CommandEmpty,
@@ -29,23 +29,20 @@ import {
 interface Bus { id: number; placa: string; modelo: string; }
 interface Affiliate { id: number; pessoa: { nome: string }; }
 interface Bagagem { id: number; descricao: string; peso?: number; }
+interface Page<T> { content: T[]; } // Interface para resposta paginada
 
 // Interface Unificada (Item da Lista)
 interface ListItem {
-    uniqueId: string; // "p-1" ou "e-5"
+    uniqueId: string; 
     originalId: number;
     type: 'PASSENGER' | 'PACKAGE';
     name: string;
     phone?: string;
     address?: { cidade: string; bairro?: string; logradouro?: string };
     taxista?: Affiliate;
-    
-    // Campos específicos
     grupoId?: string;
     bagagens?: Bagagem[]; 
     descricaoEncomenda?: string;
-    
-    // Badge info
     numeroAssento?: string;
     onibus?: Bus | null;
     comisseiro?: Affiliate;
@@ -68,7 +65,7 @@ export default function PassListTripPage() {
     const [selectedTaxistaId, setSelectedTaxistaId] = useState<string>('');
     const [activeTab, setActiveTab] = useState<'coleta' | 'entrega'>('coleta');
     
-    // Novo estado para abrir/fechar o combobox de taxista
+    // Estado do Combobox
     const [openTaxistaCombobox, setOpenTaxistaCombobox] = useState(false);
 
     useEffect(() => { fetchData(); }, [tripId]);
@@ -80,8 +77,9 @@ export default function PassListTripPage() {
             const [tripRes, paxRes, pkgRes, taxRes] = await Promise.all([
                 api.get(`/api/viagem/${tripId}`),
                 api.get(`/api/passageiroviagem/viagem/${tripId}`),
-                api.get(`/api/v1/reports/encomendas/viagem/${tripId}`), // Busca encomendas
-                api.get('/api/v1/affiliates/taxistas') // Pega TODOS os taxistas (sem paginação se possível, ou page size grande)
+                api.get(`/api/v1/reports/encomendas/viagem/${tripId}`),
+                // === CORREÇÃO AQUI: Carrega 1000 taxistas para garantir que todos apareçam na busca ===
+                api.get<Page<Affiliate>>('/api/v1/affiliates/taxistas?page=0&size=1000')
             ]);
             
             // Mapeia Ônibus
@@ -91,7 +89,7 @@ export default function PassListTripPage() {
             }
             setBusMap(map);
 
-            // Carrega Bagagens (Detalhes)
+            // Carrega Bagagens
             const passengersWithDetails = await Promise.all(
                 paxRes.data.map(async (p: any) => {
                     let bagagens: Bagagem[] = p.bagagens || [];
@@ -107,7 +105,8 @@ export default function PassListTripPage() {
 
             setRawPassengers(passengersWithDetails);
             setRawPackages(pkgRes.data);
-            setTaxistas(taxRes.data.content || taxRes.data);
+            // Garante que pega o array content se vier paginado, ou o data direto se não
+            setTaxistas(taxRes.data.content || (Array.isArray(taxRes.data) ? taxRes.data : []));
         } catch (error) {
             console.error("Erro ao carregar dados", error);
         } finally {
@@ -115,7 +114,7 @@ export default function PassListTripPage() {
         }
     };
 
-    // Conta membros de grupos (apenas passageiros)
+    // Conta membros de grupos
     const groupCounts = useMemo(() => {
         const counts: Record<string, number> = {};
         rawPassengers.forEach(p => {
@@ -124,11 +123,11 @@ export default function PassListTripPage() {
         return counts;
     }, [rawPassengers]);
 
-    // === PROCESSAMENTO E UNIFICAÇÃO DA LISTA ===
+    // === PROCESSAMENTO DA LISTA ===
     const groupedItems = useMemo(() => {
         const items: ListItem[] = [];
 
-        // 1. Adiciona Passageiros
+        // Passageiros
         rawPassengers.forEach(p => {
             const isColeta = activeTab === 'coleta';
             const addr = isColeta ? p.enderecoColeta : p.enderecoEntrega;
@@ -151,7 +150,7 @@ export default function PassListTripPage() {
             });
         });
 
-        // 2. Adiciona Encomendas
+        // Encomendas
         rawPackages.forEach(pkg => {
             const isColeta = activeTab === 'coleta';
             const addr = isColeta ? pkg.enderecoColeta : pkg.enderecoEntrega;
@@ -167,15 +166,12 @@ export default function PassListTripPage() {
                 taxista: isColeta ? pkg.taxistaColeta : pkg.taxistaEntrega,
                 descricaoEncomenda: pkg.descricao,
                 comisseiro: pkg.comisseiro,
-                // Encomendas vão para o final da lista visualmente
                 ordem: (pkg.ordem || 999) + 1000 
             });
         });
 
-        // 3. Ordena
         items.sort((a, b) => a.ordem - b.ordem);
 
-        // 4. Agrupa por Cidade
         const groups: Record<string, ListItem[]> = {};
         items.forEach(item => {
             const cityKey = item.address?.cidade || 'Cidade não informada';
@@ -190,11 +186,8 @@ export default function PassListTripPage() {
 
     }, [rawPassengers, rawPackages, activeTab, busMap]);
 
-    // === LÓGICA DE SELEÇÃO INTELIGENTE ===
     const toggleSelect = (targetItem: ListItem) => {
         let idsToToggle = [targetItem.uniqueId];
-
-        // Se for passageiro e tiver grupo (família), seleciona todos
         if (targetItem.type === 'PASSENGER' && targetItem.grupoId) {
             const groupSize = groupCounts[targetItem.grupoId] || 0;
             if (groupSize > 1) {
@@ -204,15 +197,10 @@ export default function PassListTripPage() {
                 idsToToggle = relatedIds;
             }
         }
-
         setSelectedUniqueIds(prev => {
             const isSelected = prev.includes(targetItem.uniqueId);
-            if (isSelected) {
-                return prev.filter(id => !idsToToggle.includes(id));
-            } else {
-                const newIds = idsToToggle.filter(id => !prev.includes(id));
-                return [...prev, ...newIds];
-            }
+            if (isSelected) return prev.filter(id => !idsToToggle.includes(id));
+            return [...prev, ...idsToToggle.filter(id => !prev.includes(id))];
         });
     };
 
@@ -226,16 +214,10 @@ export default function PassListTripPage() {
         }
     };
 
-    // === ENVIO PARA O BACKEND ===
     const handleBulkAssign = async () => {
         if (selectedUniqueIds.length === 0) return;
-        
-        const taxistaIdToSend = (selectedTaxistaId && selectedTaxistaId !== 'remove') 
-            ? parseInt(selectedTaxistaId) 
-            : null;
-
+        const taxistaIdToSend = (selectedTaxistaId && selectedTaxistaId !== 'remove') ? parseInt(selectedTaxistaId) : null;
         const tipoEnvio = activeTab === 'coleta' ? 'COLETA' : 'ENTREGA';
-
         const passageiroIds: number[] = [];
         const encomendaIds: number[] = [];
 
@@ -248,12 +230,8 @@ export default function PassListTripPage() {
 
         try {
             await api.post('/api/passageiroviagem/atribuir-massa', {
-                passageiroIds: passageiroIds,
-                encomendaIds: encomendaIds, 
-                taxistaId: taxistaIdToSend,
-                tipo: tipoEnvio
+                passageiroIds, encomendaIds, taxistaId: taxistaIdToSend, tipo: tipoEnvio
             });
-            
             setSelectedUniqueIds([]);
             setSelectedTaxistaId('');
             await fetchData();
@@ -268,11 +246,16 @@ export default function PassListTripPage() {
         return `${item.address.logradouro || ''}, ${item.address.bairro || ''}`;
     };
 
-    // Helper para exibir nome no botão do combobox
     const getSelectedTaxistaLabel = () => {
         if (selectedTaxistaId === 'remove') return '(Remover Taxista)';
         const t = taxistas.find(tax => tax.id.toString() === selectedTaxistaId);
         return t ? t.pessoa.nome : "Escolha o Taxista...";
+    };
+
+    // Helper para formatar múltiplos telefones
+    const formatPhones = (phoneString?: string, phonesList?: string[]) => {
+        if (phonesList && phonesList.length > 0) return phonesList.join(' / ');
+        return phoneString || '';
     };
 
     return (
@@ -289,11 +272,7 @@ export default function PassListTripPage() {
                         <p className="text-sm text-muted-foreground">Defina os taxistas da viagem</p>
                     </div>
                 </div>
-                <Button 
-                    variant="outline" 
-                    onClick={() => navigate(`/trips/${tripId}/relatorio-taxistas`)}
-                    className="gap-2"
-                >
+                <Button variant="outline" onClick={() => navigate(`/trips/${tripId}/relatorio-taxistas`)} className="gap-2">
                     <Printer className="w-4 h-4" /> <span className="hidden sm:inline">Relatório PDF</span>
                 </Button>
             </div>
@@ -307,31 +286,25 @@ export default function PassListTripPage() {
                 <TabsContent value={activeTab} className="space-y-6">
                     {Object.entries(groupedItems).map(([city, itemsList]) => {
                         const allSelected = itemsList.every(item => selectedUniqueIds.includes(item.uniqueId));
-                        
                         return (
                             <Card key={city} className="border-l-4 border-l-orange-400 shadow-sm">
                                 <CardHeader className="py-3 bg-slate-50/80 border-b flex flex-row items-center justify-between cursor-pointer hover:bg-slate-100" onClick={() => toggleSelectGroup(itemsList)}>
                                     <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-800">
                                         <MapPin className="w-4 h-4 text-orange-500" />
                                         {city} 
-                                        <span className="text-xs font-normal text-muted-foreground bg-white px-2 py-0.5 rounded-full border ml-2">
-                                            {itemsList.length}
-                                        </span>
+                                        <span className="text-xs font-normal text-muted-foreground bg-white px-2 py-0.5 rounded-full border ml-2">{itemsList.length}</span>
                                     </CardTitle>
                                     {allSelected ? <CheckSquare className="w-5 h-5 text-orange-500" /> : <Square className="w-5 h-5 text-muted-foreground" />}
                                 </CardHeader>
                                 <CardContent className="p-0">
                                     {itemsList.map((item, idx) => {
                                         const isSelected = selectedUniqueIds.includes(item.uniqueId);
-                                        
                                         const groupSize = item.grupoId ? groupCounts[item.grupoId] || 0 : 0;
                                         const hasGroup = item.type === 'PASSENGER' && groupSize > 1;
-
                                         const prev = itemsList[idx - 1];
                                         const next = itemsList[idx + 1];
                                         const isGroupStart = hasGroup && (!prev || prev.grupoId !== item.grupoId);
                                         const isGroupEnd = hasGroup && (!next || next.grupoId !== item.grupoId);
-
                                         const bagCount = item.bagagens ? item.bagagens.length : 0;
                                         const bagDescription = item.bagagens?.map((b: any) => b.descricao).join(', ');
 
@@ -344,86 +317,33 @@ export default function PassListTripPage() {
                                                     isSelected && "bg-orange-100/50",
                                                     item.type === 'PACKAGE' && !isSelected && "bg-blue-50/30",
                                                     hasGroup && [
-                                                        "bg-orange-50/30",
-                                                        "border-l-[4px] border-l-orange-300 pl-2", 
-                                                        "border-r border-orange-200", 
+                                                        "bg-orange-50/30", "border-l-[4px] border-l-orange-300 pl-2", "border-r border-orange-200", 
                                                         isGroupStart && "border-t border-orange-200 mt-2 rounded-tr-md",
                                                         isGroupEnd && "border-b border-orange-200 mb-2 rounded-br-md",
-                                                        !isGroupEnd && "border-b-0",
-                                                        !isGroupStart && "mt-0" 
+                                                        !isGroupEnd && "border-b-0", !isGroupStart && "mt-0" 
                                                     ],
                                                     !hasGroup && "border-b border-slate-100 pl-3"
                                                 )}
                                                 onClick={() => toggleSelect(item)}
                                             >
                                                 <Checkbox checked={isSelected} className="mt-1 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500" />
-                                                
                                                 <div className="flex-1 min-w-0 flex flex-col gap-1.5">
                                                     <div className="flex justify-between items-start">
                                                         <div className="flex items-center gap-2 overflow-hidden">
                                                             {hasGroup && <LinkIcon className="w-3 h-3 text-orange-400 shrink-0" title="Vinculado" />}
                                                             {item.type === 'PACKAGE' && <Package className="w-4 h-4 text-blue-500 shrink-0" />}
-                                                            <span className={cn("font-bold text-sm truncate", item.type === 'PACKAGE' ? "text-blue-700" : "text-slate-800")}>
-                                                                {item.name}
-                                                            </span>
-                                                            {item.type === 'PACKAGE' && (
-                                                                <span className="text-[9px] uppercase font-bold bg-blue-100 text-blue-700 px-1.5 rounded border border-blue-200">Encomenda</span>
-                                                            )}
+                                                            <span className={cn("font-bold text-sm truncate", item.type === 'PACKAGE' ? "text-blue-700" : "text-slate-800")}>{item.name}</span>
+                                                            {item.type === 'PACKAGE' && <span className="text-[9px] uppercase font-bold bg-blue-100 text-blue-700 px-1.5 rounded border border-blue-200">Encomenda</span>}
                                                         </div>
-                                                        {item.phone && (
-                                                            <div className="flex items-center gap-1 text-xs text-slate-500 shrink-0">
-                                                                <Phone className="w-3 h-3" /><span>{item.phone}</span>
-                                                            </div>
-                                                        )}
+                                                        {item.phone && <div className="flex items-center gap-1 text-xs text-slate-500 shrink-0"><Phone className="w-3 h-3" /><span>{item.phone}</span></div>}
                                                     </div>
-
-                                                    <p className="text-xs text-muted-foreground truncate border-l-2 pl-2 border-slate-200">
-                                                        {getAddressText(item)}
-                                                    </p>
-
+                                                    <p className="text-xs text-muted-foreground truncate border-l-2 pl-2 border-slate-200">{getAddressText(item)}</p>
                                                     <div className="flex flex-wrap gap-2 items-center">
-                                                        {item.type === 'PACKAGE' && item.descricaoEncomenda && (
-                                                            <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[250px]">
-                                                                📦 {item.descricaoEncomenda}
-                                                            </span>
-                                                        )}
-
-                                                        {(item.numeroAssento || item.onibus) && (
-                                                            <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100">
-                                                                <Armchair className="w-3 h-3" /> 
-                                                                {item.numeroAssento || '?'} 
-                                                                {item.onibus && <span className="text-blue-300 mx-0.5">|</span>}
-                                                                {item.onibus && <span>{item.onibus.placa}</span>}
-                                                            </span>
-                                                        )}
-
-                                                        {bagCount > 0 && (
-                                                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200 w-fit">
-                                                                <Briefcase className="w-3 h-3 shrink-0" /> 
-                                                                <span className="font-bold">{bagCount}</span>
-                                                                <span className="text-slate-500 border-l border-slate-300 pl-1.5 ml-0.5">
-                                                                    {bagDescription}
-                                                                </span>
-                                                            </span>
-                                                        )}
-
-                                                        {item.comisseiro && (
-                                                            <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-100">
-                                                                <User className="w-3 h-3" /> {item.comisseiro.pessoa.nome}
-                                                            </span>
-                                                        )}
-
-                                                        <div className="ml-auto">
-                                                            {item.taxista ? (
-                                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200">
-                                                                    <Car className="w-3 h-3" /> {item.taxista.pessoa.nome}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="inline-flex items-center text-[10px] font-bold bg-red-50 text-red-600 px-2 py-0.5 rounded-full border border-red-100">
-                                                                    Pendente
-                                                                </span>
-                                                            )}
-                                                        </div>
+                                                        {item.type === 'PACKAGE' && item.descricaoEncomenda && <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[250px]">📦 {item.descricaoEncomenda}</span>}
+                                                        {(item.numeroAssento || item.onibus) && <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100"><Armchair className="w-3 h-3" /> {item.numeroAssento || '?'} {item.onibus && <span className="text-blue-300 mx-0.5">|</span>} {item.onibus && <span>{item.onibus.placa}</span>}</span>}
+                                                        {bagCount > 0 && <span className="inline-flex items-center gap-1.5 text-[10px] font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200 w-fit"><Briefcase className="w-3 h-3 shrink-0" /> <span className="font-bold">{bagCount}</span><span className="text-slate-500 border-l border-slate-300 pl-1.5 ml-0.5">{bagDescription}</span></span>}
+                                                        {item.comisseiro && <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-100"><User className="w-3 h-3" /> {item.comisseiro.pessoa.nome}</span>}
+                                                        <div className="ml-auto">{item.taxista ? <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200"><Car className="w-3 h-3" /> {item.taxista.pessoa.nome}</span> : <span className="inline-flex items-center text-[10px] font-bold bg-red-50 text-red-600 px-2 py-0.5 rounded-full border border-red-100">Pendente</span>}</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -439,33 +359,16 @@ export default function PassListTripPage() {
             {selectedUniqueIds.length > 0 && (
                 <div className="fixed bottom-4 left-4 right-4 md:left-1/2 md:w-[600px] md:-translate-x-1/2 bg-white text-slate-900 p-4 rounded-xl shadow-2xl flex flex-col gap-3 animate-in slide-in-from-bottom-10 z-50 border border-slate-200">
                     <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                        <span className="text-sm text-slate-600">
-                            <b className="text-slate-900">{selectedUniqueIds.length}</b> itens selecionados
-                        </span>
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-xs h-6 text-slate-500 hover:text-slate-900 hover:bg-slate-100" 
-                            onClick={() => setSelectedUniqueIds([])}
-                        >
-                            <X className="w-3 h-3 mr-1" /> Cancelar
-                        </Button>
+                        <span className="text-sm text-slate-600"><b className="text-slate-900">{selectedUniqueIds.length}</b> itens selecionados</span>
+                        <Button variant="ghost" size="sm" className="text-xs h-6 text-slate-500 hover:text-slate-900 hover:bg-slate-100" onClick={() => setSelectedUniqueIds([])}><X className="w-3 h-3 mr-1" /> Cancelar</Button>
                     </div>
-                    
                     <div className="flex gap-2">
                         
-                        {/* === NOVO COMBOBOX DE TAXISTA COM BUSCA E SCROLL === */}
+                        {/* === COMBOBOX DE TAXISTA COM BUSCA === */}
                         <Popover open={openTaxistaCombobox} onOpenChange={setOpenTaxistaCombobox}>
                             <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={openTaxistaCombobox}
-                                    className="flex-1 justify-between bg-white border-slate-200 text-slate-900 h-10 font-normal"
-                                >
-                                    <span className="truncate">
-                                        {selectedTaxistaId ? getSelectedTaxistaLabel() : "Escolha o Taxista..."}
-                                    </span>
+                                <Button variant="outline" role="combobox" aria-expanded={openTaxistaCombobox} className="flex-1 justify-between bg-white border-slate-200 text-slate-900 h-10 font-normal">
+                                    <span className="truncate">{selectedTaxistaId ? getSelectedTaxistaLabel() : "Escolha o Taxista..."}</span>
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
@@ -475,32 +378,12 @@ export default function PassListTripPage() {
                                     <CommandList className="max-h-[300px] overflow-y-auto">
                                         <CommandEmpty>Nenhum taxista encontrado.</CommandEmpty>
                                         <CommandGroup>
-                                            <CommandItem
-                                                value="remove"
-                                                onSelect={() => {
-                                                    setSelectedTaxistaId("remove");
-                                                    setOpenTaxistaCombobox(false);
-                                                }}
-                                                className="text-red-500 font-medium"
-                                            >
-                                                <Check className={cn("mr-2 h-4 w-4", selectedTaxistaId === "remove" ? "opacity-100" : "opacity-0")} />
-                                                (Remover Taxista)
+                                            <CommandItem value="remove" onSelect={() => { setSelectedTaxistaId("remove"); setOpenTaxistaCombobox(false); }} className="text-red-500 font-medium">
+                                                <Check className={cn("mr-2 h-4 w-4", selectedTaxistaId === "remove" ? "opacity-100" : "opacity-0")} /> (Remover Taxista)
                                             </CommandItem>
                                             {taxistas.map((t) => (
-                                                <CommandItem
-                                                    key={t.id}
-                                                    value={t.pessoa.nome}
-                                                    onSelect={() => {
-                                                        setSelectedTaxistaId(t.id.toString());
-                                                        setOpenTaxistaCombobox(false);
-                                                    }}
-                                                >
-                                                    <Check
-                                                        className={cn(
-                                                            "mr-2 h-4 w-4",
-                                                            selectedTaxistaId === t.id.toString() ? "opacity-100" : "opacity-0"
-                                                        )}
-                                                    />
+                                                <CommandItem key={t.id} value={t.pessoa.nome} onSelect={() => { setSelectedTaxistaId(t.id.toString()); setOpenTaxistaCombobox(false); }}>
+                                                    <Check className={cn("mr-2 h-4 w-4", selectedTaxistaId === t.id.toString() ? "opacity-100" : "opacity-0")} />
                                                     {t.pessoa.nome}
                                                 </CommandItem>
                                             ))}
@@ -510,9 +393,7 @@ export default function PassListTripPage() {
                             </PopoverContent>
                         </Popover>
                         
-                        <Button onClick={handleBulkAssign} className="bg-orange-500 hover:bg-orange-600 text-white px-6 shadow-sm h-10">
-                            <Save className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">Salvar</span>
-                        </Button>
+                        <Button onClick={handleBulkAssign} className="bg-orange-500 hover:bg-orange-600 text-white px-6 shadow-sm h-10"><Save className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">Salvar</span></Button>
                     </div>
                 </div>
             )}
