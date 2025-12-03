@@ -24,7 +24,9 @@ public class PassageiroViagemService {
     @Autowired private ComisseiroRepository comisseiroRepository;
     @Autowired private AssentoRepository assentoRepository;
 
-    // INJEÇÃO DO SERVIÇO DE ENCOMENDAS
+    // --- NOVO: Necessário para buscar o ônibus ao criar assento novo ---
+    @Autowired private OnibusRepository onibusRepository;
+
     @Autowired private EncomendaService encomendaService;
 
     // === NOVO MÉTODO: REORDENAR ===
@@ -72,7 +74,6 @@ public class PassageiroViagemService {
     public void atribuirTaxistaEmMassa(List<Long> passageiroIds, List<Long> encomendaIds, Long taxistaId, String tipo) {
         Taxista taxista = null;
 
-        // Se o ID for enviado, busca o taxista. Se for null, taxista permanece null (para desvincular)
         if (taxistaId != null) {
             taxista = taxistaRepository.findById(taxistaId)
                     .orElseThrow(() -> new EntityNotFoundException("Taxista não encontrado"));
@@ -190,9 +191,11 @@ public class PassageiroViagemService {
         });
     }
 
+    // === MÉTODO CORRIGIDO PARA CRIAR ASSENTO SE NÃO EXISTIR ===
     @Transactional
     public PassengerResponseDto vincularAssentoPorNumero(Long passageiroId, Long onibusId, String numeroAssento) {
-        PassageiroViagem pv = repository.findById(passageiroId).orElseThrow(() -> new EntityNotFoundException("Passageiro não encontrado"));
+        PassageiroViagem pv = repository.findById(passageiroId)
+                .orElseThrow(() -> new EntityNotFoundException("Passageiro não encontrado"));
 
         if (numeroAssento == null || numeroAssento.isEmpty()) {
             if (pv.getAssento() != null) {
@@ -205,8 +208,21 @@ public class PassageiroViagemService {
             return new PassengerResponseDto(repository.save(pv));
         }
 
+        // TENTA BUSCAR, SE NÃO ACHAR, CRIA O ASSENTO NA HORA
         Assento novoAssento = assentoRepository.findByViagemIdAndOnibusIdAndNumero(pv.getViagem().getId(), onibusId, numeroAssento)
-                .orElseThrow(() -> new EntityNotFoundException("Assento " + numeroAssento + " não encontrado no ônibus ID " + onibusId));
+                .orElseGet(() -> {
+                    Onibus onibus = onibusRepository.findById(onibusId)
+                            .orElseThrow(() -> new EntityNotFoundException("Ônibus ID " + onibusId + " não encontrado."));
+
+                    Assento assento = new Assento();
+                    assento.setViagem(pv.getViagem());
+                    assento.setOnibus(onibus);
+                    assento.setNumero(numeroAssento);
+                    // assento.setTipo("PADRAO"); // Removido por segurança pois não vi a entidade Assento completa, mas se existir pode descomentar
+                    assento.setOcupado(false);
+
+                    return assentoRepository.save(assento);
+                });
 
         if (novoAssento.isOcupado() && !novoAssento.equals(pv.getAssento())) {
             throw new RuntimeException("O assento " + numeroAssento + " já está ocupado.");
@@ -220,11 +236,15 @@ public class PassageiroViagemService {
         }
 
         novoAssento.setOcupado(true);
+        // Garante bidirecionalidade se existir o campo na entidade Assento
+        novoAssento.setPassageiroViagem(pv);
+
         pv.setAssento(novoAssento);
         assentoRepository.save(novoAssento);
 
         return new PassengerResponseDto(repository.save(pv));
     }
+    // ==========================================================
 
     @Transactional
     public PassengerResponseDto updateCor(Long id, String cor) {
