@@ -131,6 +131,12 @@ public class PassageiroViagemService {
             pv.setAssento(assento);
         }
 
+        // === LÓGICA DE ORDENAÇÃO: COLOCAR NO TOPO ===
+        Integer minOrdem = repository.findMinOrdemByViagemId(viagem.getId());
+        // Se minOrdem for null (primeiro passageiro), usa 0. Se não, subtrai 1.
+        pv.setOrdem(minOrdem != null ? minOrdem - 1 : 0);
+        // ============================================
+
         PassageiroViagem pvSalvo = repository.save(pv);
         return new PassengerResponseDto(pvSalvo);
     }

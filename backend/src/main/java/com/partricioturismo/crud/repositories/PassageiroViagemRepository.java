@@ -20,10 +20,8 @@ public interface PassageiroViagemRepository extends JpaRepository<PassageiroViag
             "LEFT JOIN FETCH pv.taxistaEntrega " +
             "LEFT JOIN FETCH pv.comisseiro " +
             "WHERE pv.viagem.id = :viagemId " +
-            "ORDER BY pv.ordem ASC, pv.id ASC") // <-- ALTERADO AQUI
+            "ORDER BY pv.ordem ASC, pv.id ASC")
     List<PassageiroViagem> findByViagemId(@Param("viagemId") Long viagemId);
-
-    // ... (Outros métodos permanecem inalterados, copiei apenas os principais para brevidade, mas mantenha os que você já tem no arquivo original) ...
 
     @Query("SELECT pv FROM PassageiroViagem pv " +
             "JOIN FETCH pv.pessoa " +
@@ -82,4 +80,8 @@ public interface PassageiroViagemRepository extends JpaRepository<PassageiroViag
             "LEFT JOIN FETCH pv.comisseiro " +
             "WHERE p.id = :pessoaId ORDER BY v.dataHoraPartida DESC")
     List<PassageiroViagem> findByPessoaIdWithHistory(@Param("pessoaId") Long pessoaId);
+
+    // --- NOVO MÉTODO PARA BUSCAR A MENOR ORDEM ---
+    @Query("SELECT MIN(pv.ordem) FROM PassageiroViagem pv WHERE pv.viagem.id = :viagemId")
+    Integer findMinOrdemByViagemId(@Param("viagemId") Long viagemId);
 }
