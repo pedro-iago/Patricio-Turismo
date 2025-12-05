@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from './ui/checkbox';
 import api from '../services/api';
 
-import { Check, ChevronsUpDown, Pencil } from "lucide-react";
+import { Check, ChevronsUpDown, Pencil, X } from "lucide-react";
 import { cn } from './ui/utils';
 import {
   Command,
@@ -388,7 +388,7 @@ export default function PackageModal({ isOpen, onClose, onSave, pkg }: PackageMo
             
             <hr className="my-2 border-gray-100" />
 
-            {/* AFILIADOS */}
+            {/* AFILIADOS - AGORA COM OPÇÃO DE LIMPAR */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Taxista (Coleta)</Label>
@@ -405,6 +405,18 @@ export default function PackageModal({ isOpen, onClose, onSave, pkg }: PackageMo
                       <CommandList>
                         <CommandEmpty>Nenhum encontrado.</CommandEmpty>
                         <CommandGroup>
+                          {/* OPÇÃO PARA LIMPAR */}
+                          <CommandItem 
+                            value="nenhum" 
+                            onSelect={() => {
+                                setFormData({ ...formData, taxistaColetaId: '' });
+                                setOpenTaxistaColetaPopover(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", formData.taxistaColetaId === '' ? "opacity-100" : "opacity-0")} />
+                            Nenhum (Limpar)
+                          </CommandItem>
+
                           {taxistas.map((taxista) => (
                             <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
                                 setFormData({ ...formData, taxistaColetaId: taxista.id.toString() });
@@ -436,6 +448,18 @@ export default function PackageModal({ isOpen, onClose, onSave, pkg }: PackageMo
                       <CommandList>
                         <CommandEmpty>Nenhum encontrado.</CommandEmpty>
                         <CommandGroup>
+                          {/* OPÇÃO PARA LIMPAR */}
+                          <CommandItem 
+                            value="nenhum" 
+                            onSelect={() => {
+                                setFormData({ ...formData, taxistaEntregaId: '' });
+                                setOpenTaxistaEntregaPopover(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", formData.taxistaEntregaId === '' ? "opacity-100" : "opacity-0")} />
+                            Nenhum (Limpar)
+                          </CommandItem>
+
                           {taxistas.map((taxista) => (
                             <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
                                 setFormData({ ...formData, taxistaEntregaId: taxista.id.toString() });
@@ -468,6 +492,18 @@ export default function PackageModal({ isOpen, onClose, onSave, pkg }: PackageMo
                     <CommandList>
                       <CommandEmpty>Nenhum encontrado.</CommandEmpty>
                       <CommandGroup>
+                        {/* OPÇÃO PARA LIMPAR */}
+                        <CommandItem 
+                            value="nenhum" 
+                            onSelect={() => {
+                                setFormData({ ...formData, comisseiroId: '' });
+                                setOpenComisseiroPopover(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", formData.comisseiroId === '' ? "opacity-100" : "opacity-0")} />
+                            Nenhum (Limpar)
+                          </CommandItem>
+
                         {comisseiros.map((comisseiro) => (
                           <CommandItem key={comisseiro.id} value={comisseiro.pessoa.nome} onSelect={() => {
                               setFormData({ ...formData, comisseiroId: comisseiro.id.toString() });

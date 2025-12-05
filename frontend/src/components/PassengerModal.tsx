@@ -32,7 +32,7 @@ import AddressModal from './AddressModal';
 interface PersonSaveDto { 
   nome: string; 
   cpf: string; 
-  telefones: string[]; // Agora aceita lista de telefones
+  telefones: string[]; 
   idade: number | null; 
 }
 interface AddressSaveDto { logradouro: string; numero: string; bairro: string; cidade: string; estado: string; cep: string; }
@@ -63,18 +63,14 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: a
   const [openTaxistaEntregaPopover, setOpenTaxistaEntregaPopover] = useState(false);
   const [openComisseiroPopover, setOpenComisseiroPopover] = useState(false);
 
-  // === ESTADOS QUE ESTAVAM FALTANDO (CORRIGIDO) ===
   const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   
-  // Estados para Edição
   const [editingPerson, setEditingPerson] = useState<any | null>(null);
   const [editingAddress, setEditingAddress] = useState<any | null>(null);
   const [addressModalTarget, setAddressModalTarget] = useState<'pickupAddressId' | 'dropoffAddressId' | null>(null);
   
-  // Chave para forçar refresh visual dos comboboxes após edição
   const [refreshKey, setRefreshKey] = useState(0);
-  // ================================================
 
   useEffect(() => {
     if (isOpen) {
@@ -168,7 +164,6 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: a
       const payload = {
           ...personDto,
           idade: (personDto.idade === null || personDto.idade.toString() === '') ? null : Number(personDto.idade),
-          // Backend espera array de telefones
           telefones: personDto.telefones
       };
 
@@ -328,6 +323,7 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: a
             
             <hr className="my-4" />
 
+            {/* AFILIADOS - AGORA COM OPÇÃO DE LIMPAR */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Taxista (Coleta)</Label>
@@ -344,6 +340,18 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: a
                       <CommandList>
                         <CommandEmpty>Nenhum encontrado.</CommandEmpty>
                         <CommandGroup>
+                          {/* OPÇÃO PARA LIMPAR */}
+                          <CommandItem 
+                            value="nenhum" 
+                            onSelect={() => {
+                                setFormData({ ...formData, taxistaColetaId: '' });
+                                setOpenTaxistaColetaPopover(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", formData.taxistaColetaId === '' ? "opacity-100" : "opacity-0")} />
+                            Nenhum (Limpar)
+                          </CommandItem>
+
                           {taxistas.map((taxista) => (
                             <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
                                 setFormData({ ...formData, taxistaColetaId: taxista.id.toString() });
@@ -375,6 +383,18 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: a
                       <CommandList>
                         <CommandEmpty>Nenhum encontrado.</CommandEmpty>
                         <CommandGroup>
+                          {/* OPÇÃO PARA LIMPAR */}
+                          <CommandItem 
+                            value="nenhum" 
+                            onSelect={() => {
+                                setFormData({ ...formData, taxistaEntregaId: '' });
+                                setOpenTaxistaEntregaPopover(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", formData.taxistaEntregaId === '' ? "opacity-100" : "opacity-0")} />
+                            Nenhum (Limpar)
+                          </CommandItem>
+
                           {taxistas.map((taxista) => (
                             <CommandItem key={taxista.id} value={taxista.pessoa.nome} onSelect={() => {
                                 setFormData({ ...formData, taxistaEntregaId: taxista.id.toString() });
@@ -407,6 +427,18 @@ export default function PassengerModal({ isOpen, onClose, onSave, passenger }: a
                     <CommandList>
                       <CommandEmpty>Nenhum encontrado.</CommandEmpty>
                       <CommandGroup>
+                        {/* OPÇÃO PARA LIMPAR */}
+                        <CommandItem 
+                            value="nenhum" 
+                            onSelect={() => {
+                                setFormData({ ...formData, comisseiroId: '' });
+                                setOpenComisseiroPopover(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", formData.comisseiroId === '' ? "opacity-100" : "opacity-0")} />
+                            Nenhum (Limpar)
+                          </CommandItem>
+
                         {comisseiros.map((comisseiro) => (
                           <CommandItem key={comisseiro.id} value={comisseiro.pessoa.nome} onSelect={() => {
                               setFormData({ ...formData, comisseiroId: comisseiro.id.toString() });
