@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
-// Removido Select, SelectItem, etc.
 import { Printer, ArrowLeft, X, Filter, List, Check, ChevronsUpDown } from 'lucide-react';
 import api from '../services/api';
-import PassengerTable from './PassengerTable';
-import PackageTable from './PackageTable';
 import { Skeleton } from './ui/skeleton';
-import logo from '../assets/logo.png';
+
+// --- Imports do PDF ---
+import { PDFViewer } from '@react-pdf/renderer';
+import { TripReportPDF } from './reports/TripReportPDF';
+import { SimplePassengerListPDF } from './reports/SimplePassengerListPDF';
 
 // --- Imports para o Combobox (Busca) ---
 import { cn } from './ui/utils';
@@ -26,12 +26,10 @@ import {
   PopoverTrigger,
 } from "./ui/popover"
 
-// --- COMPONENTE SIMPLES DE BUSCA (COMBOBOX) ---
-// Colocamos aqui dentro para não criar arquivos extras
+// --- COMPONENTE INTERNO DE BUSCA (COMBOBOX) ---
 const FilterCombobox = ({ options, value, onChange, placeholder, width = "w-[140px]" }: any) => {
   const [open, setOpen] = useState(false);
 
-  // Encontra o label do item selecionado
   const selectedLabel = useMemo(() => {
     if (!value || value === 'todos') return placeholder;
     const found = options.find((opt: any) => opt.value === value);
@@ -57,7 +55,6 @@ const FilterCombobox = ({ options, value, onChange, placeholder, width = "w-[140
           <CommandList>
             <CommandEmpty>Não encontrado.</CommandEmpty>
             <CommandGroup>
-              {/* Opção para Limpar/Todos */}
               <CommandItem
                 value="todos"
                 onSelect={() => {
@@ -74,11 +71,10 @@ const FilterCombobox = ({ options, value, onChange, placeholder, width = "w-[140
                 Todos (Limpar)
               </CommandItem>
 
-              {/* Lista de Opções */}
               {options.map((option: any) => (
                 <CommandItem
                   key={option.value}
-                  value={option.label} // Filtra pelo nome visível
+                  value={option.label}
                   onSelect={() => {
                     onChange(option.value);
                     setOpen(false);
@@ -118,12 +114,13 @@ interface TripDto {
 
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
-interface Address { id: number; cidade?: string; bairro?: string; }
+interface Address { id: number; cidade?: string; bairro?: string; logradouro?: string; numero?: string; }
 interface Bagagem { id: number; descricao: string; }
 
 interface PassengerData { 
   id: number;
   onibusId?: number;
+  pessoa: { nome: string; cpf?: string; telefone?: string; telefones?: string[] };
   taxista?: Affiliate;
   taxistaColeta?: Affiliate;
   taxistaEntrega?: Affiliate;
@@ -132,11 +129,15 @@ interface PassengerData {
   enderecoEntrega?: Address;
   bagagens?: Bagagem[];
   luggageCount?: number;
+  valor?: number;
+  pago?: boolean;
+  numeroAssento?: string;
   [key: string]: any; 
 } 
 
 interface PackageData { 
   id: number;
+  descricao: string;
   remetente: { id: number; nome: string };
   destinatario: { id: number; nome: string };
   taxistaColeta?: Affiliate;
@@ -144,6 +145,8 @@ interface PackageData {
   comisseiro?: Affiliate;
   enderecoColeta?: Address;
   enderecoEntrega?: Address;
+  valor?: number;
+  pago?: boolean;
   [key: string]: any; 
 }
 
@@ -163,9 +166,9 @@ export default function PrintReportPage() {
   const [filterBairro, setFilterBairro] = useState<string>("todos");
 
   const [printMode, setPrintMode] = useState<'FULL' | 'SIMPLE'>('FULL');
-
   const [busMap, setBusMap] = useState<Map<number, Bus>>(new Map());
 
+  // --- Busca de Dados ---
   useEffect(() => {
     const fetchAllData = async () => {
       if (!tripId) { setLoading(false); return; }
@@ -217,9 +220,7 @@ export default function PrintReportPage() {
     fetchAllData();
   }, [tripId]);
 
-  // --- PREPARAÇÃO DE DADOS PARA OS FILTROS ---
-  // Agora retornamos objetos { value, label } para o nosso FilterCombobox
-
+  // --- OPÇÕES PARA OS FILTROS ---
   const busOptions = useMemo(() => {
     if (!trip?.onibus) return [];
     return trip.onibus.map(b => ({ value: String(b.id), label: b.placa }));
@@ -259,7 +260,7 @@ export default function PrintReportPage() {
       return list.map(item => ({ value: item as string, label: item as string }));
   }, [passengers, packages]);
 
-  // --- Lógica de Filtragem (Mantida igual) ---
+  // --- LÓGICA DE FILTRAGEM ---
   const filteredPassengers = useMemo(() => {
       return passengers.filter(p => {
           if (filterBusId !== "todos" && String(p.onibusId) !== filterBusId) return false;
@@ -304,19 +305,6 @@ export default function PrintReportPage() {
       });
   }, [packages, filterBusId, filterTaxista, filterComisseiro, filterCidade, filterBairro]);
 
-  const handlePrintFull = () => {
-      setPrintMode('FULL');
-      setTimeout(() => window.print(), 100);
-  };
-
-  const handlePrintSimple = () => {
-      setPrintMode('SIMPLE');
-      setTimeout(() => {
-          window.print();
-          setPrintMode('FULL'); 
-      }, 500);
-  };
-
   const resetFilters = () => {
       setFilterBusId("todos");
       setFilterTaxista("todos");
@@ -326,6 +314,11 @@ export default function PrintReportPage() {
   };
   
   const hasActiveFilters = filterBusId !== 'todos' || filterTaxista !== 'todos' || filterComisseiro !== 'todos' || filterCidade !== 'todos' || filterBairro !== 'todos';
+  
+  // Calcula o texto do ônibus para o cabeçalho do PDF Simples
+  const busInfo = filterBusId !== "todos"
+      ? (() => { const b = busMap.get(Number(filterBusId)); return b ? `${b.placa} - ${b.modelo}` : 'Ônibus Selecionado'; })()
+      : (trip?.onibus && trip.onibus.length > 0 ? trip.onibus.map(b => `${b.placa} - ${b.modelo}`).join(', ') : 'Todos os Ônibus');
 
   if (loading) {
     return (
@@ -340,15 +333,11 @@ export default function PrintReportPage() {
     return <div className="p-10">Viagem não encontrada.</div>;
   }
 
-  const busInfo = filterBusId !== "todos"
-      ? (() => { const b = busMap.get(Number(filterBusId)); return b ? `${b.placa} - ${b.modelo}` : 'Ônibus Selecionado'; })()
-      : (trip.onibus && trip.onibus.length > 0 ? trip.onibus.map(b => `${b.placa} - ${b.modelo}`).join(', ') : 'Nenhum ônibus vinculado');
-
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white flex flex-col h-screen overflow-hidden">
       
-      {/* --- BARRA DE FILTROS --- */}
-      <div className="sticky top-0 z-50 bg-gray-100 border-b border-gray-200 p-4 print:hidden shadow-sm">
+      {/* --- BARRA DE FERRAMENTAS --- */}
+      <div className="bg-gray-100 border-b border-gray-200 p-4 shadow-sm z-10">
           <div className="max-w-7xl mx-auto flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
               
               <div className="flex items-center gap-4 w-full xl:w-auto">
@@ -362,47 +351,14 @@ export default function PrintReportPage() {
 
               <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
                   
-                  {/* Combobox Ônibus */}
+                  {/* Comboboxes de Filtro */}
                   {trip.onibus && trip.onibus.length > 0 && (
-                      <FilterCombobox 
-                        options={busOptions} 
-                        value={filterBusId} 
-                        onChange={setFilterBusId} 
-                        placeholder="Ônibus" 
-                      />
+                      <FilterCombobox options={busOptions} value={filterBusId} onChange={setFilterBusId} placeholder="Ônibus" />
                   )}
-
-                  {/* Combobox Taxista */}
-                  <FilterCombobox 
-                    options={taxistaOptions} 
-                    value={filterTaxista} 
-                    onChange={setFilterTaxista} 
-                    placeholder="Taxista" 
-                  />
-
-                  {/* Combobox Comisseiro */}
-                  <FilterCombobox 
-                    options={comisseiroOptions} 
-                    value={filterComisseiro} 
-                    onChange={setFilterComisseiro} 
-                    placeholder="Comisseiro" 
-                  />
-
-                  {/* Combobox Cidade */}
-                  <FilterCombobox 
-                    options={cidadeOptions} 
-                    value={filterCidade} 
-                    onChange={setFilterCidade} 
-                    placeholder="Cidade" 
-                  />
-
-                  {/* Combobox Bairro */}
-                  <FilterCombobox 
-                    options={bairroOptions} 
-                    value={filterBairro} 
-                    onChange={setFilterBairro} 
-                    placeholder="Bairro" 
-                  />
+                  <FilterCombobox options={taxistaOptions} value={filterTaxista} onChange={setFilterTaxista} placeholder="Taxista" />
+                  <FilterCombobox options={comisseiroOptions} value={filterComisseiro} onChange={setFilterComisseiro} placeholder="Comisseiro" />
+                  <FilterCombobox options={cidadeOptions} value={filterCidade} onChange={setFilterCidade} placeholder="Cidade" />
+                  <FilterCombobox options={bairroOptions} value={filterBairro} onChange={setFilterBairro} placeholder="Bairro" />
                   
                   {hasActiveFilters && (
                       <Button variant="ghost" size="icon" onClick={resetFilters} className="text-red-500 h-9 w-9" title="Limpar Filtros">
@@ -412,130 +368,51 @@ export default function PrintReportPage() {
 
                   <div className="h-6 w-px bg-gray-300 mx-2 hidden xl:block" />
                   
-                  <Button onClick={handlePrintSimple} className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 gap-2 w-full xl:w-auto h-9">
+                  {/* BOTÕES DE TROCA DE MODO */}
+                  <Button 
+                    onClick={() => setPrintMode('SIMPLE')} 
+                    variant={printMode === 'SIMPLE' ? 'default' : 'outline'}
+                    className="gap-2 w-full xl:w-auto h-9"
+                  >
                       <List className="w-4 h-4" /> Lista Simples
                   </Button>
 
-                  <Button onClick={handlePrintFull} className="bg-orange-500 hover:bg-orange-600 text-white gap-2 w-full xl:w-auto h-9">
+                  <Button 
+                    onClick={() => setPrintMode('FULL')} 
+                    variant={printMode === 'FULL' ? 'default' : 'outline'}
+                    className={printMode === 'FULL' ? "bg-orange-500 hover:bg-orange-600 text-white gap-2 w-full xl:w-auto h-9" : "gap-2 w-full xl:w-auto h-9"}
+                  >
                       <Printer className="w-4 h-4" /> Relatório Completo
                   </Button>
               </div>
           </div>
       </div>
 
-      {/* --- MODO 1: RELATÓRIO COMPLETO --- */}
-      {printMode === 'FULL' && (
-        <div className="p-10 space-y-6 pt-print-container max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-6 border-b pb-4">
-            <img src={logo} alt="Patricio Turismo" className="h-16 w-auto" />
-            <div className="text-right">
-                <h1 className="text-2xl font-bold text-gray-800">Relatório de Viagem</h1>
-                <p className="text-muted-foreground">Bahia ↔ São Paulo</p>
-                
-                {hasActiveFilters && (
-                    <div className="text-xs text-gray-500 mt-2 print:block">
-                        <b>Filtros:</b>
-                        {filterBusId !== 'todos' && <span className="ml-2">Bus: {busMap.get(Number(filterBusId))?.placa}</span>}
-                        {filterTaxista !== 'todos' && <span className="ml-2">| Taxista: {filterTaxista}</span>}
-                        {filterComisseiro !== 'todos' && <span className="ml-2">| Comis.: {filterComisseiro}</span>}
-                        {filterCidade !== 'todos' && <span className="ml-2">| Cidade: {filterCidade}</span>}
-                        {filterBairro !== 'todos' && <span className="ml-2">| Bairro: {filterBairro}</span>}
-                    </div>
-                )}
-            </div>
-            </div>
-            
-            <Card className="border-gray-300 shadow-none">
-            <CardHeader className="pb-2"><CardTitle className="text-lg">Informações Gerais</CardTitle></CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4 border-b pb-4">
-                    <div><p className="text-muted-foreground font-semibold">Data</p><p>{new Date(trip.dataHoraPartida).toLocaleDateString()}</p></div>
-                    <div><p className="text-muted-foreground font-semibold">Horários</p><p>{new Date(trip.dataHoraPartida).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ➝ {new Date(trip.dataHoraChegada).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
-                    <div className="col-span-2"><p className="text-muted-foreground font-semibold">Frota (Exibida)</p><p>{busInfo}</p></div>
-                </div>
+      {/* --- CONTEÚDO PRINCIPAL (VISUALIZADOR PDF) --- */}
+      <div className="flex-1 bg-gray-500 w-full relative">
+        
+        {/* MODO 1: RELATÓRIO COMPLETO */}
+        {printMode === 'FULL' && (
+             <PDFViewer width="100%" height="100%" className="w-full h-full border-none">
+                 <TripReportPDF 
+                    trip={trip} 
+                    passengers={filteredPassengers} 
+                    packages={filteredPackages} 
+                 />
+             </PDFViewer>
+        )}
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div><p className="text-muted-foreground font-semibold">Passageiros Listados</p><p className="text-lg font-bold">{filteredPassengers.length}</p></div>
-                    <div><p className="text-muted-foreground font-semibold">Encomendas Listadas</p><p className="text-lg font-bold">{filteredPackages.length}</p></div>
-                </div>
-            </CardContent>
-            </Card>
-
-            {filteredPassengers.length > 0 ? (
-                <div className="mt-8">
-                <h3 className="text-lg font-bold mb-2 border-l-4 border-primary pl-2">Lista de Passageiros</h3>
-                <PassengerTable passengers={filteredPassengers} loading={loading} isPrintView={true} busMap={busMap} onRefreshData={() => {}} />
-                </div>
-            ) : (
-                <div className="mt-8 p-4 border border-dashed text-center text-gray-400">Nenhum passageiro corresponde aos filtros selecionados.</div>
-            )}
-            
-            {filteredPackages.length > 0 ? (
-                <div className="mt-8 break-inside-avoid">
-                <h3 className="text-lg font-bold mb-2 border-l-4 border-primary pl-2">Lista de Encomendas</h3>
-                <PackageTable packages={filteredPackages} loading={loading} isPrintView={true} />
-                </div>
-            ) : (
-                filterBusId === 'todos' && packages.length > 0 && (
-                    <div className="mt-8 p-4 border border-dashed text-center text-gray-400">Nenhuma encomenda corresponde aos filtros selecionados.</div>
-                )
-            )}
-
-            <div className="fixed bottom-0 left-0 w-full text-center text-xs text-gray-400 p-4 bg-white hidden print:block">
-            <p>Gerado em {new Date().toLocaleString()} - Sistema Patrício Turismo</p>
-            </div>
-        </div>
-      )}
-
-      {/* --- MODO 2: LISTA SIMPLES --- */}
-      {printMode === 'SIMPLE' && (
-          <div className="p-8 pt-print-container max-w-5xl mx-auto font-sans">
-              <div className="mb-6 border-b-2 border-black pb-2 flex justify-between items-end">
-                  <div>
-                      <h1 className="text-2xl font-bold text-black uppercase tracking-wide">Lista de Passageiros</h1>
-                      <p className="text-sm text-gray-600 mt-1">
-                          {new Date(trip.dataHoraPartida).toLocaleDateString()} - {busInfo}
-                      </p>
-                  </div>
-                  <div className="text-right text-xs text-gray-500">
-                      <p>Viagem #{trip.id}</p>
-                      <p>{filteredPassengers.length} Passageiros</p>
-                  </div>
-              </div>
-
-              <table className="w-full text-sm text-left border-collapse">
-                  <thead>
-                      <tr className="border-b border-black text-black">
-                          <th className="py-2 pr-4 w-12 font-bold">#</th>
-                          <th className="py-2 pr-4 font-bold">Nome Completo</th>
-                          <th className="py-2 pr-4 font-bold w-48">Documento (CPF)</th>
-                          <th className="py-2 pl-4 font-bold w-24 text-center">Assento</th>
-                      </tr>
-                  </thead>
-                  <tbody>
-                      {filteredPassengers.map((p, index) => (
-                          <tr key={p.id} className="border-b border-gray-200 hover:bg-gray-50">
-                              <td className="py-3 pr-4 text-gray-500 font-mono">{index + 1}</td>
-                              <td className="py-3 pr-4 font-medium text-gray-900 uppercase">
-                                  {p.pessoa.nome}
-                              </td>
-                              <td className="py-3 pr-4 text-gray-700 font-mono">
-                                  {p.pessoa.cpf || '-'}
-                              </td>
-                              <td className="py-3 pl-4 text-center font-bold text-lg text-gray-900">
-                                  {p.numeroAssento || '-'}
-                              </td>
-                          </tr>
-                      ))}
-                  </tbody>
-              </table>
-              
-              <div className="mt-8 pt-4 border-t border-gray-300 text-xs text-center text-gray-400">
-                  Patrício Turismo - Lista Simplificada
-              </div>
-          </div>
-      )}
-
+        {/* MODO 2: LISTA SIMPLES */}
+        {printMode === 'SIMPLE' && (
+            <PDFViewer width="100%" height="100%" className="w-full h-full border-none">
+                <SimplePassengerListPDF 
+                   trip={trip}
+                   passengers={filteredPassengers}
+                   busInfo={busInfo}
+                />
+            </PDFViewer>
+        )}
+      </div>
     </div>
   );
 }
