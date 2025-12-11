@@ -8,7 +8,6 @@ import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
-// Removido Select antigo
 import PassengerModal from './PassengerModal';
 import PackageModal from './PackageModal';
 import LuggageModal from './LuggageModal';
@@ -19,7 +18,7 @@ import { cn } from './ui/utils';
 
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { SortablePassengerGroup } from './SortablePassengerGroup';
+// import { SortablePassengerGroup } from './SortablePassengerGroup'; // Certifique-se de que este import existe no seu projeto
 
 import PassengerTable, { PassengerData } from './PassengerTable';
 import PackageTable from './PackageTable';
@@ -192,11 +191,13 @@ export default function TripDetailsPage() {
         fetchInitialData();
     }, [tripIdNum]);
 
-    // --- 2. Busca de Dados ---
+    // --- 2. Busca de Dados OTIMIZADA ---
     const fetchFilteredData = useCallback(async () => {
         if (!tripIdNum || isNaN(tripIdNum)) return;
         
         try {
+            setLoading(true); 
+            // Buscamos Passageiros e Encomendas em paralelo (Apenas 2 requests)
             const [passengersResponse, packagesResponse] = await Promise.all([
                 api.get<PassengerData[]>(`/api/passageiroviagem/viagem/${tripIdNum}`), 
                 api.get<PackageData[]>(`/api/v1/reports/encomendas/viagem/${tripIdNum}`)     
@@ -204,40 +205,31 @@ export default function TripDetailsPage() {
             
             const passengersData = passengersResponse.data;
             
-            const passengersWithLuggage = await Promise.all( 
-                passengersData.map(async (passenger) => { 
-                    const realOnibusId = passenger.onibusId || (passenger.onibus && passenger.onibus.id);
-                    
-                    let luggageCount = 0;
-                    let bagagensList = [];
-                    try {
-                         if(passenger['bagagens']) {
-                             bagagensList = passenger['bagagens'] as any[];
-                             luggageCount = bagagensList.length;
-                         } else {
-                             const luggageResponse = await api.get(`/api/bagagem/passageiro/${passenger.id}`);
-                             bagagensList = luggageResponse.data;
-                             luggageCount = bagagensList.length;
-                         }
-                    } catch { 
-                        luggageCount = 0; 
-                        bagagensList = [];
-                    }
+            // Processamento local: Assume que o backend já traz as bagagens via JOIN FETCH
+            const passengersWithLuggage = passengersData.map((passenger) => { 
+                const realOnibusId = passenger.onibusId || (passenger.onibus && passenger.onibus.id);
+                
+                // O campo bagagens deve vir populado pelo backend
+                const bagagensList = passenger['bagagens'] || [];
+                const luggageCount = bagagensList.length;
 
-                    return { 
-                        ...passenger, 
-                        luggageCount,
-                        bagagens: bagagensList,
-                        onibusId: realOnibusId ? Number(realOnibusId) : null
-                    };
-                })
-            );
+                return { 
+                    ...passenger, 
+                    luggageCount,
+                    bagagens: bagagensList,
+                    onibusId: realOnibusId ? Number(realOnibusId) : null
+                };
+            });
             
             setPassengers(passengersWithLuggage);
             setPackages(packagesResponse.data); 
             setAvailablePassengers(passengersWithLuggage.filter(p => !p.numeroAssento));
             
-        } catch (error) { console.error('Erro ao buscar dados:', error); }
+        } catch (error) { 
+            console.error('Erro ao buscar dados:', error); 
+        } finally {
+            setLoading(false);
+        }
     }, [tripIdNum]);
     
     useEffect(() => { fetchFilteredData(); }, [fetchFilteredData]);
