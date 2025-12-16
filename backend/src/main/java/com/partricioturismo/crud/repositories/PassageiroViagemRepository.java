@@ -12,18 +12,16 @@ import java.util.List;
 @Repository
 public interface PassageiroViagemRepository extends JpaRepository<PassageiroViagem, Long> {
 
-    // --- OTIMIZAÇÃO AQUI: DISTINCT + Bagagens + Remoção de listaOnibus ---
     @Query("SELECT DISTINCT pv FROM PassageiroViagem pv " +
             "JOIN FETCH pv.pessoa " +
             "JOIN FETCH pv.viagem v " +
-            "LEFT JOIN FETCH pv.bagagens " +  // Traz as malas junto (Evita N+1)
+            "LEFT JOIN FETCH pv.bagagens " +
             "LEFT JOIN FETCH pv.taxistaColeta " +
             "LEFT JOIN FETCH pv.taxistaEntrega " +
             "LEFT JOIN FETCH pv.comisseiro " +
             "WHERE pv.viagem.id = :viagemId " +
             "ORDER BY pv.ordem ASC, pv.id ASC")
     List<PassageiroViagem> findByViagemId(@Param("viagemId") Long viagemId);
-    // ---------------------------------------------------------------------
 
     @Query("SELECT pv FROM PassageiroViagem pv " +
             "JOIN FETCH pv.pessoa " +
@@ -83,6 +81,11 @@ public interface PassageiroViagemRepository extends JpaRepository<PassageiroViag
             "WHERE p.id = :pessoaId ORDER BY v.dataHoraPartida DESC")
     List<PassageiroViagem> findByPessoaIdWithHistory(@Param("pessoaId") Long pessoaId);
 
+    // --- MANTIVE O MIN, MAS ADICIONEI O MAX ABAIXO ---
     @Query("SELECT MIN(pv.ordem) FROM PassageiroViagem pv WHERE pv.viagem.id = :viagemId")
     Integer findMinOrdemByViagemId(@Param("viagemId") Long viagemId);
+
+    // === NOVO MÉTODO PARA PEGAR A ÚLTIMA POSIÇÃO ===
+    @Query("SELECT MAX(pv.ordem) FROM PassageiroViagem pv WHERE pv.viagem.id = :viagemId")
+    Integer findMaxOrdemByViagemId(@Param("viagemId") Long viagemId);
 }

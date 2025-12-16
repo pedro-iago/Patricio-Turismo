@@ -23,13 +23,9 @@ public class PassageiroViagemService {
     @Autowired private TaxistaRepository taxistaRepository;
     @Autowired private ComisseiroRepository comisseiroRepository;
     @Autowired private AssentoRepository assentoRepository;
-
-    // --- NOVO: Necessário para buscar o ônibus ao criar assento novo ---
     @Autowired private OnibusRepository onibusRepository;
-
     @Autowired private EncomendaService encomendaService;
 
-    // === NOVO MÉTODO: REORDENAR ===
     @Transactional
     public void reordenarPassageiros(List<Long> ids) {
         for (int i = 0; i < ids.size(); i++) {
@@ -42,7 +38,6 @@ public class PassageiroViagemService {
         }
     }
 
-    // === NOVO MÉTODO: DESVINCULAR ===
     @Transactional
     public void desvincularGrupo(Long id) {
         PassageiroViagem p = repository.findById(id)
@@ -51,7 +46,6 @@ public class PassageiroViagemService {
         repository.save(p);
     }
 
-    // === NOVO MÉTODO: VINCULAR GRUPO ===
     @Transactional
     public void vincularGrupo(Long idOrigem, Long idDestino) {
         PassageiroViagem p1 = repository.findById(idOrigem)
@@ -69,17 +63,14 @@ public class PassageiroViagemService {
         repository.save(p2);
     }
 
-    // === ATRIBUIÇÃO EM MASSA (ATUALIZADO) ===
     @Transactional
     public void atribuirTaxistaEmMassa(List<Long> passageiroIds, List<Long> encomendaIds, Long taxistaId, String tipo) {
         Taxista taxista = null;
-
         if (taxistaId != null) {
             taxista = taxistaRepository.findById(taxistaId)
                     .orElseThrow(() -> new EntityNotFoundException("Taxista não encontrado"));
         }
 
-        // 1. Atualiza Passageiros
         if (passageiroIds != null && !passageiroIds.isEmpty()) {
             List<PassageiroViagem> lista = repository.findAllById(passageiroIds);
             for (PassageiroViagem pv : lista) {
@@ -92,12 +83,10 @@ public class PassageiroViagemService {
             }
         }
 
-        // 2. Atualiza Encomendas (Delegando para o EncomendaService)
         if (encomendaIds != null && !encomendaIds.isEmpty()) {
             encomendaService.atribuirTaxistaEmMassa(encomendaIds, taxistaId, tipo);
         }
     }
-    // ========================================
 
     @Transactional
     public PassengerResponseDto save(PassengerSaveRequestDto dto) {
@@ -131,11 +120,11 @@ public class PassageiroViagemService {
             pv.setAssento(assento);
         }
 
-        // === LÓGICA DE ORDENAÇÃO: COLOCAR NO TOPO ===
-        Integer minOrdem = repository.findMinOrdemByViagemId(viagem.getId());
-        // Se minOrdem for null (primeiro passageiro), usa 0. Se não, subtrai 1.
-        pv.setOrdem(minOrdem != null ? minOrdem - 1 : 0);
-        // ============================================
+        // === MUDANÇA AQUI: ORDENAÇÃO PARA O FINAL DA LISTA ===
+        Integer maxOrdem = repository.findMaxOrdemByViagemId(viagem.getId());
+        // Se maxOrdem for nulo (lista vazia), começa em 0. Se não, pega o último e soma 1.
+        pv.setOrdem(maxOrdem != null ? maxOrdem + 1 : 0);
+        // =====================================================
 
         PassageiroViagem pvSalvo = repository.save(pv);
         return new PassengerResponseDto(pvSalvo);
@@ -197,7 +186,6 @@ public class PassageiroViagemService {
         });
     }
 
-    // === MÉTODO CORRIGIDO PARA CRIAR ASSENTO SE NÃO EXISTIR ===
     @Transactional
     public PassengerResponseDto vincularAssentoPorNumero(Long passageiroId, Long onibusId, String numeroAssento) {
         PassageiroViagem pv = repository.findById(passageiroId)
@@ -214,7 +202,6 @@ public class PassageiroViagemService {
             return new PassengerResponseDto(repository.save(pv));
         }
 
-        // TENTA BUSCAR, SE NÃO ACHAR, CRIA O ASSENTO NA HORA
         Assento novoAssento = assentoRepository.findByViagemIdAndOnibusIdAndNumero(pv.getViagem().getId(), onibusId, numeroAssento)
                 .orElseGet(() -> {
                     Onibus onibus = onibusRepository.findById(onibusId)
@@ -224,7 +211,6 @@ public class PassageiroViagemService {
                     assento.setViagem(pv.getViagem());
                     assento.setOnibus(onibus);
                     assento.setNumero(numeroAssento);
-                    // assento.setTipo("PADRAO"); // Removido por segurança pois não vi a entidade Assento completa, mas se existir pode descomentar
                     assento.setOcupado(false);
 
                     return assentoRepository.save(assento);
@@ -242,7 +228,6 @@ public class PassageiroViagemService {
         }
 
         novoAssento.setOcupado(true);
-        // Garante bidirecionalidade se existir o campo na entidade Assento
         novoAssento.setPassageiroViagem(pv);
 
         pv.setAssento(novoAssento);
@@ -250,7 +235,6 @@ public class PassageiroViagemService {
 
         return new PassengerResponseDto(repository.save(pv));
     }
-    // ==========================================================
 
     @Transactional
     public PassengerResponseDto updateCor(Long id, String cor) {
