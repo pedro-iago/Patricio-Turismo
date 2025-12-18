@@ -1,302 +1,188 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet } from '@react-pdf/renderer';
 
-// Estilos Gerais
 const styles = StyleSheet.create({
-  page: {
-    flexDirection: 'column',
-    backgroundColor: '#FFFFFF',
-    paddingTop: 30,
-    paddingLeft: 30,
-    paddingRight: 30,
-    paddingBottom: 60, 
-    fontSize: 10,
-    fontFamily: 'Helvetica',
-  },
-  header: {
-    marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#CCCCCC',
-    paddingBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  headerSub: {
-    fontSize: 10,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginTop: 15,
-    marginBottom: 10,
-    color: '#F97316',
-    borderLeftWidth: 3,
-    borderLeftColor: '#F97316',
-    paddingLeft: 6,
-  },
-  // Tabela
-  table: {
-    display: 'flex',
-    width: 'auto',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-    borderColor: '#e5e7eb',
-  },
-  tableRow: {
-    margin: 'auto',
-    flexDirection: 'row',
-    minHeight: 25,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  tableColHeader: {
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f3f4f6',
-    padding: 5,
-  },
-  tableCol: {
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    borderColor: '#e5e7eb',
-    padding: 5,
-    justifyContent: 'center',
-  },
+  // Padding ajustado para otimizar espaço
+  page: { flexDirection: 'column', backgroundColor: '#FFFFFF', paddingTop: 15, paddingLeft: 30, paddingRight: 30, paddingBottom: 15, fontSize: 10, fontFamily: 'Helvetica' },
   
-  // Barra de Cor (Fina)
-  colorIndicatorHeader: {
-    width: '1%',
-    backgroundColor: '#f3f4f6',
-    borderBottomWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  colorIndicator: {
-    width: '1%',
-  },
-
-  // Larguras das Colunas
-  colIndex: { width: '6%' },
-  colName: { width: '25%' },
-  colDoc: { width: '15%' },
-  colRoute: { width: '23%' },
-  colAgent: { width: '15%' },
-  colSeat: { width: '7%' },
-  colValue: { width: '8%' }, // Agora é a última
-
-  // Estilos de Texto
-  textHeader: { fontWeight: 'bold', fontSize: 8 },
-  textCell: { fontSize: 8 },
-  textSmall: { fontSize: 7, color: '#6B7280', marginBottom: 1 },
+  header: { marginBottom: 5, borderBottomWidth: 1, borderBottomColor: '#CCCCCC', paddingBottom: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerTitle: { fontSize: 16, fontWeight: 'bold', color: '#111827' },
+  headerSub: { fontSize: 9, color: '#6B7280', marginTop: 2 },
+  sectionTitle: { fontSize: 12, fontWeight: 'bold', marginTop: 8, marginBottom: 4, color: '#F97316', borderLeftWidth: 3, borderLeftColor: '#F97316', paddingLeft: 6 },
   
-  textAddress: { fontSize: 7, color: '#374151', marginBottom: 2, lineHeight: 1.2 },
-  textPhone: { fontSize: 9, fontWeight: 'bold', color: '#000000', marginBottom: 1 },
-  textDoc: { fontSize: 7, color: '#6B7280' },
+  table: { display: 'flex', width: 'auto', borderStyle: 'solid', borderWidth: 1, borderRightWidth: 0, borderBottomWidth: 0, borderColor: '#e5e7eb' },
+  
+  // Linha com altura flexível para caber as bagagens se o texto for longo
+  tableRow: { flexDirection: 'row', minHeight: 20, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
+  
+  tableColHeader: { borderStyle: 'solid', borderWidth: 1, borderLeftWidth: 0, borderTopWidth: 0, borderColor: '#e5e7eb', backgroundColor: '#f3f4f6', padding: 3 },
+  tableCol: { borderStyle: 'solid', borderWidth: 1, borderLeftWidth: 0, borderTopWidth: 0, borderColor: '#e5e7eb', padding: 3, justifyContent: 'center' },
+  
+  // Cabeçalhos Compactos
+  groupHeaderRow: { flexDirection: 'row', backgroundColor: '#f97316', paddingVertical: 1.5, paddingHorizontal: 6, borderBottomWidth: 1, borderBottomColor: '#ea580c', alignItems: 'center' },
+  groupHeaderText: { fontSize: 8, fontWeight: 'bold', color: '#ffffff', textTransform: 'uppercase' },
+  subGroupHeaderRow: { flexDirection: 'row', backgroundColor: '#f3f4f6', paddingVertical: 1, paddingLeft: 20, borderBottomWidth: 1, borderBottomColor: '#d1d5db', alignItems: 'center' },
+  subGroupHeaderText: { fontSize: 7, fontWeight: 'bold', color: '#374151', textTransform: 'uppercase' },
 
-  footer: {
-    position: 'absolute', 
-    bottom: 20,
-    left: 30, 
-    right: 30, 
-    textAlign: 'center',
-    color: 'grey', 
-    fontSize: 8, 
-    borderTopWidth: 1, 
-    borderTopColor: '#e5e7eb', 
-    paddingTop: 10,
-  },
-  pageNumber: {
-    position: 'absolute', fontSize: 8, bottom: 20, left: 0, right: 0, textAlign: 'center', color: 'grey',
-  },
+  colorIndicatorHeader: { width: 3, backgroundColor: '#f3f4f6', borderBottomWidth: 1, borderColor: '#e5e7eb' }, 
+  colorIndicator: { width: 3 },
+
+  // LARGURAS AJUSTADAS: Aumentei 'Nome' para caber a bagagem
+  colIndex: { width: '5%' }, 
+  colName: { width: '30%' }, // Aumentado (era 27%)
+  colDoc: { width: '13%' }, // Reduzido (era 14%)
+  colRoute: { width: '24%' }, 
+  colAgent: { width: '12%' }, // Reduzido (era 14%)
+  colSeat: { width: '7%' }, 
+  colValue: { width: '9%' },
+
+  textHeader: { fontWeight: 'bold', fontSize: 7 }, 
+  textCell: { fontSize: 7 }, 
+  
+  // Estilo específico da bagagem
+  textLuggage: { fontSize: 6, color: '#4b5563', marginTop: 1, fontStyle: 'italic' },
+  
+  textSmall: { fontSize: 6, color: '#6B7280', marginBottom: 0.5 }, 
+  textAddress: { fontSize: 6.5, color: '#374151', marginBottom: 1, lineHeight: 1.1 }, 
+  textPhone: { fontSize: 8, fontWeight: 'bold', color: '#000000', marginBottom: 0.5 }, 
+  textDoc: { fontSize: 6.5, color: '#6B7280' },
+  
+  footer: { marginTop: 10, textAlign: 'center', color: 'grey', fontSize: 7, borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 4 },
+  pageNumber: { position: 'absolute', fontSize: 7, bottom: 10, left: 0, right: 0, textAlign: 'center', color: 'grey' },
 });
 
-const formatCurrency = (value: number) => 
-  value ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-';
+const formatCurrency = (value: number) => value ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-';
+const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString() + ' ' + new Date(dateString).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+const formatFullAddress = (addr: any) => { if (!addr) return 'Não informado'; const parts = []; if (addr.logradouro) parts.push(addr.logradouro); if (addr.numero) parts.push(addr.numero); if (addr.bairro) parts.push(addr.bairro); if (addr.cidade) parts.push(addr.cidade); return parts.join(', '); };
+const sanitizeBairro = (bairro?: string) => { if (!bairro || bairro.trim() === '') return 'GERAL'; const normalized = bairro.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(); if (normalized === 'geral') return 'GERAL'; return bairro.trim().toUpperCase(); };
+const normalize = (str?: string) => { if (!str) return ''; return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(); };
 
-const formatDate = (dateString: string) => 
-  new Date(dateString).toLocaleDateString() + ' ' + new Date(dateString).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+interface TripReportPDFProps { trip: any; passengers: any[]; packages: any[]; organizeMode?: 'padrao' | 'cidade' | 'taxista' | 'comisseiro'; groupingType?: 'coleta' | 'entrega'; }
 
-const formatFullAddress = (addr: any) => {
-    if (!addr) return 'Não informado';
-    const parts = [];
-    if (addr.logradouro) parts.push(addr.logradouro);
-    if (addr.numero) parts.push(addr.numero);
-    if (addr.bairro) parts.push(addr.bairro);
-    if (addr.cidade) parts.push(addr.cidade);
-    return parts.join(', ');
+export const TripReportPDF = ({ trip, passengers, packages, organizeMode = 'padrao', groupingType = 'coleta' }: TripReportPDFProps) => {
+  
+  const cityStats = React.useMemo(() => {
+    const stats: Record<string, Set<string>> = {};
+    if (organizeMode === 'cidade') {
+        passengers.forEach(p => {
+            const addr = groupingType === 'entrega' ? p.enderecoEntrega : p.enderecoColeta;
+            const cityKey = normalize(addr?.cidade || 'SEM CIDADE');
+            const bairroKey = sanitizeBairro(addr?.bairro);
+            if (!stats[cityKey]) stats[cityKey] = new Set();
+            stats[cityKey].add(bairroKey);
+        });
+    }
+    return stats;
+  }, [passengers, organizeMode, groupingType]);
+
+  return (
+    <Document>
+      <Page size="A4" style={styles.page} orientation="landscape">
+        <View style={styles.header}>
+          <View><Text style={styles.headerTitle}>Relatório de Viagem</Text><Text style={styles.headerSub}>Patrício Turismo</Text></View>
+          <View style={{ alignItems: 'flex-end' }}><Text style={styles.textSmall}>Viagem #{trip.id}</Text><Text style={styles.textSmall}>Partida: {formatDate(trip.dataHoraPartida)}</Text><Text style={styles.textSmall}>Chegada: {formatDate(trip.dataHoraChegada)}</Text></View>
+        </View>
+
+        <Text style={styles.sectionTitle}>
+            Passageiros ({passengers.length}) 
+            {organizeMode === 'cidade' ? ` - ${groupingType?.toUpperCase()}` : ''}
+            {organizeMode === 'taxista' ? ` - TAXISTA` : ''}
+        </Text>
+
+        <View style={styles.table}>
+          <View style={[styles.tableRow, { borderBottomWidth: 1 }]} fixed>
+            <View style={styles.colorIndicatorHeader} />
+            <View style={[styles.tableColHeader, styles.colIndex]}><Text style={styles.textHeader}>#</Text></View>
+            <View style={[styles.tableColHeader, styles.colName]}><Text style={styles.textHeader}>Passageiro</Text></View>
+            <View style={[styles.tableColHeader, styles.colDoc]}><Text style={styles.textHeader}>Tel / Doc</Text></View>
+            <View style={[styles.tableColHeader, styles.colRoute]}><Text style={styles.textHeader}>Coleta / Entrega</Text></View>
+            <View style={[styles.tableColHeader, styles.colAgent]}><Text style={styles.textHeader}>Afiliados</Text></View>
+            <View style={[styles.tableColHeader, styles.colSeat]}><Text style={styles.textHeader}>Assento</Text></View>
+            <View style={[styles.tableColHeader, styles.colValue]}><Text style={styles.textHeader}>Valor</Text></View>
+          </View>
+
+          {passengers.map((p, i) => {
+            const prevP = passengers[i - 1];
+            const isGrouped = p.grupoId && (prevP?.grupoId === p.grupoId || passengers[i + 1]?.grupoId === p.grupoId);
+            const rowStyles = [styles.tableRow];
+            if (isGrouped) rowStyles.push({ backgroundColor: '#fff7ed' });
+
+            let headers = null;
+
+            if (organizeMode === 'cidade') {
+                const targetAddr = groupingType === 'entrega' ? p.enderecoEntrega : p.enderecoColeta;
+                const prevAddr = groupingType === 'entrega' ? prevP?.enderecoEntrega : prevP?.enderecoColeta;
+                const currentCityRaw = targetAddr?.cidade || 'SEM CIDADE DEFINIDA';
+                const currentCityKey = normalize(currentCityRaw);
+                const currentBairro = sanitizeBairro(targetAddr?.bairro);
+                const isNewCity = i === 0 || currentCityKey !== normalize(prevAddr?.cidade || '');
+                const isNewBairro = i === 0 || currentBairro !== sanitizeBairro(prevAddr?.bairro);
+
+                if (isNewCity) {
+                    const bairroCount = cityStats[currentCityKey]?.size || 0;
+                    if (bairroCount > 1) {
+                        headers = (
+                            <View wrap={false}>
+                                <View style={styles.groupHeaderRow}><Text style={styles.groupHeaderText}>{currentCityRaw.toUpperCase()}</Text></View>
+                                <View style={styles.subGroupHeaderRow}><Text style={styles.subGroupHeaderText}>{currentBairro}</Text></View>
+                            </View>
+                        );
+                    } else {
+                        headers = <View style={styles.groupHeaderRow} wrap={false}><Text style={styles.groupHeaderText}>{currentCityRaw.toUpperCase()} <Text style={{color: '#ffedd5', fontSize: 7}}>► {currentBairro}</Text></Text></View>;
+                    }
+                } else if (isNewBairro) {
+                    headers = <View style={styles.subGroupHeaderRow} wrap={false}><Text style={styles.subGroupHeaderText}>{currentBairro}</Text></View>;
+                }
+            } else if (organizeMode === 'taxista') {
+                const curr = p.taxistaColeta?.pessoa?.nome || 'SEM TAXISTA';
+                if (i === 0 || normalize(curr) !== normalize(prevP?.taxistaColeta?.pessoa?.nome)) headers = <View style={styles.groupHeaderRow} wrap={false}><Text style={styles.groupHeaderText}>{curr.toUpperCase()}</Text></View>;
+            } else if (organizeMode === 'comisseiro') {
+                const curr = p.comisseiro?.pessoa?.nome || 'SEM COMISSEIRO';
+                if (i === 0 || normalize(curr) !== normalize(prevP?.comisseiro?.pessoa?.nome)) headers = <View style={styles.groupHeaderRow} wrap={false}><Text style={styles.groupHeaderText}>{curr.toUpperCase()}</Text></View>;
+            }
+
+            return (
+              <React.Fragment key={p.id}>
+                  {headers}
+                  <View style={rowStyles} wrap={false}>
+                      <View style={[styles.colorIndicator, { backgroundColor: p.corTag || 'transparent' }]} />
+                      
+                      {/* Numeração corrigida (1, 2, 3...) */}
+                      <View style={[styles.tableCol, styles.colIndex]}><Text style={styles.textCell}>{i + 1}</Text></View>
+                      
+                      <View style={[styles.tableCol, styles.colName]}>
+                          <Text style={[styles.textCell, { fontWeight: 'bold' }]}>{p.pessoa.nome}</Text>
+                          {/* LISTA DE BAGAGENS POR EXTENSO */}
+                          {p.bagagens?.length > 0 && (
+                            <Text style={styles.textLuggage}>
+                                {p.bagagens.map((b: any) => b.descricao).join(', ')}
+                            </Text>
+                          )}
+                      </View>
+                      
+                      <View style={[styles.tableCol, styles.colDoc]}>
+                          <Text style={styles.textPhone}>{p.pessoa.telefone || p.pessoa.telefones?.[0] || '-'}</Text>
+                          <Text style={styles.textDoc}>{p.pessoa.cpf || 'S/ Doc'}</Text>
+                      </View>
+                      <View style={[styles.tableCol, styles.colRoute]}>
+                          <View style={{marginBottom: 1}}><Text style={[styles.textSmall, {fontWeight: 'bold'}]}>C:</Text><Text style={styles.textAddress}>{formatFullAddress(p.enderecoColeta)}</Text></View>
+                          <View><Text style={[styles.textSmall, {fontWeight: 'bold'}]}>E:</Text><Text style={styles.textAddress}>{formatFullAddress(p.enderecoEntrega)}</Text></View>
+                      </View>
+                      <View style={[styles.tableCol, styles.colAgent]}>
+                          <Text style={styles.textSmall}>TC: {p.taxistaColeta?.pessoa?.nome || '-'}</Text>
+                          <Text style={styles.textSmall}>TE: {p.taxistaEntrega?.pessoa?.nome || '-'}</Text>
+                          <Text style={styles.textSmall}>C: {p.comisseiro?.pessoa?.nome || '-'}</Text>
+                      </View>
+                      <View style={[styles.tableCol, styles.colSeat]}><Text style={{ fontSize: 10, fontWeight: 'bold', textAlign: 'center' }}>{p.numeroAssento || '-'}</Text></View>
+                      <View style={[styles.tableCol, styles.colValue]}><Text style={styles.textCell}>{formatCurrency(p.valor)}</Text><Text style={[styles.textSmall, { color: p.pago ? 'green' : 'red' }]}>{p.pago ? 'Pg' : 'Pd'}</Text></View>
+                  </View>
+              </React.Fragment>
+            );
+          })}
+        </View>
+        <View style={styles.footer}><Text>Gerado em {new Date().toLocaleDateString()}</Text></View>
+        <Text style={styles.pageNumber} render={({ pageNumber, totalPages }) => (`${pageNumber} / ${totalPages}`)} fixed />
+      </Page>
+    </Document>
+  );
 };
-
-interface TripReportPDFProps {
-  trip: any;
-  passengers: any[];
-  packages: any[];
-}
-
-export const TripReportPDF = ({ trip, passengers, packages }: TripReportPDFProps) => (
-  <Document>
-    <Page size="A4" style={styles.page} orientation="landscape">
-      
-      {/* CABEÇALHO */}
-      <View style={styles.header} fixed>
-        <View>
-          <Text style={styles.headerTitle}>Relatório de Viagem</Text>
-          <Text style={styles.headerSub}>Patrício Turismo</Text>
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.textSmall}>Viagem #{trip.id}</Text>
-            <Text style={styles.textSmall}>Partida: {formatDate(trip.dataHoraPartida)}</Text>
-            <Text style={styles.textSmall}>Chegada: {formatDate(trip.dataHoraChegada)}</Text>
-        </View>
-      </View>
-
-      {/* --- TABELA DE PASSAGEIROS --- */}
-      <Text style={styles.sectionTitle}>Lista de Passageiros ({passengers.length})</Text>
-
-      <View style={styles.table}>
-        {/* Header */}
-        <View style={[styles.tableRow, { borderBottomWidth: 1 }]} fixed>
-          <View style={styles.colorIndicatorHeader} />
-          <View style={[styles.tableColHeader, styles.colIndex]}><Text style={styles.textHeader}>#</Text></View>
-          <View style={[styles.tableColHeader, styles.colName]}><Text style={styles.textHeader}>Passageiro</Text></View>
-          <View style={[styles.tableColHeader, styles.colDoc]}><Text style={styles.textHeader}>Tel / Doc</Text></View>
-          <View style={[styles.tableColHeader, styles.colRoute]}><Text style={styles.textHeader}>Coleta / Entrega</Text></View>
-          <View style={[styles.tableColHeader, styles.colAgent]}><Text style={styles.textHeader}>Afiliados</Text></View>
-          <View style={[styles.tableColHeader, styles.colSeat]}><Text style={styles.textHeader}>Assento</Text></View>
-          <View style={[styles.tableColHeader, styles.colValue]}><Text style={styles.textHeader}>Valor</Text></View>
-        </View>
-
-        {/* Rows */}
-        {passengers.map((p, i) => {
-          const currentBus = trip.onibus?.find((b: any) => b.id === p.onibusId);
-          const rowColor = p.corTag || 'transparent';
-          
-          const prevP = passengers[i - 1];
-          const nextP = passengers[i + 1];
-          const isGrouped = p.grupoId && ((prevP && prevP.grupoId === p.grupoId) || (nextP && nextP.grupoId === p.grupoId));
-          const isFirstInGroup = isGrouped && (!prevP || prevP.grupoId !== p.grupoId);
-          const isLastInGroup = isGrouped && (!nextP || nextP.grupoId !== p.grupoId);
-
-          const rowStyles = [styles.tableRow];
-          if (isGrouped) {
-              rowStyles.push({ backgroundColor: '#fff7ed' });
-              if (isFirstInGroup) rowStyles.push({ borderTopWidth: 2, borderTopColor: '#ffedd5' });
-              if (isLastInGroup) rowStyles.push({ borderBottomWidth: 2, borderBottomColor: '#ffedd5' });
-              else rowStyles.push({ borderBottomWidth: 0 });
-          }
-
-          const telefoneDisplay = p.pessoa.telefone || (p.pessoa.telefones && p.pessoa.telefones.length > 0 ? p.pessoa.telefones[0] : '-');
-
-          return (
-            <View key={p.id} style={rowStyles} wrap={false}>
-              
-              <View style={[styles.colorIndicator, { backgroundColor: rowColor }]} />
-
-              <View style={[styles.tableCol, styles.colIndex]}>
-                <Text style={styles.textCell}>{i + 1}</Text>
-              </View>
-              
-              <View style={[styles.tableCol, styles.colName]}>
-                <Text style={[styles.textCell, { fontWeight: 'bold' }]}>{p.pessoa.nome}</Text>
-                {p.bagagens && p.bagagens.length > 0 && (
-                   <Text style={styles.textSmall}>Bagagem: {p.bagagens.length} vols ({p.bagagens.map((b:any) => b.descricao).join(', ')})</Text>
-                )}
-              </View>
-
-              <View style={[styles.tableCol, styles.colDoc]}>
-                <Text style={styles.textPhone}>{telefoneDisplay}</Text>
-                <Text style={styles.textDoc}>{p.pessoa.cpf || 'S/ Doc'}</Text>
-              </View>
-
-              <View style={[styles.tableCol, styles.colRoute]}>
-                <View style={{marginBottom: 4}}>
-                    <Text style={[styles.textSmall, {fontWeight: 'bold'}]}>C:</Text>
-                    <Text style={styles.textAddress}>{formatFullAddress(p.enderecoColeta)}</Text>
-                </View>
-                <View>
-                    <Text style={[styles.textSmall, {fontWeight: 'bold'}]}>E:</Text>
-                    <Text style={styles.textAddress}>{formatFullAddress(p.enderecoEntrega)}</Text>
-                </View>
-              </View>
-
-              <View style={[styles.tableCol, styles.colAgent]}>
-                <Text style={styles.textSmall}>TC: {p.taxistaColeta?.pessoa?.nome || '-'}</Text>
-                <Text style={styles.textSmall}>TE: {p.taxistaEntrega?.pessoa?.nome || '-'}</Text>
-                <Text style={styles.textSmall}>C: {p.comisseiro?.pessoa?.nome || '-'}</Text>
-              </View>
-
-              <View style={[styles.tableCol, styles.colSeat]}>
-                <Text style={{ fontSize: 12, fontWeight: 'bold', textAlign: 'center' }}>{p.numeroAssento || '-'}</Text>
-                {currentBus && (
-                    <Text style={{ fontSize: 6, color: '#6B7280', textAlign: 'center', marginTop: 2 }}>{currentBus.placa}</Text>
-                )}
-              </View>
-
-              {/* VALOR AGORA NO FINAL */}
-              <View style={[styles.tableCol, styles.colValue]}>
-                <Text style={styles.textCell}>{formatCurrency(p.valor)}</Text>
-                <Text style={[styles.textSmall, { color: p.pago ? 'green' : 'red' }]}>{p.pago ? 'Pago' : 'Pend.'}</Text>
-              </View>
-            </View>
-          );
-        })}
-      </View>
-
-      {/* --- TABELA DE ENCOMENDAS --- */}
-      {packages.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle} break>Lista de Encomendas ({packages.length})</Text>
-            <View style={styles.table}>
-                <View style={styles.tableRow} fixed>
-                    <View style={[styles.tableColHeader, {width: '35%'}]}><Text style={styles.textHeader}>Descrição / Remetente / Destinatário</Text></View>
-                    <View style={[styles.tableColHeader, {width: '25%'}]}><Text style={styles.textHeader}>Endereço de Entrega</Text></View>
-                    <View style={[styles.tableColHeader, {width: '25%'}]}><Text style={styles.textHeader}>Afiliados</Text></View>
-                    <View style={[styles.tableColHeader, {width: '15%'}]}><Text style={styles.textHeader}>Valor</Text></View>
-                </View>
-                {packages.map((pkg) => (
-                    <View key={pkg.id} style={styles.tableRow} wrap={false}>
-                        <View style={[styles.tableCol, {width: '35%'}]}>
-                            <Text style={[styles.textCell, {fontWeight: 'bold', marginBottom: 4}]}>{pkg.descricao}</Text>
-                            <Text style={styles.textSmall}><Text style={{fontWeight: 'bold'}}>De:</Text> {pkg.remetente?.nome} {pkg.remetente?.telefone ? `(${pkg.remetente.telefone})` : ''}</Text>
-                            <Text style={[styles.textSmall, {marginTop: 2}]}><Text style={{fontWeight: 'bold'}}>Para:</Text> {pkg.destinatario?.nome} {pkg.destinatario?.telefone ? `(${pkg.destinatario.telefone})` : ''}</Text>
-                        </View>
-                        <View style={[styles.tableCol, {width: '25%'}]}>
-                             <Text style={styles.textAddress}>{formatFullAddress(pkg.enderecoEntrega)}</Text>
-                        </View>
-                        <View style={[styles.tableCol, {width: '25%'}]}>
-                            <Text style={styles.textSmall}>TC: {pkg.taxistaColeta?.pessoa?.nome || '-'}</Text>
-                            <Text style={styles.textSmall}>TE: {pkg.taxistaEntrega?.pessoa?.nome || '-'}</Text>
-                            <Text style={styles.textSmall}>C: {pkg.comisseiro?.pessoa?.nome || '-'}</Text>
-                        </View>
-                         <View style={[styles.tableCol, {width: '15%'}]}>
-                             <Text style={styles.textCell}>{formatCurrency(pkg.valor)}</Text>
-                             <Text style={[styles.textSmall, { color: pkg.pago ? 'green' : 'red' }]}>{pkg.pago ? 'Pago' : 'Pend.'}</Text>
-                        </View>
-                    </View>
-                ))}
-            </View>
-          </>
-      )}
-
-      {/* RODAPÉ */}
-      <Text style={styles.pageNumber} render={({ pageNumber, totalPages }) => (`${pageNumber} / ${totalPages}`)} fixed />
-      <View style={styles.footer} fixed>
-        <Text>Gerado pelo Sistema Patrício Turismo - {new Date().toLocaleDateString()}</Text>
-      </View>
-
-    </Page>
-  </Document>
-);

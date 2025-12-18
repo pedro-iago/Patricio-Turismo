@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -8,7 +8,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from './ui/alert-dialog';
+} from "./ui/alert-dialog";
 
 interface DeleteConfirmModalProps {
   isOpen: boolean;
@@ -16,7 +16,8 @@ interface DeleteConfirmModalProps {
   onConfirm: () => void;
   title: string;
   description: string;
-  confirmLabel?: string; // <--- NOVA PROP OPCIONAL
+  confirmLabel?: string;
+  cancelLabel?: string;
 }
 
 export default function DeleteConfirmModal({
@@ -25,7 +26,8 @@ export default function DeleteConfirmModal({
   onConfirm,
   title,
   description,
-  confirmLabel, // <--- Recebendo a prop
+  confirmLabel = "Confirmar",
+  cancelLabel = "Cancelar",
 }: DeleteConfirmModalProps) {
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
@@ -35,13 +37,15 @@ export default function DeleteConfirmModal({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel onClick={onClose}>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
-            className="bg-destructive hover:bg-destructive/90"
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={(e) => {
+              e.preventDefault(); // Evita fechamento prematuro se necessário
+              onConfirm();
+            }}
           >
-            {/* Se passar label, usa ela. Se não, usa o padrão "Excluir" */}
-            {confirmLabel || 'Excluir'}
+            {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
