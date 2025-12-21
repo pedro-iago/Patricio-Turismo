@@ -5,13 +5,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface PessoaRepository extends JpaRepository<Pessoa, Long> {
 
-    // === CORREÇÃO: Adicione este método para o Service funcionar ===
+    // Método necessário para a nova lógica de Grupo Família
+    Optional<Pessoa> findByCpf(String cpf);
+
+    // Métodos que já existiam (mantidos para não quebrar outras partes)
     boolean existsByCpf(String cpf);
 
-    // Este método já deve existir se a busca estiver funcionando
     List<Pessoa> findTop10ByNomeContainingIgnoreCaseOrCpf(String nome, String cpf);
 }

@@ -2,7 +2,6 @@ import React from 'react';
 import { Page, Text, View, Document, StyleSheet } from '@react-pdf/renderer';
 
 const styles = StyleSheet.create({
-  // Padding ajustado para otimizar espaço
   page: { flexDirection: 'column', backgroundColor: '#FFFFFF', paddingTop: 15, paddingLeft: 30, paddingRight: 30, paddingBottom: 15, fontSize: 10, fontFamily: 'Helvetica' },
   
   header: { marginBottom: 5, borderBottomWidth: 1, borderBottomColor: '#CCCCCC', paddingBottom: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -11,37 +10,33 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 12, fontWeight: 'bold', marginTop: 8, marginBottom: 4, color: '#F97316', borderLeftWidth: 3, borderLeftColor: '#F97316', paddingLeft: 6 },
   
   table: { display: 'flex', width: 'auto', borderStyle: 'solid', borderWidth: 1, borderRightWidth: 0, borderBottomWidth: 0, borderColor: '#e5e7eb' },
-  
-  // Linha com altura flexível para caber as bagagens se o texto for longo
   tableRow: { flexDirection: 'row', minHeight: 20, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
-  
   tableColHeader: { borderStyle: 'solid', borderWidth: 1, borderLeftWidth: 0, borderTopWidth: 0, borderColor: '#e5e7eb', backgroundColor: '#f3f4f6', padding: 3 },
   tableCol: { borderStyle: 'solid', borderWidth: 1, borderLeftWidth: 0, borderTopWidth: 0, borderColor: '#e5e7eb', padding: 3, justifyContent: 'center' },
   
-  // Cabeçalhos Compactos
+  // Headers de Agrupamento
   groupHeaderRow: { flexDirection: 'row', backgroundColor: '#f97316', paddingVertical: 1.5, paddingHorizontal: 6, borderBottomWidth: 1, borderBottomColor: '#ea580c', alignItems: 'center' },
   groupHeaderText: { fontSize: 8, fontWeight: 'bold', color: '#ffffff', textTransform: 'uppercase' },
   subGroupHeaderRow: { flexDirection: 'row', backgroundColor: '#f3f4f6', paddingVertical: 1, paddingLeft: 20, borderBottomWidth: 1, borderBottomColor: '#d1d5db', alignItems: 'center' },
   subGroupHeaderText: { fontSize: 7, fontWeight: 'bold', color: '#374151', textTransform: 'uppercase' },
 
+  // Marcadores Visuais
   colorIndicatorHeader: { width: 3, backgroundColor: '#f3f4f6', borderBottomWidth: 1, borderColor: '#e5e7eb' }, 
   colorIndicator: { width: 3 },
 
-  // LARGURAS AJUSTADAS: Aumentei 'Nome' para caber a bagagem
+  // Colunas
   colIndex: { width: '5%' }, 
-  colName: { width: '30%' }, // Aumentado (era 27%)
-  colDoc: { width: '13%' }, // Reduzido (era 14%)
+  colName: { width: '30%' }, 
+  colDoc: { width: '13%' }, 
   colRoute: { width: '24%' }, 
-  colAgent: { width: '12%' }, // Reduzido (era 14%)
+  colAgent: { width: '12%' }, 
   colSeat: { width: '7%' }, 
   colValue: { width: '9%' },
 
+  // Textos
   textHeader: { fontWeight: 'bold', fontSize: 7 }, 
   textCell: { fontSize: 7 }, 
-  
-  // Estilo específico da bagagem
   textLuggage: { fontSize: 6, color: '#4b5563', marginTop: 1, fontStyle: 'italic' },
-  
   textSmall: { fontSize: 6, color: '#6B7280', marginBottom: 0.5 }, 
   textAddress: { fontSize: 6.5, color: '#374151', marginBottom: 1, lineHeight: 1.1 }, 
   textPhone: { fontSize: 8, fontWeight: 'bold', color: '#000000', marginBottom: 0.5 }, 
@@ -103,12 +98,28 @@ export const TripReportPDF = ({ trip, passengers, packages, organizeMode = 'padr
 
           {passengers.map((p, i) => {
             const prevP = passengers[i - 1];
-            const isGrouped = p.grupoId && (prevP?.grupoId === p.grupoId || passengers[i + 1]?.grupoId === p.grupoId);
-            const rowStyles = [styles.tableRow];
-            if (isGrouped) rowStyles.push({ backgroundColor: '#fff7ed' });
+            const nextP = passengers[i + 1];
 
+            // LÓGICA DE GRUPO FAMILIAR
+            const hasGroup = !!p.grupoId;
+            const isSameGroupPrev = hasGroup && prevP?.grupoId === p.grupoId;
+            const isSameGroupNext = hasGroup && nextP?.grupoId === p.grupoId;
+            
+            // Define estilo da linha baseado no grupo
+            const rowStyles: any[] = [styles.tableRow];
+            if (hasGroup) {
+                rowStyles.push({ backgroundColor: '#f0f9ff' }); // Azul bem claro para grupos
+                // Se é o último do grupo, adiciona borda inferior
+                if (!isSameGroupNext) {
+                    rowStyles.push({ borderBottomWidth: 1, borderBottomColor: '#bfdbfe' });
+                } else {
+                    // Se não é o último, remove borda interna para parecer um bloco único
+                    rowStyles.push({ borderBottomWidth: 0 });
+                }
+            }
+
+            // --- Lógica de Cabeçalhos (Cidade/Taxista) ---
             let headers = null;
-
             if (organizeMode === 'cidade') {
                 const targetAddr = groupingType === 'entrega' ? p.enderecoEntrega : p.enderecoColeta;
                 const prevAddr = groupingType === 'entrega' ? prevP?.enderecoEntrega : prevP?.enderecoColeta;
@@ -145,14 +156,16 @@ export const TripReportPDF = ({ trip, passengers, packages, organizeMode = 'padr
               <React.Fragment key={p.id}>
                   {headers}
                   <View style={rowStyles} wrap={false}>
-                      <View style={[styles.colorIndicator, { backgroundColor: p.corTag || 'transparent' }]} />
+                      {/* Indicador de Cor + Indicador de Grupo (Barra Azul Lateral) */}
+                      <View style={[styles.colorIndicator, { 
+                          backgroundColor: p.corTag || (hasGroup ? '#3b82f6' : 'transparent'),
+                          width: hasGroup ? 4 : 3 
+                      }]} />
                       
-                      {/* Numeração corrigida (1, 2, 3...) */}
                       <View style={[styles.tableCol, styles.colIndex]}><Text style={styles.textCell}>{i + 1}</Text></View>
                       
                       <View style={[styles.tableCol, styles.colName]}>
                           <Text style={[styles.textCell, { fontWeight: 'bold' }]}>{p.pessoa.nome}</Text>
-                          {/* LISTA DE BAGAGENS POR EXTENSO */}
                           {p.bagagens?.length > 0 && (
                             <Text style={styles.textLuggage}>
                                 {p.bagagens.map((b: any) => b.descricao).join(', ')}
@@ -164,10 +177,19 @@ export const TripReportPDF = ({ trip, passengers, packages, organizeMode = 'padr
                           <Text style={styles.textPhone}>{p.pessoa.telefone || p.pessoa.telefones?.[0] || '-'}</Text>
                           <Text style={styles.textDoc}>{p.pessoa.cpf || 'S/ Doc'}</Text>
                       </View>
+
+                      {/* Rota com lógica de "Idem" para grupos */}
                       <View style={[styles.tableCol, styles.colRoute]}>
-                          <View style={{marginBottom: 1}}><Text style={[styles.textSmall, {fontWeight: 'bold'}]}>C:</Text><Text style={styles.textAddress}>{formatFullAddress(p.enderecoColeta)}</Text></View>
-                          <View><Text style={[styles.textSmall, {fontWeight: 'bold'}]}>E:</Text><Text style={styles.textAddress}>{formatFullAddress(p.enderecoEntrega)}</Text></View>
+                          {(!isSameGroupPrev) ? (
+                              <>
+                                <View style={{marginBottom: 1}}><Text style={[styles.textSmall, {fontWeight: 'bold'}]}>C:</Text><Text style={styles.textAddress}>{formatFullAddress(p.enderecoColeta)}</Text></View>
+                                <View><Text style={[styles.textSmall, {fontWeight: 'bold'}]}>E:</Text><Text style={styles.textAddress}>{formatFullAddress(p.enderecoEntrega)}</Text></View>
+                              </>
+                          ) : (
+                              <Text style={{fontSize: 14, color: '#bfdbfe', textAlign: 'center', marginTop: 4}}>"</Text>
+                          )}
                       </View>
+
                       <View style={[styles.tableCol, styles.colAgent]}>
                           <Text style={styles.textSmall}>TC: {p.taxistaColeta?.pessoa?.nome || '-'}</Text>
                           <Text style={styles.textSmall}>TE: {p.taxistaEntrega?.pessoa?.nome || '-'}</Text>

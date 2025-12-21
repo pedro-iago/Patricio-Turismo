@@ -26,6 +26,9 @@ import { toast } from 'sonner';
 // Importação condicional para manter compatibilidade caso use o modo tabela
 import PassengerTable, { PassengerData } from './PassengerTable';
 
+// --- NOVO IMPORT: MODAL DE FAMÍLIA ---
+import FamilyPassengerModal from './FamilyPassengerModal';
+
 // --- UTILS ---
 const FilterCombobox = ({ options, value, onChange, placeholder, width = "w-full" }: any) => {
   const [open, setOpen] = useState(false);
@@ -94,6 +97,11 @@ export default function TripDetailsPage() {
     const [passengerToDesassociate, setPassengerToDesassociate] = useState<PassengerData | null>(null); 
     const [availablePassengers, setAvailablePassengers] = useState<PassengerData[]>([]); 
     const [isPassengerModalOpen, setIsPassengerModalOpen] = useState(false);
+    
+    // --- ESTADOS DO MODAL FAMÍLIA ---
+    const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
+    const [editingGroup, setEditingGroup] = useState<any>(null); // Armazena dados do grupo para edição
+    
     const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
     const [isLuggageModalOpen, setIsLuggageModalOpen] = useState(false);
     const [selectedPassenger, setSelectedPassenger] = useState<PassengerData | null>(null);
@@ -367,10 +375,15 @@ export default function TripDetailsPage() {
             const currId = typeof current.id === 'string' ? parseInt(current.id) : current.id;
             const prevId = typeof previous.id === 'string' ? parseInt(previous.id) : previous.id;
             if (!currId || !prevId) return;
-            await api.post(`/api/passageiroviagem/${prevId}/vincular/${currId}`); 
+            
+            // CORREÇÃO: Invertido ordem para (currId, prevId) = (Alvo, Principal)
+            // Isso faz com que o 'current' (o que clicamos) entre no grupo do 'previous' (o de cima)
+            await api.post(`/api/passageiroviagem/${currId}/vincular/${prevId}`); 
+            
             await fetchFilteredData(); 
         } catch (e) { console.error(e); alert("Erro ao vincular."); } 
     };
+    
     const handleUnlinkPassenger = (p: any) => { const realPassenger = p.dadosCompletos || p; setPassengerToUnlink(realPassenger); };
     const confirmUnlinkGroup = async () => { 
         if (passengerToUnlink) { 
@@ -417,6 +430,19 @@ export default function TripDetailsPage() {
     const packageTabLabel = filteredPackages.length === packages.length ? `Encomendas (${packages.length})` : `Encomendas (${filteredPackages.length}/${packages.length})`;
     const currentBus = trip?.onibus ? trip.onibus.find(b => b.id === currentBusId) : null; 
 
+    const csvData = [
+        ["Nome", "Telefone", "CPF", "Coleta", "Entrega", "Valor", "Status"],
+        ...passengers.map(p => [
+            p.pessoa.nome, 
+            p.pessoa.telefone || '', 
+            p.pessoa.cpf || '', 
+            p.enderecoColeta?.cidade || '', 
+            p.enderecoEntrega?.cidade || '',
+            p.valor || 0,
+            p.pago ? 'Pago' : 'Pendente'
+        ])
+    ];
+
     if (loading && !trip) return <div className="p-8 text-center">Carregando...</div>;
     if (!trip && !loading) return <div className="p-8 text-center">Viagem não encontrada.</div>;
 
@@ -432,13 +458,11 @@ export default function TripDetailsPage() {
                     <Button variant="outline" size="sm" onClick={() => navigate(`/trips/${tripId}/passar-lista`)} className="whitespace-nowrap"><ListIcon className="w-4 h-4 mr-2" /> Passar Lista</Button>
                     <Button variant="outline" size="sm" onClick={() => setIsMapOpen(!isMapOpen)} className="hidden xl:flex gap-2 whitespace-nowrap">{isMapOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}{isMapOpen ? 'Ocultar Mapa' : 'Mostrar Mapa'}</Button>
                     
-                    {/* BOTÃO IMPRIMIR ATUALIZADO */}
                     <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => {
                             let url = `/trips/${tripId}/print`;
-                            // Se estiver no modo cidade, passa o tipo de agrupamento (coleta/entrega)
                             if (organizeMode === 'cidade') {
                                 url += `?mode=cidade&groupBy=${cityGroupBy}`;
                             } else if (organizeMode === 'taxista') {
@@ -452,6 +476,9 @@ export default function TripDetailsPage() {
                     >
                         <Printer className="w-4 h-4 mr-2" /> Imprimir
                     </Button>
+                    <CSVLink data={csvData} filename={`viagem-${tripId}.csv`} className="hidden md:block">
+                        <Button variant="outline"><FileDown className="w-4 h-4 mr-2" /> Exportar</Button>
+                    </CSVLink>
                 </div>
             </div>
 
@@ -532,13 +559,16 @@ export default function TripDetailsPage() {
                                 )}
                             </div>
 
-                            {/* FILTROS */}
+                            {/* FILTROS E AÇÕES PRINCIPAIS */}
                             <div className="bg-white p-3 md:p-4 rounded-lg border shadow-sm space-y-3">
                                 <div className="flex flex-col lg:flex-row gap-3">
                                     <div className="relative flex-1"><Input placeholder="Pesquisar nome..." value={passengerSearchTerm} onChange={(e) => setPassengerSearchTerm(e.target.value)} /></div>
                                     <div className="flex items-center gap-2 justify-between lg:justify-start">
                                         {isFiltering && (<Button variant="ghost" size="sm" onClick={resetFilters} className="text-red-500 h-9"><X className="w-4 h-4 mr-1" /> Limpar</Button>)}
+                                        
+                                        {/* --- BOTÕES AQUI --- */}
                                         <Button onClick={() => { setSelectedPassenger(null); setIsPassengerModalOpen(true); }} className="bg-primary hover:bg-primary/90 gap-2 w-full lg:w-auto"><Plus className="w-4 h-4" /> Novo</Button>
+                                        <Button onClick={() => { setEditingGroup(null); setIsFamilyModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm gap-2 w-full lg:w-auto"><Users className="w-4 h-4" /> Grupo</Button>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -561,13 +591,17 @@ export default function TripDetailsPage() {
                                     onColorChange={handleColorChange}
                                     onLink={handleLinkPassengers}
                                     onUnlink={handleUnlinkPassenger}
+                                    // --- ATIVA O BOTÃO DE EDITAR GRUPO ---
+                                    onEditGroup={(group) => {
+                                        setEditingGroup(group); 
+                                        setIsFamilyModalOpen(true);
+                                    }}
                                 />
                             </div>
                         </TabsContent>
                         
                         <TabsContent value="packages" className="space-y-4">
                              <div className="bg-white p-3 md:p-4 rounded-lg border shadow-sm space-y-3">
-                                {/* ... Conteúdo de Encomendas Mantido ... */}
                                 <div className="flex flex-col lg:flex-row gap-3">
                                     <div className="relative flex-1"><Input placeholder="Pesquisar encomendas..." value={packageSearchTerm} onChange={(e) => setPackageSearchTerm(e.target.value)} /></div>
                                     <div className="flex items-center gap-2 justify-between lg:justify-start">
@@ -601,7 +635,7 @@ export default function TripDetailsPage() {
                 </div>
             </div>
 
-            {/* ... MODAIS (MANTIDOS) ... */}
+            {/* ... MODAIS ... */}
             <PassengerModal isOpen={isPassengerModalOpen} onClose={() => { setIsPassengerModalOpen(false); setSelectedPassenger(null); }} onSave={handleSavePassenger} passenger={selectedPassenger} />
             <PackageModal isOpen={isPackageModalOpen} onClose={() => { setIsPackageModalOpen(false); setSelectedPackage(null); }} onSave={handleSavePackage} package={selectedPackage} />
             <LuggageModal isOpen={isLuggageModalOpen} onClose={() => { setIsLuggageModalOpen(false); setSelectedPassenger(null); fetchFilteredData(); }} passenger={selectedPassenger} />
@@ -609,6 +643,17 @@ export default function TripDetailsPage() {
             <DeleteConfirmModal isOpen={!!passengerToDesassociate} onClose={() => { setPassengerToDesassociate(null); }} onConfirm={handleDesassociateConfirm} title="Desvincular Assento" description={`Tem certeza de que deseja desvincular o assento?`} />
             <DeleteConfirmModal isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDeleteConfirm} title="Excluir Item" description="Tem certeza?" />
             <DeleteConfirmModal isOpen={!!passengerToUnlink} onClose={() => setPassengerToUnlink(null)} onConfirm={confirmUnlinkGroup} title="Desvincular do Grupo" description={`Tem certeza que deseja desvincular ${passengerToUnlink?.pessoa.nome} do grupo?`} confirmLabel="Desvincular" />
+            
+            <FamilyPassengerModal 
+                isOpen={isFamilyModalOpen} 
+                onClose={() => {
+                    setIsFamilyModalOpen(false);
+                    setEditingGroup(null);
+                }} 
+                onSaveSuccess={() => { fetchFilteredData(); setIsFamilyModalOpen(false); }} 
+                tripId={tripId!} 
+                initialData={editingGroup} 
+            />
         </div>
     );
 }

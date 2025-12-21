@@ -26,7 +26,7 @@ export const sanitizeBairro = (bairro?: string) => {
     return bairro.trim().toUpperCase();
 };
 
-// --- COMPONENTE DE FILTRO (Combobox) ---
+// --- COMPONENTE DE FILTRO ---
 const FilterCombobox = ({ options, value, onChange, placeholder, width = "w-[140px]" }: any) => {
   const [open, setOpen] = useState(false);
   const selectedLabel = useMemo(() => {
@@ -70,7 +70,7 @@ interface PassengerData {
   id: number; onibusId?: number; pessoa: { nome: string; cpf?: string; telefone?: string; telefones?: string[] };
   taxista?: Affiliate; taxistaColeta?: Affiliate; taxistaEntrega?: Affiliate; comisseiro?: Affiliate;
   enderecoColeta?: Address; enderecoEntrega?: Address; bagagens?: Bagagem[]; luggageCount?: number;
-  valor?: number; pago?: boolean; numeroAssento?: string; ordem?: number; [key: string]: any; 
+  valor?: number; pago?: boolean; numeroAssento?: string; ordem?: number; grupoId?: string; [key: string]: any; 
 } 
 interface PackageData { id: number; descricao: string; remetente: { id: number; nome: string }; destinatario: { id: number; nome: string }; taxistaColeta?: Affiliate; taxistaEntrega?: Affiliate; comisseiro?: Affiliate; enderecoColeta?: Address; enderecoEntrega?: Address; valor?: number; pago?: boolean; [key: string]: any; }
 
@@ -121,12 +121,9 @@ export default function PrintReportPage() {
         ]);
         
         const passengersData: PassengerData[] = passengersRes.data;
-        
-        // BUSCA DETALHADA DE BAGAGENS PARA CADA PASSAGEIRO
         const passengersWithDetails = await Promise.all(
             passengersData.map(async (p: any) => {
                 let bagagens: Bagagem[] = p.bagagens || p.volumes || [];
-                // Se não vier populado, busca no endpoint específico
                 if (!bagagens.length) {
                     try {
                         const bagRes = await api.get(`/api/bagagem/passageiro/${p.id}`);
@@ -136,7 +133,6 @@ export default function PrintReportPage() {
                 return { ...p, bagagens, luggageCount: bagagens.length };
             })
         );
-        
         setPassengers(passengersWithDetails);
         setPackages(packagesRes.data);
       } catch (error) { console.error('Erro:', error); } finally { setLoading(false); }
@@ -144,14 +140,14 @@ export default function PrintReportPage() {
     fetchAllData();
   }, [tripId, searchParams]);
 
-  // Opções de Filtro (Memoized)
+  // Opções de Filtro
   const busOptions = useMemo(() => trip?.onibus ? trip.onibus.map(b => ({ value: String(b.id), label: b.placa })) : [], [trip]);
   const taxistaOptions = useMemo(() => Array.from(new Set(passengers.flatMap(p => [p.taxista?.pessoa?.nome, p.taxistaColeta?.pessoa?.nome, p.taxistaEntrega?.pessoa?.nome]).concat(packages.flatMap(p => [p.taxistaColeta?.pessoa?.nome, p.taxistaEntrega?.pessoa?.nome])).filter(Boolean))).sort().map(i => ({ value: i as string, label: i as string })), [passengers, packages]);
   const comisseiroOptions = useMemo(() => Array.from(new Set(passengers.map(p => p.comisseiro?.pessoa?.nome).concat(packages.map(p => p.comisseiro?.pessoa?.nome)).filter(Boolean))).sort().map(i => ({ value: i as string, label: i as string })), [passengers, packages]);
   const cidadeOptions = useMemo(() => Array.from(new Set([...passengers.flatMap(p => [p.enderecoColeta?.cidade, p.enderecoEntrega?.cidade]), ...packages.flatMap(p => [p.enderecoColeta?.cidade, p.enderecoEntrega?.cidade])].filter(Boolean))).sort().map(i => ({ value: i as string, label: i as string })), [passengers, packages]);
   const bairroOptions = useMemo(() => Array.from(new Set([...passengers.flatMap(p => [p.enderecoColeta?.bairro, p.enderecoEntrega?.bairro]), ...packages.flatMap(p => [p.enderecoColeta?.bairro, p.enderecoEntrega?.bairro])].filter(Boolean))).sort().map(i => ({ value: i as string, label: i as string })), [passengers, packages]);
 
-  // Lógica de Filtragem
+  // Filtragem
   const filteredPassengers = useMemo(() => {
       return passengers.filter(p => {
           if (filterBusId !== "todos" && String(p.onibusId) !== filterBusId) return false;
@@ -174,16 +170,22 @@ export default function PrintReportPage() {
       });
   }, [packages, filterBusId, filterTaxista, filterComisseiro, filterCidade, filterBairro]);
 
-  // --- ORDENAÇÃO FUNDAMENTAL PARA O RELATÓRIO PDF ---
+  // --- LÓGICA DE ORDENAÇÃO FUNDAMENTAL PARA O PDF ---
   const organizedPassengers = useMemo(() => {
     const list = [...filteredPassengers];
     
-    // Modo Padrão: Usa a ordem definida no "Passar Lista"
+    // MODO PADRÃO: Respeita ordem, mas cola grupos
     if (organizeMode === 'padrao') {
-        return list.sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+        return list.sort((a, b) => {
+            // Se ambos têm grupo e é o mesmo grupo, mantém a ordem relativa entre eles
+            if (a.grupoId && b.grupoId && a.grupoId === b.grupoId) {
+                return (a.ordem || 0) - (b.ordem || 0);
+            }
+            // Se são grupos diferentes ou sem grupo, usa a ordem do primeiro elemento do bloco
+            return (a.ordem || 0) - (b.ordem || 0);
+        });
     }
 
-    // Modos de Agrupamento
     return list.sort((a, b) => {
         if (organizeMode === 'cidade') {
             const addrA = cityGroupBy === 'coleta' ? a.enderecoColeta : a.enderecoEntrega;
@@ -192,14 +194,12 @@ export default function PrintReportPage() {
             const cityA = normalizeForSorting(addrA?.cidade);
             const cityB = normalizeForSorting(addrB?.cidade);
             
-            // 1. Agrupa por Cidade
             if (cityA !== cityB) return cityA.localeCompare(cityB);
 
-            // 2. Agrupa por Bairro
             const bairroA = sanitizeBairro(addrA?.bairro);
             const bairroB = sanitizeBairro(addrB?.bairro);
+            
             if (bairroA !== bairroB) return bairroA.localeCompare(bairroB);
-
         } else if (organizeMode === 'taxista') {
              const tA = normalizeForSorting(a.taxistaColeta?.pessoa?.nome);
              const tB = normalizeForSorting(b.taxistaColeta?.pessoa?.nome);
@@ -209,8 +209,7 @@ export default function PrintReportPage() {
              const cB = normalizeForSorting(b.comisseiro?.pessoa?.nome);
              if (cA !== cB) return cA.localeCompare(cB);
         }
-        
-        // Critério final de desempate: Ordem Original
+        // Desempate pela ordem original
         return (a.ordem || 0) - (b.ordem || 0);
     });
   }, [filteredPassengers, organizeMode, cityGroupBy]); 
@@ -224,7 +223,7 @@ export default function PrintReportPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col h-screen overflow-hidden">
-      {/* --- BARRA DE FERRAMENTAS --- */}
+      {/* BARRA DE TOPO */}
       <div className="bg-gray-100 border-b border-gray-200 p-4 shadow-sm z-10 flex flex-col gap-4">
           <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
@@ -232,7 +231,7 @@ export default function PrintReportPage() {
           </div>
 
           <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
-               {/* ÁREA DE FILTROS */}
+               {/* FILTROS */}
                <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
                   {trip.onibus && trip.onibus.length > 0 && (<FilterCombobox options={busOptions} value={filterBusId} onChange={setFilterBusId} placeholder="Ônibus" />)}
                   <FilterCombobox options={taxistaOptions} value={filterTaxista} onChange={setFilterTaxista} placeholder="Taxista" />
@@ -243,7 +242,7 @@ export default function PrintReportPage() {
 
                <div className="h-6 w-px bg-gray-300 mx-2 hidden xl:block" />
 
-               {/* ÁREA DE AGRUPAMENTO (MODOS) */}
+               {/* BOTÕES DE MODO */}
                <div className="flex items-center bg-white p-1 rounded-md border border-gray-200 overflow-x-auto">
                     <span className="text-[10px] font-bold uppercase text-gray-500 whitespace-nowrap px-2">Agrupar:</span>
                     <Button variant={organizeMode === 'padrao' ? 'secondary' : 'ghost'} size="sm" onClick={() => setOrganizeMode('padrao')} className="h-7 text-xs gap-1"><List className="w-3 h-3"/> Padrão</Button>
@@ -268,7 +267,6 @@ export default function PrintReportPage() {
           </div>
       </div>
 
-      {/* --- VISUALIZADOR PDF --- */}
       <div className="flex-1 bg-gray-500 w-full relative">
         {printMode === 'FULL' && (
              <PDFViewer width="100%" height="100%" className="w-full h-full border-none">

@@ -19,6 +19,78 @@ public class PassageiroViagemController {
     @Autowired
     PassageiroViagemService service;
 
+    // === LISTAR POR VIAGEM ===
+    @GetMapping("/viagem/{viagemId}")
+    public ResponseEntity<List<PassengerResponseDto>> findByViagemId(@PathVariable Long viagemId) {
+        return ResponseEntity.ok(service.findByViagemId(viagemId));
+    }
+
+    // === BUSCAR UM ===
+    @GetMapping("/{id}")
+    public ResponseEntity<PassengerResponseDto> findById(@PathVariable Long id) {
+        return service.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // === CRIAR INDIVIDUAL ===
+    @PostMapping
+    public ResponseEntity<PassengerResponseDto> create(@RequestBody PassengerSaveRequestDto dto) {
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED).body(service.save(dto));
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // === NOVA FUNCIONALIDADE: CRIAR GRUPO FAMÍLIA ===
+    @PostMapping("/grupo")
+    public ResponseEntity<List<PassengerResponseDto>> createFamilyGroup(@RequestBody FamilyGroupRequestDto dto) {
+        try {
+            List<PassengerResponseDto> novosPassageiros = service.salvarGrupoFamilia(dto);
+            return ResponseEntity.status(HttpStatus.CREATED).body(novosPassageiros);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // === ATUALIZAR ===
+    @PutMapping("/{id}")
+    public ResponseEntity<PassengerResponseDto> update(@PathVariable Long id, @RequestBody PassengerSaveRequestDto dto) {
+        try {
+            return ResponseEntity.ok(service.update(id, dto));
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // === DELETAR (Corrigido o erro de boolean) ===
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        try {
+            service.delete(id); // Agora retorna void, não precisa de IF
+            return ResponseEntity.noContent().build();
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // === ATRIBUIÇÃO EM MASSA (Corrigido argumentos) ===
+    @PostMapping("/atribuir-em-massa")
+    public ResponseEntity<Void> atribuirEmMassa(@RequestBody BulkAssignRequestDto dto) {
+        // O service espera: List<Long> pIds, List<Long> eIds, Long taxistaId, String tipo
+        service.atribuirTaxistaEmMassa(
+                dto.passageiroIds(),
+                dto.encomendaIds(), // Passando null ou lista vazia se o DTO não tiver
+                dto.taxistaId(),
+                dto.tipo()
+        );
+        return ResponseEntity.ok().build();
+    }
+
     // === REORDENAR ===
     @PatchMapping("/reordenar")
     public ResponseEntity<Void> reordenar(@RequestBody ReorderRequestDto dto) {
@@ -40,63 +112,33 @@ public class PassageiroViagemController {
     // === DESVINCULAR GRUPO ===
     @PostMapping("/{id}/desvincular")
     public ResponseEntity<Void> desvincular(@PathVariable Long id) {
-        service.desvincularGrupo(id);
-        return ResponseEntity.ok().build();
+        try {
+            service.desvincularGrupo(id);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
-    // === ATRIBUIÇÃO EM MASSA (CORRIGIDO) ===
-    @PostMapping("/atribuir-massa")
-    public ResponseEntity<Void> atribuirEmMassa(@RequestBody BulkAssignRequestDto dto) {
-        // CORREÇÃO AQUI: Passando dto.encomendaIds()
-        service.atribuirTaxistaEmMassa(
-                dto.passageiroIds(),
-                dto.encomendaIds(), // <--- Novo argumento obrigatório
-                dto.taxistaId(),
-                dto.tipo()
-        );
-        return ResponseEntity.ok().build();
-    }
-    // =======================================
-
-    @GetMapping
-    public ResponseEntity<List<PassengerResponseDto>> getAll() { return ResponseEntity.ok(service.findAll()); }
-
-    @GetMapping("/viagem/{viagemId}")
-    public ResponseEntity<List<PassengerResponseDto>> getByViagemId(@PathVariable Long viagemId) { return ResponseEntity.ok(service.findByViagemId(viagemId)); }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<PassengerResponseDto> getById(@PathVariable Long id) {
-        return service.findById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
-    }
-
-    @PostMapping
-    public ResponseEntity<Object> save(@RequestBody PassengerSaveRequestDto dto) {
-        try { return ResponseEntity.status(HttpStatus.CREATED).body(service.save(dto)); }
-        catch (Exception e) { return ResponseEntity.badRequest().body(e.getMessage()); }
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<Object> update(@PathVariable Long id, @RequestBody PassengerSaveRequestDto dto) {
-        try { return ResponseEntity.ok(service.update(id, dto).get()); }
-        catch (Exception e) { return ResponseEntity.badRequest().body(e.getMessage()); }
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Object> delete(@PathVariable Long id) {
-        return service.delete(id) ? ResponseEntity.ok("Deletado") : ResponseEntity.notFound().build();
-    }
-
+    // === MARCAR PAGO (Corrigido erro do .get) ===
     @PatchMapping("/{id}/marcar-pago")
     public ResponseEntity<Object> markAsPaid(@PathVariable(value = "id") Long id) {
         try {
             Optional<PassengerResponseDto> pvAtualizado = service.markAsPaid(id);
-            if (pvAtualizado.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Registro não encontrado");
+
+            if (pvAtualizado.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Registro não encontrado");
+            }
+
+            // Aqui estava o erro: antes o código podia estar tentando dar .get() em algo que não era Optional
             return ResponseEntity.ok(pvAtualizado.get());
+
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
     }
 
+    // === VINCULAR ASSENTO ===
     @PatchMapping("/{id}/vincular-assento")
     public ResponseEntity<Object> vincularAssento(@PathVariable Long id, @RequestParam Long onibusId, @RequestParam(required = false) String numero) {
         try {
@@ -106,6 +148,7 @@ public class PassageiroViagemController {
         }
     }
 
+    // === ATUALIZAR COR DA TAG ===
     @PatchMapping("/{id}/cor")
     public ResponseEntity<Object> updateCor(@PathVariable Long id, @RequestBody CorRequestDto dto) {
         try {
