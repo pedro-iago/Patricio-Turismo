@@ -7,6 +7,9 @@ public record ViagemDto(
         Long id,
         LocalDateTime dataHoraPartida,
         LocalDateTime dataHoraChegada,
-        List<OnibusDto> onibus // Deve ser LISTA
+        List<OnibusDto> onibus,
+        // Novos campos para os cards
+        Integer totalPassageiros,
+        Integer totalEncomendas
 ) {
 }

@@ -13,12 +13,12 @@ import com.partricioturismo.crud.repositories.EncomendaRepository;
 import com.partricioturismo.crud.repositories.OnibusRepository;
 import com.partricioturismo.crud.repositories.PassageiroViagemRepository;
 import com.partricioturismo.crud.repositories.ViagemRepository;
-import com.partricioturismo.crud.service.ViagemSpecs; // <--- IMPORTANTE
+import com.partricioturismo.crud.service.ViagemSpecs;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification; // <--- IMPORTANTE
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,34 +30,18 @@ import java.util.stream.Collectors;
 @Service
 public class ViagemService {
 
-    @Autowired
-    private ViagemRepository viagemRepository;
-    @Autowired
-    private OnibusRepository onibusRepository;
-    @Autowired
-    private AssentoRepository assentoRepository;
+    @Autowired private ViagemRepository viagemRepository;
+    @Autowired private OnibusRepository onibusRepository;
+    @Autowired private AssentoRepository assentoRepository;
+    @Autowired private PassageiroViagemService passageiroViagemService;
+    @Autowired private PassageiroViagemRepository passageiroViagemRepository;
+    @Autowired private EncomendaRepository encomendaRepository;
 
-    @Autowired
-    private PassageiroViagemService passageiroViagemService;
-    @Autowired
-    private PassageiroViagemRepository passageiroViagemRepository;
-    @Autowired
-    private EncomendaRepository encomendaRepository;
-
-    // === MÉTODO ATUALIZADO: USA SPECIFICATIONS ===
     @Transactional(readOnly = true)
     public Page<ViagemDto> findAll(Integer mes, Integer ano, String query, Pageable pageable) {
-
-        // 1. Cria a especificação (filtro) usando a classe auxiliar ViagemSpecs
-        // Isso trata nulos e tipos de dados (Integer/Double) automaticamente
         Specification<Viagem> spec = ViagemSpecs.comFiltros(mes, ano, query);
-
-        // 2. Chama o repositório passando a Spec + Paginação
-        // O Spring gera o SQL correto para o seu banco (PostgreSQL)
-        return viagemRepository.findAll(spec, pageable)
-                .map(this::toDto);
+        return viagemRepository.findAll(spec, pageable).map(this::toDto);
     }
-    // =============================================
 
     @Transactional(readOnly = true)
     public ViagemDto findById(Long id) {
@@ -79,7 +63,7 @@ public class ViagemService {
 
         var viagemSalva = viagemRepository.save(viagem);
 
-        // Cria assentos automaticamente para cada ônibus
+        // Cria assentos
         List<Assento> novosAssentos = new ArrayList<>();
         for (Onibus onibus : onibusList) {
             int capacidade = onibus.getCapacidadePassageiros();
@@ -115,7 +99,10 @@ public class ViagemService {
                 viagem.getId(),
                 viagem.getDataHoraPartida(),
                 viagem.getDataHoraChegada(),
-                onibusDtos
+                onibusDtos,
+                // Aqui populamos os novos campos vindos do @Formula
+                viagem.getTotalPassageiros(),
+                viagem.getTotalEncomendas()
         );
     }
 
@@ -139,9 +126,7 @@ public class ViagemService {
 
     @Transactional
     public boolean delete(Long id) {
-        if (!viagemRepository.existsById(id)) {
-            return false;
-        }
+        if (!viagemRepository.existsById(id)) return false;
         List<PassageiroViagem> passageiros = passageiroViagemRepository.findByViagemId(id);
         for (PassageiroViagem p : passageiros) {
             passageiroViagemService.delete(p.getId());

@@ -18,10 +18,8 @@ public record PassengerResponseDto(
         String numeroAssento,
         Long onibusId,
         String corTag,
-        // === NOVOS CAMPOS ADICIONADOS AQUI ===
         Integer ordem,
         String grupoId,
-        // =====================================
         ViagemDto viagem
 ) {
     public PassengerResponseDto(PassageiroViagem pv) {
@@ -46,12 +44,10 @@ public record PassengerResponseDto(
                         : null,
 
                 pv.getCorTag(),
-
-                // === MAPEAMENTO DOS NOVOS CAMPOS ===
                 pv.getOrdem(),
                 pv.getGrupoId(),
-                // ===================================
 
+                // ATUALIZADO: Construtor do ViagemDto com os novos campos
                 pv.getViagem() != null ? new ViagemDto(
                         pv.getViagem().getId(),
                         pv.getViagem().getDataHoraPartida(),
@@ -63,7 +59,10 @@ public record PassengerResponseDto(
                                         o.getPlaca(),
                                         o.getCapacidadePassageiros(),
                                         o.getLayoutJson()))
-                                .collect(Collectors.toList())
+                                .collect(Collectors.toList()),
+                        // Passamos os totais aqui também
+                        pv.getViagem().getTotalPassageiros(),
+                        pv.getViagem().getTotalEncomendas()
                 ) : null
         );
     }

@@ -7,10 +7,8 @@ import java.util.stream.Collectors;
 public record EncomendaResponseDto(
         Long id,
         String descricao,
-        BigDecimal peso,
         PessoaDto remetente,
         PessoaDto destinatario,
-        PessoaDto responsavel,
         EnderecoDto enderecoColeta,
         EnderecoDto enderecoEntrega,
         AffiliateResponseDto taxistaColeta,
@@ -19,17 +17,14 @@ public record EncomendaResponseDto(
         BigDecimal valor,
         String metodoPagamento,
         boolean pago,
-        String corTag, // Campo existe aqui
         ViagemDto viagem
 ) {
     public EncomendaResponseDto(Encomenda e) {
         this(
                 e.getId(),
                 e.getDescricao(),
-                e.getPeso(),
                 new PessoaDto(e.getRemetente()),
                 new PessoaDto(e.getDestinatario()),
-                e.getResponsavel() != null ? new PessoaDto(e.getResponsavel()) : null,
                 e.getEnderecoColeta() != null ? new EnderecoDto(e.getEnderecoColeta()) : null,
                 e.getEnderecoEntrega() != null ? new EnderecoDto(e.getEnderecoEntrega()) : null,
                 e.getTaxistaColeta() != null ? new AffiliateResponseDto(e.getTaxistaColeta()) : null,
@@ -39,11 +34,7 @@ public record EncomendaResponseDto(
                 e.getMetodoPagamento(),
                 e.isPago(),
 
-                // --- CORREÇÃO: ADICIONE ESTA LINHA PARA MAPEAR O corTag ---
-                e.getCorTag(), // <-- Mapeia o valor da entidade
-                // --------------------------------------------------------
-
-                // CORREÇÃO DA LISTA DE ÔNIBUS
+                // --- CORREÇÃO AQUI ---
                 e.getViagem() != null ? new ViagemDto(
                         e.getViagem().getId(),
                         e.getViagem().getDataHoraPartida(),
@@ -55,7 +46,10 @@ public record EncomendaResponseDto(
                                         o.getPlaca(),
                                         o.getCapacidadePassageiros(),
                                         o.getLayoutJson()))
-                                .collect(Collectors.toList())
+                                .collect(Collectors.toList()),
+                        // Passando os totais calculados pelo @Formula
+                        e.getViagem().getTotalPassageiros(),
+                        e.getViagem().getTotalEncomendas()
                 ) : null
         );
     }

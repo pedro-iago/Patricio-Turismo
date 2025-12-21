@@ -1,6 +1,7 @@
 package com.partricioturismo.crud.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Formula; // <--- IMPORTANTE
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +20,6 @@ public class Viagem {
     @Column(nullable = false)
     private LocalDateTime dataHoraChegada;
 
-    // --- MUDANÇA: Agora é uma Lista de Ônibus (ManyToMany) ---
     @ManyToMany
     @JoinTable(
             name = "viagem_onibus",
@@ -31,6 +31,17 @@ public class Viagem {
     @OneToMany(mappedBy = "viagem", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Assento> assentos;
 
+    // === NOVOS CAMPOS CALCULADOS (Fórmulas) ===
+    // O Hibernate executa esse SQL automaticamente ao buscar a viagem.
+    // Isso evita carregar a lista inteira de passageiros na memória.
+
+    @Formula("(select count(*) from passageiro_viagem pv where pv.viagem_id = id)")
+    private Integer totalPassageiros;
+
+    @Formula("(select count(*) from encomenda e where e.viagem_id = id)")
+    private Integer totalEncomendas;
+    // ==========================================
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -40,21 +51,18 @@ public class Viagem {
     public LocalDateTime getDataHoraChegada() { return dataHoraChegada; }
     public void setDataHoraChegada(LocalDateTime dataHoraChegada) { this.dataHoraChegada = dataHoraChegada; }
 
-    // --- GETTER E SETTER DA LISTA ---
     public List<Onibus> getListaOnibus() { return listaOnibus; }
     public void setListaOnibus(List<Onibus> listaOnibus) { this.listaOnibus = listaOnibus; }
 
     public List<Assento> getAssentos() { return assentos; }
     public void setAssentos(List<Assento> assentos) { this.assentos = assentos; }
 
-    // =================================================================
-    // MÉTODOS DE COMPATIBILIDADE (LEGACY)
-    // Adicionados para não quebrar códigos antigos que chamam .getOnibus()
-    // =================================================================
+    // === GETTERS DOS TOTAIS ===
+    // Retorna 0 se for null para evitar NullPointerException no front
+    public Integer getTotalPassageiros() { return totalPassageiros != null ? totalPassageiros : 0; }
+    public Integer getTotalEncomendas() { return totalEncomendas != null ? totalEncomendas : 0; }
 
-    /**
-     * Retorna o primeiro ônibus da lista para manter compatibilidade.
-     */
+    // Métodos Legacy (Compatibilidade)
     public Onibus getOnibus() {
         if (this.listaOnibus != null && !this.listaOnibus.isEmpty()) {
             return this.listaOnibus.get(0);
@@ -62,9 +70,6 @@ public class Viagem {
         return null;
     }
 
-    /**
-     * Define um único ônibus (substitui a lista inteira por este único).
-     */
     public void setOnibus(Onibus onibus) {
         this.listaOnibus = new ArrayList<>();
         if (onibus != null) {
