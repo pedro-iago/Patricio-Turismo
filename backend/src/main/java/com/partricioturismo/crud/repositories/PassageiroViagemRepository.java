@@ -25,25 +25,6 @@ public interface PassageiroViagemRepository extends JpaRepository<PassageiroViag
             "ORDER BY pv.ordem ASC, pv.id ASC")
     List<PassageiroViagem> findByViagemId(@Param("viagemId") Long viagemId);
 
-    @Query("SELECT pv FROM PassageiroViagem pv " +
-            "JOIN FETCH pv.pessoa " +
-            "JOIN FETCH pv.viagem v " +
-            "LEFT JOIN FETCH v.listaOnibus " +
-            "LEFT JOIN FETCH pv.taxistaColeta " +
-            "LEFT JOIN FETCH pv.taxistaEntrega " +
-            "LEFT JOIN FETCH pv.comisseiro " +
-            "WHERE pv.viagem.id = :viagemId AND pv.pessoa.nome LIKE %:nome%")
-    List<PassageiroViagem> findByViagemIdAndNome(@Param("viagemId") Long viagemId, @Param("nome") String nome);
-
-    // --- MÉTODOS DE HISTÓRICO DE PESSOA ---
-
-    @Query("SELECT pv FROM PassageiroViagem pv " +
-            "JOIN FETCH pv.pessoa p " +
-            "JOIN FETCH pv.viagem v " +
-            "LEFT JOIN FETCH v.listaOnibus " +
-            "WHERE p.id = :pessoaId ORDER BY v.dataHoraPartida DESC")
-    List<PassageiroViagem> findByPessoaIdWithHistory(@Param("pessoaId") Long pessoaId);
-
     // --- MÉTODOS USADOS PELO ReportController (CORREÇÃO DOS ERROS) ---
 
     // 1. Busca passageiros de uma viagem filtrados por Taxista (Coleta OU Entrega)
@@ -103,6 +84,15 @@ public interface PassageiroViagemRepository extends JpaRepository<PassageiroViag
             @Param("taxistaId") Long taxistaId,
             @Param("inicio") LocalDateTime inicio,
             @Param("fim") LocalDateTime fim);
+
+    // --- MÉTODOS DE HISTÓRICO DE PESSOA ---
+
+    @Query("SELECT pv FROM PassageiroViagem pv " +
+            "JOIN FETCH pv.pessoa p " +
+            "JOIN FETCH pv.viagem v " +
+            "LEFT JOIN FETCH v.listaOnibus " +
+            "WHERE p.id = :pessoaId ORDER BY v.dataHoraPartida DESC")
+    List<PassageiroViagem> findByPessoaIdWithHistory(@Param("pessoaId") Long pessoaId);
 
     // Helpers de Ordem
     @Query("SELECT MIN(pv.ordem) FROM PassageiroViagem pv WHERE pv.viagem.id = :viagemId")
