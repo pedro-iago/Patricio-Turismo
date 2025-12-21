@@ -13,8 +13,6 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-// --- IMPORTS NOVOS ---
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -32,11 +30,16 @@ public class AffiliateService {
 
     // --- Lógica de Taxista ---
 
-    // --- MÉTODO ATUALIZADO (Passo 4) ---
     public Page<AffiliateResponseDto> getAllTaxistas(Pageable pageable) {
         Page<Taxista> paginaTaxista = taxistaRepository.findAll(pageable);
-        // Converte a Page<Taxista> para Page<AffiliateResponseDto>
         return paginaTaxista.map(AffiliateResponseDto::new);
+    }
+
+    // ✅ NOVO MÉTODO: Buscar Taxista por ID
+    public AffiliateResponseDto getTaxistaById(Long id) {
+        Taxista taxista = taxistaRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Taxista não encontrado com id: " + id));
+        return new AffiliateResponseDto(taxista);
     }
 
     @Transactional
@@ -44,11 +47,15 @@ public class AffiliateService {
         Pessoa pessoa = pessoaRepository.findById(dto.getPessoaId())
                 .orElseThrow(() -> new EntityNotFoundException("Pessoa não encontrada"));
 
+        // Verifica se já existe para evitar duplicação (opcional, mas recomendado)
+        if (taxistaRepository.existsByPessoaId(dto.getPessoaId())) {
+            throw new IllegalArgumentException("Esta pessoa já está cadastrada como taxista.");
+        }
+
         Taxista taxista = new Taxista();
         taxista.setPessoa(pessoa);
         taxistaRepository.save(taxista);
 
-        // Retorna o DTO antigo (AffiliateDto), pois o DTO de resposta é usado apenas para listagem/detalhes
         return new AffiliateDto(taxista.getId(), new AffiliateResponseDto(taxista).pessoa());
     }
 
@@ -62,16 +69,26 @@ public class AffiliateService {
 
     // --- Lógica de Comisseiro ---
 
-    // --- MÉTODO ATUALIZADO (Passo 4) ---
     public Page<AffiliateResponseDto> getAllComisseiros(Pageable pageable) {
         Page<Comisseiro> paginaComisseiro = comisseiroRepository.findAll(pageable);
         return paginaComisseiro.map(AffiliateResponseDto::new);
+    }
+
+    // ✅ NOVO MÉTODO: Buscar Comisseiro por ID
+    public AffiliateResponseDto getComisseiroById(Long id) {
+        Comisseiro comisseiro = comisseiroRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Comisseiro não encontrado com id: " + id));
+        return new AffiliateResponseDto(comisseiro);
     }
 
     @Transactional
     public AffiliateDto createComisseiro(CreateAffiliateRequestDto dto) {
         Pessoa pessoa = pessoaRepository.findById(dto.getPessoaId())
                 .orElseThrow(() -> new EntityNotFoundException("Pessoa não encontrada"));
+
+        if (comisseiroRepository.existsByPessoaId(dto.getPessoaId())) {
+            throw new IllegalArgumentException("Esta pessoa já está cadastrada como comisseiro.");
+        }
 
         Comisseiro comisseiro = new Comisseiro();
         comisseiro.setPessoa(pessoa);

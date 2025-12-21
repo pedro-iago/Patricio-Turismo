@@ -1,23 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Bus as BusIcon, Users } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-// ✅ 1. IMPORTE OS COMPONENTES DE CARD
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './ui/card';
 import BusModal from './BusModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api';
 
-// ... (Interfaces: Bus, BusDto - SEM ALTERAÇÃO) ...
 interface Bus {
   id: number;
-  placa: string;
-  modelo: string;
-  capacidadePassageiros: number;
-}
-
-interface BusDto {
   placa: string;
   modelo: string;
   capacidadePassageiros: number;
@@ -30,168 +21,79 @@ export default function FleetPage() {
   const [deleteBus, setDeleteBus] = useState<Bus | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // ... (Lógica de fetch, CRUD, etc. - SEM ALTERAÇÃO) ...
   const fetchBuses = async () => {
     try {
-      const response = await api.get<Bus[]>(`/api/onibus`);
+      const response = await api.get<Bus[]>('/api/onibus');
       setBuses(response.data);
     } catch (error) {
-      console.error("Erro ao buscar ônibus:", error);
+      console.error('Erro ao buscar frota:', error);
     }
   };
 
-  useEffect(() => {
-    fetchBuses();
-  }, []);
+  useEffect(() => { fetchBuses(); }, []);
 
-  const handleCreateBus = async (busData: BusDto) => {
-    try {
-      await api.post('/api/onibus', busData);
-      setIsModalOpen(false);
-      await fetchBuses();
-    } catch (error) {
-      console.error("Erro ao criar ônibus:", error);
-    }
+  const handleCreateBus = async (busData: any) => {
+    try { await api.post('/api/onibus', busData); setIsModalOpen(false); fetchBuses(); } catch (error) { console.error(error); }
   };
 
-  const handleUpdateBus = async (busData: BusDto) => {
+  const handleUpdateBus = async (busData: any) => {
     if (!selectedBus) return;
-    try {
-      await api.put(`/api/onibus/${selectedBus.id}`, busData);
-      setSelectedBus(null);
-      setIsModalOpen(false);
-      await fetchBuses();
-    } catch (error) {
-      console.error("Erro ao atualizar ônibus:", error);
-    }
+    try { await api.put(`/api/onibus/${selectedBus.id}`, busData); setIsModalOpen(false); setSelectedBus(null); fetchBuses(); } catch (error) { console.error(error); }
   };
 
   const handleDeleteBus = async () => {
     if (!deleteBus) return;
-    try {
-      await api.delete(`/api/onibus/${deleteBus.id}`);
-      setDeleteBus(null);
-      await fetchBuses();
-    } catch (error) {
-      console.error("Erro ao deletar ônibus:", error);
-    }
+    try { await api.delete(`/api/onibus/${deleteBus.id}`); setDeleteBus(null); fetchBuses(); } catch (error) { console.error(error); }
   };
 
-  const openEditModal = (bus: Bus) => {
-    setSelectedBus(bus);
-    setIsModalOpen(true);
-  };
-
-  const openCreateModal = () => {
-    setSelectedBus(null);
-    setIsModalOpen(true);
-  };
-
-  const filteredBuses = buses.filter(bus => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      bus.placa.toLowerCase().includes(searchLower) ||
-      bus.modelo.toLowerCase().includes(searchLower)
-    );
-  });
+  const filteredBuses = buses.filter(bus => 
+    bus.placa.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    bus.modelo.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6">
-      {/* ... (Cabeçalho da página e Input de Busca - SEM ALTERAÇÃO) ... */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-4 md:p-8 bg-slate-50/50 min-h-screen">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h2>Gestão de Frota</h2>
-          <p className="text-muted-foreground mt-1">Gerencie sua frota de ônibus</p>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Frota</h2>
+          <p className="text-muted-foreground">Gerencie seus veículos.</p>
         </div>
-        <Button onClick={openCreateModal} className="bg-primary hover:bg-primary/90 gap-2">
-          <Plus className="w-4 h-4" />
-          Novo ônibus
+        <Button onClick={() => { setSelectedBus(null); setIsModalOpen(true); }} className="bg-orange-600 hover:bg-orange-700 gap-2 text-white">
+          <Plus className="w-4 h-4" /> Novo Ônibus
         </Button>
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder="Pesquisar por placa ou modelo..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input placeholder="Pesquisar por placa ou modelo..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 bg-white" />
       </div>
 
-      {/* ✅ 2. TABELA (VISÍVEL APENAS EM DESKTOP) */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 hidden md:block">
-        <Table>
-          <TableHeader>
-            <TableRow key="header-row">
-              <TableHead>Placa</TableHead>
-              <TableHead>Modelo</TableHead>
-              <TableHead>Capacidade</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredBuses.map((bus) => (
-              <TableRow key={bus.id}>
-                <TableCell>{bus.placa}</TableCell>
-                <TableCell>{bus.modelo}</TableCell>
-                <TableCell>{bus.capacidadePassageiros} assentos</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEditModal(bus)}
-                      className="hover:bg-primary/10 hover:text-primary"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteBus(bus)}
-                      className="hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* ✅ 3. LISTA DE CARDS (VISÍVEL APENAS EM MOBILE) */}
-      <div className="block md:hidden space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredBuses.map((bus) => (
-          <Card key={bus.id} className="bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle>Placa: {bus.placa}</CardTitle>
-              <CardDescription>Modelo: {bus.modelo}</CardDescription>
+          <Card key={bus.id} className="hover:shadow-md transition-shadow border-slate-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                {/* COR PADRONIZADA: LARANJA */}
+                <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                    <BusIcon className="w-5 h-5" />
+                </div>
+                <CardTitle className="text-base font-bold text-slate-800">{bus.placa}</CardTitle>
+              </div>
             </CardHeader>
-            <CardContent className="text-sm">
-              <p>
-                <span className="font-medium text-muted-foreground">Capacidade: </span>
-                {bus.capacidadePassageiros} assentos
-              </p>
+            <CardContent>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-slate-700">{bus.modelo}</p>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>{bus.capacidadePassageiros} Lugares</span>
+                </div>
+              </div>
             </CardContent>
-            <CardFooter className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => openEditModal(bus)}
-                className="hover:bg-primary/10 hover:text-primary"
-              >
+            <CardFooter className="flex justify-end gap-1 pt-0">
+              <Button variant="ghost" size="icon" onClick={() => { setSelectedBus(bus); setIsModalOpen(true); }} className="text-slate-400 hover:text-orange-600">
                 <Edit className="w-4 h-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setDeleteBus(bus)}
-                className="hover:bg-destructive/10 hover:text-destructive"
-              >
+              <Button variant="ghost" size="icon" onClick={() => setDeleteBus(bus)} className="text-slate-400 hover:text-red-600">
                 <Trash2 className="w-4 h-4" />
               </Button>
             </CardFooter>
@@ -199,25 +101,8 @@ export default function FleetPage() {
         ))}
       </div>
 
-
-      {/* ... (Modais - SEM ALTERAÇÃO) ... */}
-      <BusModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedBus(null);
-        }}
-        onSave={selectedBus ? handleUpdateBus : handleCreateBus}
-        bus={selectedBus}
-      />
-
-      <DeleteConfirmModal
-        isOpen={!!deleteBus}
-        onClose={() => setDeleteBus(null)}
-        onConfirm={handleDeleteBus}
-        title="Excluir ônibus"
-        description={`Tem certeza de que deseja excluir o ônibus ${deleteBus?.placa}? Esta ação não pode ser desfeita.`}
-      />
+      <BusModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setSelectedBus(null); }} onSave={selectedBus ? handleUpdateBus : handleCreateBus} bus={selectedBus} />
+      <DeleteConfirmModal isOpen={!!deleteBus} onClose={() => setDeleteBus(null)} onConfirm={handleDeleteBus} title="Excluir Veículo" description={`Tem certeza?`} />
     </div>
   );
 }

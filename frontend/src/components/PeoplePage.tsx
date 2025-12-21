@@ -1,44 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Search, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, User, Phone, FileText, Eye } from 'lucide-react';
 import { Button } from './ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './ui/card';
 import PersonModal from './PersonModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api';
-import { Input } from './ui/input';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationPrevious,
-  PaginationNext,
-  PaginationLink,
-  PaginationEllipsis
-} from './ui/pagination';
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink, PaginationEllipsis } from './ui/pagination';
 import { cn } from './ui/utils';
 
-interface Person {
-  id: number;
-  nome: string;
-  cpf: string;
-  telefone: string;
-  idade?: number;
-}
-
-interface PersonDto {
-  nome: string;
-  cpf: string;
-  telefone: string | null;
-  idade?: number | null;
-}
-
-interface Page<T> {
-  content: T[];
-  totalPages: number;
-  number: number;
-}
+interface Person { id: number; nome: string; cpf: string; telefone: string; idade?: number; }
+interface PersonDto { nome: string; cpf: string; telefone: string | null; idade?: number | null; }
+interface Page<T> { content: T[]; totalPages: number; number: number; }
 
 export default function PeoplePage() {
   const navigate = useNavigate();
@@ -46,182 +20,98 @@ export default function PeoplePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [deletePerson, setDeletePerson] = useState<Person | null>(null);
-  
-  // Busca e Paginação
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [loading, setLoading] = useState(false);
 
-  // --- BUSCA NO SERVIDOR (Debounce) ---
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      // Sempre que o termo mudar, voltamos para a página 0 e buscamos
-      fetchPeople(0, searchTerm);
-    }, 500); // Espera 500ms após parar de digitar
-
-    return () => clearTimeout(delayDebounceFn);
+    const delay = setTimeout(() => fetchPeople(0), 500);
+    return () => clearTimeout(delay);
   }, [searchTerm]);
 
-  const fetchPeople = async (page = 0, term = '') => {
-    setLoading(true);
+  const fetchPeople = async (page = 0) => {
     try {
-      let response;
-      
-      if (term) {
-        // Se tiver busca, usa o endpoint de pesquisa
-        // NOTA: Se o seu endpoint /search retornar uma Lista simples (não paginada), 
-        // tratamos como página única.
-        response = await api.get<Person[] | Page<Person>>(`/api/pessoa/search?query=${term}`);
-        
-        if (Array.isArray(response.data)) {
-            // Se o backend retornar array direto na busca
-            setPeople(response.data);
-            setTotalPages(1); 
-            setCurrentPage(0);
-        } else {
-            // Se o backend retornar objeto Page na busca
-            setPeople(response.data.content);
-            setTotalPages(response.data.totalPages);
-            setCurrentPage(response.data.number);
-        }
-      } else {
-        // Se não tiver busca, usa a paginação padrão
-        response = await api.get<Page<Person>>(`/api/pessoa?page=${page}&size=10`);
-        setPeople(response.data.content);
-        setTotalPages(response.data.totalPages);
-        setCurrentPage(response.data.number);
-      }
-    } catch (error) {
-      console.error("Erro ao buscar pessoas:", error);
-      setPeople([]);
-    } finally {
-        setLoading(false);
-    }
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('size', '12');
+      params.append('sort', 'nome,asc');
+      if (searchTerm) params.append('nome', searchTerm);
+
+      const response = await api.get<Page<Person>>(`/api/pessoa?${params.toString()}`);
+      setPeople(response.data.content);
+      setTotalPages(response.data.totalPages);
+      setCurrentPage(response.data.number);
+    } catch (error) { console.error('Erro ao buscar pessoas:', error); }
   };
 
-  // Quando muda a página via clique nos botões
-  const handlePageChange = (newPage: number) => {
-    if (newPage >= 0 && newPage < totalPages) {
-      fetchPeople(newPage, searchTerm);
-    }
-  };
+  const handleCreatePerson = async (data: PersonDto) => { try { await api.post('/api/pessoa', data); setIsModalOpen(false); fetchPeople(0); } catch (e) { console.error(e); } };
+  const handleUpdatePerson = async (data: PersonDto) => { if (!selectedPerson) return; try { await api.put(`/api/pessoa/${selectedPerson.id}`, data); setIsModalOpen(false); setSelectedPerson(null); fetchPeople(currentPage); } catch (e) { console.error(e); } };
+  const handleDeletePerson = async () => { if (!deletePerson) return; try { await api.delete(`/api/pessoa/${deletePerson.id}`); setDeletePerson(null); fetchPeople(currentPage); } catch (e) { console.error(e); } };
+  const handlePageChange = (page: number) => { if (page >= 0 && page < totalPages) fetchPeople(page); };
 
-  // ... (CRUD Handlers mantidos) ...
-  const handleCreatePerson = async (personData: PersonDto) => {
-    try { await api.post('/api/pessoa', personData); setIsModalOpen(false); fetchPeople(0, searchTerm); } 
-    catch (error) { console.error("Erro:", error); }
-  };
-
-  const handleUpdatePerson = async (personData: PersonDto) => {
-    if (!selectedPerson) return;
-    try { await api.put(`/api/pessoa/${selectedPerson.id}`, personData); setSelectedPerson(null); setIsModalOpen(false); fetchPeople(currentPage, searchTerm); } 
-    catch (error) { console.error("Erro:", error); }
-  };
-
-  const handleDeletePerson = async () => {
-    if (!deletePerson) return;
-    try { await api.delete(`/api/pessoa/${deletePerson.id}`); setDeletePerson(null); fetchPeople(currentPage, searchTerm); } 
-    catch (error) { console.error("Erro:", error); }
-  };
-
-  const openEditModal = (person: Person) => { setSelectedPerson(person); setIsModalOpen(true); };
-  const openCreateModal = () => { setSelectedPerson(null); setIsModalOpen(true); };
-
-  const getPaginationItems = (currentPage: number, totalPages: number) => {
-    const items: (number | string)[] = [];
-    const maxPageNumbers = 5;
-    const pageRangeDisplayed = 1;
-    if (totalPages <= maxPageNumbers) { for (let i = 0; i < totalPages; i++) { items.push(i); } }
-    else { items.push(0); if (currentPage > pageRangeDisplayed + 1) { items.push('...'); }
-    else if (currentPage === pageRangeDisplayed + 1) { items.push(1); }
-    for (let i = Math.max(1, currentPage - pageRangeDisplayed); i <= Math.min(totalPages - 2, currentPage + pageRangeDisplayed); i++) { if (i !== 0) { items.push(i); } }
-    if (currentPage < totalPages - pageRangeDisplayed - 2) { items.push('...'); }
-    else if (currentPage === totalPages - pageRangeDisplayed - 2) { items.push(totalPages - 2); }
-    if (totalPages > 1) { items.push(totalPages - 1); } }
-    return [...new Set(items)];
+  const getPaginationItems = (current: number, total: number) => {
+    const items = [];
+    if (total <= 5) { for(let i=0; i<total; i++) items.push(i); }
+    else { items.push(0, current > 2 ? '...' : null, current, current < total-3 ? '...' : null, total-1); }
+    return [...new Set(items.filter(i => i !== null))];
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-4 md:p-8 bg-slate-50/50 min-h-screen">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h2>Gestão de Pessoas</h2>
-          <p className="text-muted-foreground mt-1">Gerencie todas as pessoas cadastradas</p>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Pessoas</h2>
+          <p className="text-muted-foreground">Cadastro de clientes e funcionários.</p>
         </div>
-        <Button onClick={openCreateModal} className="bg-primary hover:bg-primary/90 gap-2">
-          <Plus className="w-4 h-4" />
-          Nova pessoa
+        <Button onClick={() => { setSelectedPerson(null); setIsModalOpen(true); }} className="bg-orange-600 hover:bg-orange-700 gap-2 text-white">
+          <Plus className="w-4 h-4" /> Nova Pessoa
         </Button>
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder="Pesquisar por nome, CPF ou telefone..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input placeholder="Pesquisar por nome..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 bg-white" />
       </div>
 
-      {/* TABELA DESKTOP */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 hidden md:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Documento (CPF)</TableHead>
-              <TableHead>Telefone</TableHead>
-              <TableHead>Idade</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-                <TableRow><TableCell colSpan={5} className="text-center h-24">Carregando...</TableCell></TableRow>
-            ) : people.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center h-24 text-muted-foreground">Nenhum registro encontrado.</TableCell></TableRow>
-            ) : (
-              people.map((person) => (
-                <TableRow key={person.id}>
-                  <TableCell>{person.nome}</TableCell>
-                  <TableCell>{person.cpf}</TableCell>
-                  <TableCell>{person.telefone || '-'}</TableCell>
-                  <TableCell>{person.idade || '-'}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => navigate(`/pessoas/${person.id}`)} className="hover:bg-primary/10 hover:text-primary"><Eye className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => openEditModal(person)} className="hover:bg-primary/10 hover:text-primary"><Edit className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeletePerson(person)} className="hover:bg-destructive/10 hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* LISTA MOBILE */}
-      <div className="block md:hidden space-y-4">
-        {loading ? <div className="text-center p-4">Carregando...</div> : 
-         people.length === 0 ? <div className="text-center p-4 text-muted-foreground">Nenhum registro encontrado.</div> :
-         people.map((person) => (
-          <Card key={person.id} className="bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle>{person.nome}</CardTitle>
-              <CardDescription>CPF: {person.cpf}</CardDescription>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {people.map((person) => (
+          <Card key={person.id} className="hover:shadow-md transition-shadow border-slate-200">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-3">
+                {/* COR PADRONIZADA: LARANJA */}
+                <div className="p-2 bg-orange-50 text-orange-600 rounded-full">
+                    <User className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                    <CardTitle className="text-base font-bold text-slate-800 truncate" title={person.nome}>{person.nome}</CardTitle>
+                    {person.idade && <p className="text-xs text-muted-foreground">{person.idade} anos</p>}
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div><span className="font-medium text-muted-foreground">Telefone: </span>{person.telefone || '-'}</div>
-              <div><span className="font-medium text-muted-foreground">Idade: </span>{person.idade || '-'}</div>
+            <CardContent className="text-sm text-slate-600 space-y-1">
+                <div className="flex items-center gap-2">
+                    <Phone className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{person.telefone || "Sem telefone"}</span>
+                </div>
+                {person.cpf && (
+                    <div className="flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{person.cpf}</span>
+                    </div>
+                )}
             </CardContent>
-            <CardFooter className="flex justify-end gap-2">
-              <Button variant="ghost" size="icon" onClick={() => navigate(`/pessoas/${person.id}`)} className="hover:bg-primary/10 hover:text-primary"><Eye className="w-4 h-4" /></Button>
-              <Button variant="ghost" size="icon" onClick={() => openEditModal(person)} className="hover:bg-primary/10 hover:text-primary"><Edit className="w-4 h-4" /></Button>
-              <Button variant="ghost" size="icon" onClick={() => setDeletePerson(person)} className="hover:bg-destructive/10 hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+            <CardFooter className="flex justify-end gap-1 pt-0">
+                {/* BOTÃO DE VISUALIZAR HISTÓRICO (AGORA COM OLHO) */}
+                <Button variant="ghost" size="icon" onClick={() => navigate(`/pessoas/${person.id}`)} className="text-slate-400 hover:text-blue-600" title="Ver Histórico">
+                    <Eye className="w-4 h-4" />
+                </Button>
+                {/* BOTÃO DE EDITAR CADASTRO */}
+                <Button variant="ghost" size="icon" onClick={() => { setSelectedPerson(person); setIsModalOpen(true); }} className="text-slate-400 hover:text-orange-600" title="Editar Dados">
+                    <Edit className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => setDeletePerson(person)} className="text-slate-400 hover:text-red-600">
+                    <Trash2 className="w-4 h-4" />
+                </Button>
             </CardFooter>
           </Card>
         ))}
@@ -230,23 +120,17 @@ export default function PeoplePage() {
       {totalPages > 1 && (
         <Pagination>
           <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }} className={cn(currentPage === 0 ? "pointer-events-none opacity-50" : "")} />
-            </PaginationItem>
-            {getPaginationItems(currentPage, totalPages).map((pageItem, index) => (
-              <PaginationItem key={index}>
-                {typeof pageItem === 'string' ? <PaginationEllipsis /> : <PaginationLink href="#" isActive={pageItem === currentPage} onClick={(e) => { e.preventDefault(); handlePageChange(pageItem as number); }}>{(pageItem as number) + 1}</PaginationLink>}
-              </PaginationItem>
+            <PaginationItem><PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }} className={cn(currentPage === 0 && "opacity-50 pointer-events-none")} /></PaginationItem>
+            {getPaginationItems(currentPage, totalPages).map((p, i) => (
+              <PaginationItem key={i}>{typeof p === 'string' ? <PaginationEllipsis /> : <PaginationLink href="#" isActive={p === currentPage} onClick={(e) => { e.preventDefault(); handlePageChange(p as number); }}>{(p as number) + 1}</PaginationLink>}</PaginationItem>
             ))}
-            <PaginationItem>
-              <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }} className={cn(currentPage >= totalPages - 1 ? "pointer-events-none opacity-50" : "")} />
-            </PaginationItem>
+            <PaginationItem><PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }} className={cn(currentPage >= totalPages - 1 && "opacity-50 pointer-events-none")} /></PaginationItem>
           </PaginationContent>
         </Pagination>
       )}
 
       <PersonModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setSelectedPerson(null); }} onSave={selectedPerson ? handleUpdatePerson : handleCreatePerson} person={selectedPerson} />
-      <DeleteConfirmModal isOpen={!!deletePerson} onClose={() => setDeletePerson(null)} onConfirm={handleDeletePerson} title="Excluir Pessoa" description={`Tem certeza de que deseja excluir ${deletePerson?.nome}?`} />
+      <DeleteConfirmModal isOpen={!!deletePerson} onClose={() => setDeletePerson(null)} onConfirm={handleDeletePerson} title="Excluir Pessoa" description={`Tem certeza?`} />
     </div>
   );
 }

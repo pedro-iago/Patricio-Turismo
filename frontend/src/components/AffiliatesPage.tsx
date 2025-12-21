@@ -1,21 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Search, Eye } from 'lucide-react';
+import { Plus, Trash2, Search, Edit, Car, UserCheck, Phone, Eye } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import AffiliateModal from './AffiliateModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import api from '../services/api';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationPrevious,
-  PaginationNext,
-} from './ui/pagination';
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from './ui/pagination';
 import { cn } from './ui/utils';
 
 interface Person { id: number; nome: string; cpf: string; telefones?: string[]; telefone?: string; idade?: number; }
@@ -31,272 +24,177 @@ export default function AffiliatesPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentAffiliateType, setCurrentAffiliateType] = useState<AffiliateType>('taxista');
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number; type: AffiliateType; name: string } | null>(null);
-
-  // Estados de Busca e Paginação
-  const [taxistaSearchTerm, setTaxistaSearchTerm] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; type: AffiliateType } | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  
   const [taxistaPage, setTaxistaPage] = useState(0);
   const [taxistaTotalPages, setTaxistaTotalPages] = useState(0);
-
-  const [comisseiroSearchTerm, setComisseiroSearchTerm] = useState('');
   const [comisseiroPage, setComisseiroPage] = useState(0);
   const [comisseiroTotalPages, setComisseiroTotalPages] = useState(0);
 
-  // --- FUNÇÕES DE BUSCA ---
-  const fetchTaxistas = useCallback(async (page: number, term: string) => {
-    try {
-      const endpoint = term 
-        ? `/api/v1/affiliates/taxistas/search?query=${term}&page=${page}&size=10`
-        : `/api/v1/affiliates/taxistas?page=${page}&size=10`;
-        
-      const response = await api.get<Page<Affiliate>>(endpoint);
-      setTaxistas(response.data.content || []); 
-      setTaxistaTotalPages(response.data.totalPages || 0);
-      // Atualiza a página atual com o que veio do backend (garante sincronia)
-      if (response.data.number !== undefined) setTaxistaPage(response.data.number);
-    } catch (error) { 
-        console.error("Erro Taxistas:", error); 
-        setTaxistas([]); 
-    }
-  }, []);
-
-  const fetchComisseiros = useCallback(async (page: number, term: string) => {
-    try {
-      const endpoint = term 
-        ? `/api/v1/affiliates/comisseiros/search?query=${term}&page=${page}&size=10`
-        : `/api/v1/affiliates/comisseiros?page=${page}&size=10`;
-
-      const response = await api.get<Page<Affiliate>>(endpoint);
-      setComisseiros(response.data.content || []);
-      setComisseiroTotalPages(response.data.totalPages || 0);
-      if (response.data.number !== undefined) setComisseiroPage(response.data.number);
-    } catch (error) { 
-        console.error("Erro Comisseiros:", error); 
-        setComisseiros([]); 
-    }
-  }, []);
-
-  // --- EFEITOS DE BUSCA (DEBOUNCE) ---
-  // Este efeito cuida da pesquisa E do carregamento inicial (quando term é '')
   useEffect(() => {
     const delay = setTimeout(() => {
-        // Sempre reseta para a página 0 ao pesquisar
-        fetchTaxistas(0, taxistaSearchTerm);
+        if (currentAffiliateType === 'taxista') fetchTaxistas(0);
+        else fetchComisseiros(0);
     }, 500);
     return () => clearTimeout(delay);
-  }, [taxistaSearchTerm, fetchTaxistas]);
+  }, [searchTerm, currentAffiliateType]);
 
-  useEffect(() => {
-    const delay = setTimeout(() => {
-        fetchComisseiros(0, comisseiroSearchTerm);
-    }, 500);
-    return () => clearTimeout(delay);
-  }, [comisseiroSearchTerm, fetchComisseiros]);
+  const fetchTaxistas = async (page = 0) => {
+    try {
+      const response = await api.get<Page<Affiliate>>(`/api/v1/affiliates/taxistas?page=${page}&size=12&sort=pessoa.nome,asc&nome=${searchTerm}`);
+      setTaxistas(response.data.content);
+      setTaxistaTotalPages(response.data.totalPages);
+      setTaxistaPage(response.data.number);
+    } catch (error) { console.error(error); }
+  };
 
-  // --- CARREGAR PESSOAS ---
+  const fetchComisseiros = async (page = 0) => {
+    try {
+      const response = await api.get<Page<Affiliate>>(`/api/v1/affiliates/comisseiros?page=${page}&size=12&sort=pessoa.nome,asc&nome=${searchTerm}`);
+      setComisseiros(response.data.content);
+      setComisseiroTotalPages(response.data.totalPages);
+      setComisseiroPage(response.data.number);
+    } catch (error) { console.error(error); }
+  };
+
   const fetchPeople = async () => {
-    try { 
-        const response = await api.get<Page<Person>>('/api/pessoa?page=0&size=100'); 
-        setPeopleList(response.data.content); 
-    } catch (error) { console.error("Erro:", error); }
+    try { const response = await api.get<Person[]>('/api/pessoa?size=1000'); setPeopleList(response.data); } 
+    catch (error) { console.error(error); }
   };
 
-  useEffect(() => { fetchPeople(); }, []);
-
-  // --- HANDLERS DE PAGINAÇÃO CORRIGIDOS ---
-  // Agora chamamos o fetch diretamente ao clicar, garantindo que funcione para página 0
-  const handlePageChange = (type: AffiliateType, newPage: number) => {
-    if (type === 'taxista') {
-        if (newPage >= 0 && newPage < taxistaTotalPages) {
-            setTaxistaPage(newPage); // Atualiza visual
-            fetchTaxistas(newPage, taxistaSearchTerm); // Busca dados
-        }
-    } else {
-        if (newPage >= 0 && newPage < comisseiroTotalPages) {
-            setComisseiroPage(newPage);
-            fetchComisseiros(newPage, comisseiroSearchTerm);
-        }
-    }
+  const handleOpenModal = async (type: AffiliateType) => {
+    await fetchPeople();
+    setCurrentAffiliateType(type);
+    setIsModalOpen(true);
   };
 
-  // --- CRUD HANDLERS ---
-  const handleSaveAffiliate = async (pessoaId: string) => {
+  const handleSaveAffiliate = async (pessoaId: number) => {
     try {
-      const payload = { pessoaId: parseInt(pessoaId, 10) };
-      if (currentAffiliateType === 'taxista') { 
-          await api.post('/api/v1/affiliates/taxistas', payload); 
-          fetchTaxistas(0, taxistaSearchTerm); // Recarrega página 0
-      } else { 
-          await api.post('/api/v1/affiliates/comisseiros', payload); 
-          fetchComisseiros(0, comisseiroSearchTerm); 
-      }
+      if (currentAffiliateType === 'taxista') await api.post('/api/v1/affiliates/taxistas', { pessoaId });
+      else await api.post('/api/v1/affiliates/comisseiros', { pessoaId });
       setIsModalOpen(false);
-    } catch (error) { console.error("Erro:", error); }
+      currentAffiliateType === 'taxista' ? fetchTaxistas(0) : fetchComisseiros(0);
+    } catch (error) { alert('Erro ao adicionar afiliado.'); }
   };
 
   const handleDeleteAffiliate = async () => {
     if (!deleteTarget) return;
     try {
-      if (deleteTarget.type === 'taxista') { 
-          await api.delete(`/api/v1/affiliates/taxistas/${deleteTarget.id}`); 
-          fetchTaxistas(taxistaPage, taxistaSearchTerm); // Mantém na página atual
-      } else { 
-          await api.delete(`/api/v1/affiliates/comisseiros/${deleteTarget.id}`); 
-          fetchComisseiros(comisseiroPage, comisseiroSearchTerm); 
-      }
+      const url = deleteTarget.type === 'taxista' ? `/api/v1/affiliates/taxistas/${deleteTarget.id}` : `/api/v1/affiliates/comisseiros/${deleteTarget.id}`;
+      await api.delete(url);
       setDeleteTarget(null);
-    } catch (error) { console.error("Erro:", error); }
+      deleteTarget.type === 'taxista' ? fetchTaxistas(taxistaPage) : fetchComisseiros(comisseiroPage);
+    } catch (error) { alert('Erro ao remover afiliado.'); }
   };
 
-  const openCreateModal = (type: AffiliateType) => { setCurrentAffiliateType(type); setIsModalOpen(true); };
-  const openDeleteModal = (affiliate: Affiliate, type: AffiliateType) => { setDeleteTarget({ id: affiliate.id, type: type, name: affiliate.pessoa.nome }); };
-
-  const formatPhones = (p: Person) => {
-      if (p.telefones && p.telefones.length > 0) return p.telefones.join(' / ');
-      return p.telefone || '-';
+  const handlePageChange = (type: AffiliateType, page: number) => {
+      if (type === 'taxista') { if (page >= 0 && page < taxistaTotalPages) fetchTaxistas(page); }
+      else { if (page >= 0 && page < comisseiroTotalPages) fetchComisseiros(page); }
   };
 
-  // Componente de Tabela
-  const AffiliateTable = ({ data, type }: { data: Affiliate[]; type: AffiliateType }) => (
-    <>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 hidden md:block">
-        <Table>
-          <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Documento</TableHead><TableHead>Telefone</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
-          <TableBody>
-            {data.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center h-24">Nenhum registro.</TableCell></TableRow> :
-             data.map((affiliate) => (
-              <TableRow key={affiliate.id}>
-                <TableCell className="font-medium">{affiliate.pessoa.nome}</TableCell>
-                <TableCell>{affiliate.pessoa.cpf}</TableCell>
-                <TableCell>{formatPhones(affiliate.pessoa)}</TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => navigate(type === 'taxista' ? `/taxistas/${affiliate.id}` : `/comisseiros/${affiliate.id}`)} className="hover:bg-primary/10 hover:text-primary"><Eye className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => openDeleteModal(affiliate, type)} className="hover:bg-destructive/10 hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      <div className="block md:hidden space-y-4">
-        {data.map((affiliate) => (
-          <Card key={affiliate.id} className="bg-white shadow-sm">
-            <CardHeader className="pb-2">
-                <CardTitle className="text-lg">{affiliate.pessoa.nome}</CardTitle>
-                <CardDescription>CPF: {affiliate.pessoa.cpf}</CardDescription>
-            </CardHeader>
-            <CardContent className="text-sm pb-2">
-                <p><span className="font-medium text-muted-foreground">Telefone: </span>{formatPhones(affiliate.pessoa)}</p>
-            </CardContent>
-            <CardFooter className="flex justify-end gap-2 pt-0">
-              <Button variant="ghost" size="sm" onClick={() => navigate(type === 'taxista' ? `/taxistas/${affiliate.id}` : `/comisseiros/${affiliate.id}`)} className="text-primary"><Eye className="w-4 h-4 mr-1" /> Detalhes</Button>
-              <Button variant="ghost" size="sm" onClick={() => openDeleteModal(affiliate, type)} className="text-destructive"><Trash2 className="w-4 h-4 mr-1" /> Excluir</Button>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
-    </>
+  // Componente de Card Reutilizável
+  const AffiliateCard = ({ item, type }: { item: Affiliate, type: AffiliateType }) => (
+    <Card className="hover:shadow-md transition-shadow border-slate-200">
+        <CardHeader className="pb-2">
+            <div className="flex items-center gap-3">
+                {/* COR PADRONIZADA: LARANJA */}
+                <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                    {type === 'taxista' ? <Car className="w-5 h-5" /> : <UserCheck className="w-5 h-5" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base font-bold text-slate-800 truncate" title={item.pessoa.nome}>
+                        {item.pessoa.nome}
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">ID: #{item.id}</p>
+                </div>
+            </div>
+        </CardHeader>
+        <CardContent className="text-sm text-slate-600 space-y-1">
+            <div className="flex items-center gap-2">
+                <Phone className="w-3.5 h-3.5 text-slate-400" />
+                <span>{item.pessoa.telefone || item.pessoa.telefones?.[0] || "Sem telefone"}</span>
+            </div>
+            {item.pessoa.cpf && (
+                <div className="text-xs text-slate-400 pl-5.5">CPF: {item.pessoa.cpf}</div>
+            )}
+        </CardContent>
+        <CardFooter className="flex justify-end gap-1 pt-0">
+            {/* BOTÃO DE HISTÓRICO / REPORT */}
+            <Button variant="ghost" size="icon" onClick={() => navigate(type === 'taxista' ? `/taxistas/${item.id}` : `/comisseiros/${item.id}`)} className="text-slate-400 hover:text-blue-600" title="Ver Histórico/Relatório">
+                <Eye className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => setDeleteTarget({ id: item.id, type })} className="text-slate-400 hover:text-red-600">
+                <Trash2 className="w-4 h-4" />
+            </Button>
+        </CardFooter>
+    </Card>
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div><h2 className="text-2xl font-semibold">Gestão de Afiliados</h2><p className="text-muted-foreground mt-1">Gerencie taxistas e comisseiros.</p></div>
+    <div className="space-y-6 p-4 md:p-8 bg-slate-50/50 min-h-screen">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Afiliados</h2>
+          <p className="text-muted-foreground">Parceiros de transporte e comissões.</p>
+        </div>
       </div>
 
-      <Tabs defaultValue="taxistas">
-        <TabsList className="mb-4">
-          <TabsTrigger value="taxistas">Taxistas</TabsTrigger>
-          <TabsTrigger value="comisseiros">Comisseiros</TabsTrigger>
-        </TabsList>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input placeholder="Pesquisar nome..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 bg-white" />
+      </div>
 
-        <TabsContent value="taxistas" className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-2">
-            <div className="relative w-full sm:w-1/2 md:w-1/3">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                type="text" 
-                placeholder="Pesquisar taxista..." 
-                value={taxistaSearchTerm} 
-                onChange={(e) => setTaxistaSearchTerm(e.target.value)} 
-                className="pl-10" 
-              />
+      <Tabs defaultValue="taxista" onValueChange={(val) => setCurrentAffiliateType(val as AffiliateType)} className="space-y-4">
+        <div className="flex items-center justify-between">
+            <TabsList className="bg-white border">
+                {/* COR PADRONIZADA NO ACTIVE STATE (via CSS ou className se customizado, mas o padrão shadcn é preto/branco. 
+                    Se quiser laranja no active, precisaria alterar o theme ou class. Deixei padrão shadcn por enquanto) */}
+                <TabsTrigger value="taxista" className="gap-2"><Car className="w-4 h-4" /> Taxistas</TabsTrigger>
+                <TabsTrigger value="comisseiro" className="gap-2"><UserCheck className="w-4 h-4" /> Comisseiros</TabsTrigger>
+            </TabsList>
+            <Button onClick={() => handleOpenModal(currentAffiliateType)} className="bg-orange-600 hover:bg-orange-700 gap-2 text-white">
+                <Plus className="w-4 h-4" /> Novo {currentAffiliateType === 'taxista' ? 'Taxista' : 'Comisseiro'}
+            </Button>
+        </div>
+
+        <TabsContent value="taxista">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {taxistas.map(item => <AffiliateCard key={item.id} item={item} type="taxista" />)}
             </div>
-            <Button onClick={() => openCreateModal('taxista')} className="bg-primary hover:bg-primary/90 gap-2 w-full sm:w-auto"><Plus className="w-4 h-4" /> Novo Taxista</Button>
-          </div>
-          
-          <AffiliateTable data={taxistas} type="taxista" />
-          
-          {taxistaTotalPages > 1 && (
-            <Pagination>
-                <PaginationContent>
-                    <PaginationItem>
-                        <PaginationPrevious 
-                            href="#" 
-                            onClick={(e) => { e.preventDefault(); handlePageChange('taxista', taxistaPage - 1); }} 
-                            className={cn(taxistaPage === 0 && "pointer-events-none opacity-50")} 
-                        />
-                    </PaginationItem>
-                    <div className="flex items-center text-sm text-muted-foreground mx-2">
-                        Página {taxistaPage + 1} de {taxistaTotalPages}
-                    </div>
-                    <PaginationItem>
-                        <PaginationNext 
-                            href="#" 
-                            onClick={(e) => { e.preventDefault(); handlePageChange('taxista', taxistaPage + 1); }} 
-                            className={cn(taxistaPage >= taxistaTotalPages - 1 && "pointer-events-none opacity-50")} 
-                        />
-                    </PaginationItem>
-                </PaginationContent>
-            </Pagination>
-          )}
+            {taxistaTotalPages > 1 && (
+                <div className="mt-4">
+                    <Pagination>
+                        <PaginationContent>
+                            <PaginationItem><PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange('taxista', taxistaPage - 1); }} className={cn(taxistaPage === 0 && "opacity-50 pointer-events-none")} /></PaginationItem>
+                            <div className="text-sm text-slate-500 px-4">Página {taxistaPage + 1} de {taxistaTotalPages}</div>
+                            <PaginationItem><PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange('taxista', taxistaPage + 1); }} className={cn(taxistaPage >= taxistaTotalPages - 1 && "opacity-50 pointer-events-none")} /></PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
+                </div>
+            )}
         </TabsContent>
 
-        <TabsContent value="comisseiros" className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-2">
-            <div className="relative w-full sm:w-1/2 md:w-1/3">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                type="text" 
-                placeholder="Pesquisar comisseiro..." 
-                value={comisseiroSearchTerm} 
-                onChange={(e) => setComisseiroSearchTerm(e.target.value)} 
-                className="pl-10" 
-              />
+        <TabsContent value="comisseiro">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {comisseiros.map(item => <AffiliateCard key={item.id} item={item} type="comisseiro" />)}
             </div>
-            <Button onClick={() => openCreateModal('comisseiro')} className="bg-primary hover:bg-primary/90 gap-2 w-full sm:w-auto"><Plus className="w-4 h-4" /> Novo Comisseiro</Button>
-          </div>
-          
-          <AffiliateTable data={comisseiros} type="comisseiro" />
-          
-          {comisseiroTotalPages > 1 && (
-            <Pagination>
-                <PaginationContent>
-                    <PaginationItem>
-                        <PaginationPrevious 
-                            href="#" 
-                            onClick={(e) => { e.preventDefault(); handlePageChange('comisseiro', comisseiroPage - 1); }} 
-                            className={cn(comisseiroPage === 0 && "pointer-events-none opacity-50")} 
-                        />
-                    </PaginationItem>
-                    <div className="flex items-center text-sm text-muted-foreground mx-2">
-                        Página {comisseiroPage + 1} de {comisseiroTotalPages}
-                    </div>
-                    <PaginationItem>
-                        <PaginationNext 
-                            href="#" 
-                            onClick={(e) => { e.preventDefault(); handlePageChange('comisseiro', comisseiroPage + 1); }} 
-                            className={cn(comisseiroPage >= comisseiroTotalPages - 1 && "pointer-events-none opacity-50")} 
-                        />
-                    </PaginationItem>
-                </PaginationContent>
-            </Pagination>
-          )}
+            {comisseiroTotalPages > 1 && (
+                <div className="mt-4">
+                    <Pagination>
+                        <PaginationContent>
+                            <PaginationItem><PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange('comisseiro', comisseiroPage - 1); }} className={cn(comisseiroPage === 0 && "opacity-50 pointer-events-none")} /></PaginationItem>
+                            <div className="text-sm text-slate-500 px-4">Página {comisseiroPage + 1} de {comisseiroTotalPages}</div>
+                            <PaginationItem><PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange('comisseiro', comisseiroPage + 1); }} className={cn(comisseiroPage >= comisseiroTotalPages - 1 && "opacity-50 pointer-events-none")} /></PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
+                </div>
+            )}
         </TabsContent>
       </Tabs>
 
       <AffiliateModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveAffiliate} peopleList={peopleList} affiliateType={currentAffiliateType} />
-      <DeleteConfirmModal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDeleteAffiliate} title={`Excluir ${deleteTarget?.type}`} description={`Tem certeza?`} />
+      <DeleteConfirmModal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDeleteAffiliate} title={`Excluir ${deleteTarget?.type}`} description="Tem certeza?" />
     </div>
   );
 }
