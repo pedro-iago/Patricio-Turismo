@@ -7,10 +7,6 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -30,51 +26,152 @@ public class PassageiroViagemService {
     @Autowired private ComisseiroRepository comisseiroRepository;
     @Autowired private AssentoRepository assentoRepository;
     @Autowired private OnibusRepository onibusRepository;
+    @Autowired private EncomendaService encomendaService;
 
-    // --- LEITURA PADRÃO (SIMPLES E RÁPIDA) ---
+    // --- LEITURA ---
 
-    public List<PassengerResponseDto> findAll(int page, int size) {
-        // Apenas paginação padrão do JPA, sem inventar moda
-        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
-        return repository.findAll(pageable).stream()
-                .map(PassengerResponseDto::new)
-                .collect(Collectors.toList());
+    @Transactional(readOnly = true)
+    public List<PassengerResponseDto> findAll() {
+        return repository.findAll().stream().map(PassengerResponseDto::new).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<PassengerResponseDto> findByViagemId(Long viagemId) {
-        return repository.findByViagemId(viagemId).stream()
-                .map(PassengerResponseDto::new)
-                .collect(Collectors.toList());
+        return repository.findByViagemId(viagemId).stream().map(PassengerResponseDto::new).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public Optional<PassengerResponseDto> findById(Long id) {
         return repository.findById(id).map(PassengerResponseDto::new);
     }
 
-    // --- MÉTODOS DE RELATÓRIO (NECESSÁRIOS) ---
+    // --- HISTÓRICOS ---
 
     @Transactional(readOnly = true)
     public List<PassengerResponseDto> getHistoricoTaxista(Long taxistaId, LocalDateTime inicio, LocalDateTime fim) {
-        return repository.findByTaxistaIdAndDateRange(taxistaId, inicio, fim).stream()
-                .map(PassengerResponseDto::new)
-                .collect(Collectors.toList());
+        return repository.findByTaxistaIdAndViagemDataHoraPartidaBetween(taxistaId, inicio, fim)
+                .stream().map(PassengerResponseDto::new).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<PassengerResponseDto> getHistoricoComisseiro(Long comisseiroId, LocalDateTime inicio, LocalDateTime fim) {
-        return repository.findByComisseiroIdAndViagemDataHoraPartidaBetween(comisseiroId, inicio, fim).stream()
-                .map(PassengerResponseDto::new)
-                .collect(Collectors.toList());
+        return repository.findByComisseiroIdAndViagemDataHoraPartidaBetween(comisseiroId, inicio, fim)
+                .stream().map(PassengerResponseDto::new).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<PassengerResponseDto> getHistoricoPessoa(Long pessoaId) {
-        return repository.findByPessoaIdWithHistory(pessoaId).stream()
-                .map(PassengerResponseDto::new)
-                .collect(Collectors.toList());
+        return repository.findByPessoaIdWithHistory(pessoaId)
+                .stream().map(PassengerResponseDto::new).collect(Collectors.toList());
     }
 
-    // --- ESCRITA (CRIAÇÃO E ATUALIZAÇÃO) ---
+    // --- ORDENAÇÃO E VÍNCULOS ---
+
+    @Transactional
+    public void reordenarPassageiros(List<Long> ids) {
+        for (int i = 0; i < ids.size(); i++) {
+            Long id = ids.get(i);
+            final int novaOrdem = i;
+            repository.findById(id).ifPresent(pv -> {
+                pv.setOrdem(novaOrdem);
+                repository.save(pv);
+            });
+        }
+    }
+
+    @Transactional
+    public void desvincularGrupo(Long id) {
+        PassageiroViagem p = repository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Passageiro não encontrado"));
+        p.setGrupoId(null);
+        repository.save(p);
+    }
+
+    @Transactional
+    public void vincularGrupo(Long idOrigem, Long idDestino) {
+        PassageiroViagem origem = repository.findById(idOrigem)
+                .orElseThrow(() -> new EntityNotFoundException("Passageiro origem não encontrado"));
+        PassageiroViagem destino = repository.findById(idDestino)
+                .orElseThrow(() -> new EntityNotFoundException("Passageiro destino não encontrado"));
+
+        String grupoId = destino.getGrupoId();
+        if (grupoId == null) {
+            grupoId = UUID.randomUUID().toString();
+            destino.setGrupoId(grupoId);
+            repository.save(destino);
+        }
+        origem.setGrupoId(grupoId);
+        repository.save(origem);
+    }
+
+    // --- SALVAR GRUPO FAMÍLIA ---
+    @Transactional
+    public List<PassengerResponseDto> salvarGrupoFamilia(FamilyGroupRequestDto dto) {
+        Viagem viagem = viagemRepository.findById(dto.viagemId())
+                .orElseThrow(() -> new EntityNotFoundException("Viagem não encontrada"));
+
+        String grupoId = UUID.randomUUID().toString();
+        for(FamilyMemberDto m : dto.membros()) {
+            if(m.id() != null) {
+                Optional<PassageiroViagem> ex = repository.findById(m.id());
+                if(ex.isPresent() && ex.get().getGrupoId() != null) {
+                    grupoId = ex.get().getGrupoId();
+                    break;
+                }
+            }
+        }
+
+        Taxista tc = dto.taxistaColetaId() != null ? taxistaRepository.findById(dto.taxistaColetaId()).orElse(null) : null;
+        Taxista te = dto.taxistaEntregaId() != null ? taxistaRepository.findById(dto.taxistaEntregaId()).orElse(null) : null;
+        Comisseiro c = dto.comisseiroId() != null ? comisseiroRepository.findById(dto.comisseiroId()).orElse(null) : null;
+        Endereco ec = resolverEndereco(dto.enderecoColeta());
+        Endereco ee = resolverEndereco(dto.enderecoEntrega());
+
+        List<PassageiroViagem> listaSalva = new ArrayList<>();
+
+        for (FamilyMemberDto m : dto.membros()) {
+            Pessoa pessoa = resolverPessoa(m);
+            PassageiroViagem pv = null;
+
+            if (m.id() != null) {
+                pv = repository.findById(m.id()).orElse(null);
+            }
+            if (pv == null) {
+                pv = repository.findByPessoaAndViagem(pessoa.getId(), viagem.getId()).orElse(null);
+            }
+            if (pv == null) {
+                pv = new PassageiroViagem();
+                pv.setPessoa(pessoa);
+                pv.setViagem(viagem);
+                Integer max = repository.findMaxOrdemByViagemId(viagem.getId());
+                pv.setOrdem(max == null ? 0 : max + 1);
+                pv.setPago(false);
+            }
+
+            pv.setGrupoId(grupoId);
+            pv.setTaxistaColeta(tc);
+            pv.setTaxistaEntrega(te);
+            pv.setComisseiro(c);
+            pv.setEnderecoColeta(ec);
+            pv.setEnderecoEntrega(ee);
+            pv.setValor(dto.valorIndividual());
+            pv.setPessoa(pessoa);
+
+            PassageiroViagem salvo = repository.save(pv);
+
+            // Tenta vincular o assento (agora com lógica inteligente)
+            if (m.numeroAssento() != null && !m.numeroAssento().isEmpty()) {
+                vincularAssentoPorNumero(salvo.getId(), null, m.numeroAssento());
+                salvo = repository.findById(salvo.getId()).orElse(salvo);
+            }
+
+            listaSalva.add(salvo);
+        }
+
+        return listaSalva.stream().map(PassengerResponseDto::new).collect(Collectors.toList());
+    }
+
+    // --- ESCRITA INDIVIDUAL ---
 
     @Transactional
     public PassengerResponseDto save(PassengerSaveRequestDto dto) {
@@ -85,81 +182,39 @@ public class PassageiroViagemService {
         pv.setPessoa(pessoa);
         pv.setViagem(viagem);
 
+        atualizarCamposComuns(pv, dto);
+
         Integer max = repository.findMaxOrdemByViagemId(viagem.getId());
         pv.setOrdem(max == null ? 0 : max + 1);
 
-        atualizarCamposComuns(pv, dto);
         pv = repository.save(pv);
 
-        if (dto.assentoId() != null) vincularAssentoExistente(pv, dto.assentoId());
-
+        if (dto.assentoId() != null) {
+            Assento a = assentoRepository.findById(dto.assentoId()).orElse(null);
+            if(a != null) vincularAssentoPorNumero(pv.getId(), null, a.getNumero());
+        }
         return new PassengerResponseDto(pv);
     }
 
     @Transactional
-    public PassengerResponseDto update(Long id, PassengerSaveRequestDto dto) {
-        PassageiroViagem pv = repository.findById(id).orElseThrow(() -> new EntityNotFoundException("Registro não encontrado"));
+    public Optional<PassengerResponseDto> update(Long id, PassengerSaveRequestDto dto) {
+        Optional<PassageiroViagem> pvOpt = repository.findById(id);
+        if (pvOpt.isEmpty()) return Optional.empty();
+        PassageiroViagem pv = pvOpt.get();
         atualizarCamposComuns(pv, dto);
-
-        PassageiroViagem salvo = repository.save(pv);
-        if (dto.assentoId() != null) vincularAssentoExistente(salvo, dto.assentoId());
-
-        return new PassengerResponseDto(salvo);
+        return Optional.of(new PassengerResponseDto(repository.save(pv)));
     }
 
     @Transactional
-    public void delete(Long id) {
-        PassageiroViagem pv = repository.findById(id).orElseThrow();
-        if(pv.getAssento() != null) {
-            Assento a = pv.getAssento();
-            a.setOcupado(false);
-            a.setPassageiroViagem(null);
-            assentoRepository.save(a);
+    public boolean delete(Long id) {
+        Optional<PassageiroViagem> pv = repository.findById(id);
+        if (pv.isEmpty()) return false;
+        if (pv.get().getAssento() != null) {
+            pv.get().getAssento().setOcupado(false);
+            pv.get().getAssento().setPassageiroViagem(null);
         }
-        repository.delete(pv);
-    }
-
-    // --- GRUPO FAMILIAR E OUTROS ---
-
-    @Transactional
-    public List<PassengerResponseDto> salvarGrupoFamilia(FamilyGroupRequestDto dto) {
-        Viagem viagem = viagemRepository.findById(dto.viagemId()).orElseThrow();
-        String grupoId = UUID.randomUUID().toString();
-
-        // Tenta achar grupo existente
-        for(FamilyMemberDto m : dto.membros()) {
-            if(m.id() != null) {
-                Optional<PassageiroViagem> ex = repository.findById(m.id());
-                if(ex.isPresent() && ex.get().getGrupoId() != null) { grupoId = ex.get().getGrupoId(); break; }
-            }
-        }
-
-        Taxista tc = dto.taxistaColetaId() != null ? taxistaRepository.findById(dto.taxistaColetaId()).orElse(null) : null;
-        Taxista te = dto.taxistaEntregaId() != null ? taxistaRepository.findById(dto.taxistaEntregaId()).orElse(null) : null;
-        Comisseiro c = dto.comisseiroId() != null ? comisseiroRepository.findById(dto.comisseiroId()).orElse(null) : null;
-        Endereco ec = resolverEndereco(dto.enderecoColeta());
-        Endereco ee = resolverEndereco(dto.enderecoEntrega());
-
-        List<PassageiroViagem> lista = new ArrayList<>();
-        for (FamilyMemberDto m : dto.membros()) {
-            PassageiroViagem pv = (m.id() != null) ? repository.findById(m.id()).orElse(new PassageiroViagem()) : new PassageiroViagem();
-            if(pv.getId() == null) {
-                pv.setViagem(viagem);
-                Integer max = repository.findMaxOrdemByViagemId(viagem.getId());
-                pv.setOrdem(max == null ? 0 : max + 1);
-                pv.setPago(false);
-            }
-            pv.setGrupoId(grupoId);
-            pv.setTaxistaColeta(tc); pv.setTaxistaEntrega(te); pv.setComisseiro(c);
-            pv.setEnderecoColeta(ec); pv.setEnderecoEntrega(ee);
-            pv.setValor(dto.valorIndividual());
-            pv.setPessoa(resolverPessoa(m));
-
-            PassageiroViagem salvo = repository.save(pv);
-            if(m.numeroAssento() != null && !m.numeroAssento().isEmpty()) vincularAssentoString(salvo, m.numeroAssento());
-            lista.add(salvo);
-        }
-        return lista.stream().map(PassengerResponseDto::new).collect(Collectors.toList());
+        repository.delete(pv.get());
+        return true;
     }
 
     @Transactional
@@ -172,78 +227,120 @@ public class PassageiroViagemService {
 
     @Transactional
     public PassengerResponseDto updateCor(Long id, String cor) {
-        PassageiroViagem pv = repository.findById(id).orElseThrow();
+        PassageiroViagem pv = repository.findById(id).orElseThrow(() -> new EntityNotFoundException("Passageiro não encontrado"));
         pv.setCorTag(cor);
         return new PassengerResponseDto(repository.save(pv));
     }
 
+    // === VINCULAR ASSENTO (LÓGICA CORRIGIDA E MELHORADA) ===
     @Transactional
-    public PassengerResponseDto vincularAssentoPorNumero(Long id, Long onibusId, String numero) {
-        PassageiroViagem pv = repository.findById(id).orElseThrow();
-        if(numero == null || numero.isEmpty()) {
-            if(pv.getAssento() != null) { Assento a = pv.getAssento(); a.setOcupado(false); a.setPassageiroViagem(null); assentoRepository.save(a); pv.setAssento(null); }
+    public PassengerResponseDto vincularAssentoPorNumero(Long passageiroId, Long onibusId, String numeroAssento) {
+        PassageiroViagem pv = repository.findById(passageiroId).orElseThrow(() -> new EntityNotFoundException("Passageiro não encontrado"));
+
+        // 1. OTIMIZAÇÃO: Se o passageiro JÁ está na poltrona certa, não faz nada!
+        if (pv.getAssento() != null && numeroAssento != null && numeroAssento.equals(pv.getAssento().getNumero())) {
+            return new PassengerResponseDto(pv);
+        }
+
+        // Caso: Desvincular (texto vazio)
+        if (numeroAssento == null || numeroAssento.isEmpty()) {
+            if (pv.getAssento() != null) {
+                Assento old = pv.getAssento(); old.setOcupado(false); old.setPassageiroViagem(null); assentoRepository.save(old); pv.setAssento(null);
+            }
             return new PassengerResponseDto(repository.save(pv));
         }
 
-        Assento assento = assentoRepository.findByViagemIdAndOnibusIdAndNumero(pv.getViagem().getId(), onibusId, numero)
+        Long busIdTemp = onibusId;
+        if (busIdTemp == null && pv.getViagem().getListaOnibus() != null && !pv.getViagem().getListaOnibus().isEmpty()) {
+            busIdTemp = pv.getViagem().getListaOnibus().get(0).getIdOnibus();
+        }
+        if (busIdTemp == null) return new PassengerResponseDto(repository.save(pv));
+
+        final Long finalBusId = busIdTemp;
+        Assento novo = assentoRepository.findByViagemIdAndOnibusIdAndNumero(pv.getViagem().getId(), finalBusId, numeroAssento)
                 .orElseGet(() -> {
-                    Assento a = new Assento(); a.setViagem(pv.getViagem()); a.setOnibus(onibusRepository.findById(onibusId).orElseThrow()); a.setNumero(numero); a.setOcupado(false);
+                    Onibus bus = onibusRepository.findById(finalBusId).orElseThrow(() -> new EntityNotFoundException("Ônibus não encontrado"));
+                    Assento a = new Assento(); a.setViagem(pv.getViagem()); a.setOnibus(bus); a.setNumero(numeroAssento); a.setOcupado(false);
                     return assentoRepository.save(a);
                 });
 
-        if(assento.isOcupado() && !assento.equals(pv.getAssento())) throw new RuntimeException("Ocupado");
+        // 2. LÓGICA DE ADMIN (ROUBAR ASSENTO):
+        // Se está ocupado, remove o dono atual (seja quem for) e passa para o passageiro atual.
+        if (novo.isOcupado()) {
+            PassageiroViagem ocupanteAtual = novo.getPassageiroViagem();
 
-        if(pv.getAssento() != null) { Assento old = pv.getAssento(); old.setOcupado(false); old.setPassageiroViagem(null); assentoRepository.save(old); }
-        assento.setOcupado(true); assento.setPassageiroViagem(pv); pv.setAssento(assento);
-        assentoRepository.save(assento);
+            if (ocupanteAtual != null && !ocupanteAtual.getId().equals(pv.getId())) {
+                // Tira a poltrona do ocupante anterior
+                ocupanteAtual.setAssento(null);
+                repository.save(ocupanteAtual);
+
+                // Limpa o assento
+                novo.setPassageiroViagem(null);
+                novo.setOcupado(false);
+                assentoRepository.save(novo);
+            }
+        }
+
+        // Se eu já tinha outro assento, libero o antigo
+        if(pv.getAssento() != null && !pv.getAssento().getId().equals(novo.getId())) {
+            Assento old = pv.getAssento(); old.setOcupado(false); old.setPassageiroViagem(null); assentoRepository.save(old);
+        }
+
+        // Vincula o novo
+        novo.setOcupado(true); novo.setPassageiroViagem(pv); pv.setAssento(novo); assentoRepository.save(novo);
         return new PassengerResponseDto(repository.save(pv));
     }
 
-    // --- HELPER METHODS ---
     private void atualizarCamposComuns(PassageiroViagem pv, PassengerSaveRequestDto dto) {
-        if(dto.enderecoColetaId()!=null) pv.setEnderecoColeta(enderecoRepository.findById(dto.enderecoColetaId()).orElse(null));
-        if(dto.enderecoEntregaId()!=null) pv.setEnderecoEntrega(enderecoRepository.findById(dto.enderecoEntregaId()).orElse(null));
-        pv.setTaxistaColeta(dto.taxistaColetaId()!=null ? taxistaRepository.findById(dto.taxistaColetaId()).orElse(null) : null);
-        pv.setTaxistaEntrega(dto.taxistaEntregaId()!=null ? taxistaRepository.findById(dto.taxistaEntregaId()).orElse(null) : null);
-        pv.setComisseiro(dto.comisseiroId()!=null ? comisseiroRepository.findById(dto.comisseiroId()).orElse(null) : null);
         pv.setValor(dto.valor());
         pv.setMetodoPagamento(dto.metodoPagamento());
-        if(dto.pago()!=null) pv.setPago(dto.pago());
+        pv.setPago(dto.pago() != null && dto.pago());
+        if (dto.enderecoColetaId() != null) pv.setEnderecoColeta(enderecoRepository.findById(dto.enderecoColetaId()).orElse(null));
+        if (dto.enderecoEntregaId() != null) pv.setEnderecoEntrega(enderecoRepository.findById(dto.enderecoEntregaId()).orElse(null));
+        pv.setTaxistaColeta(dto.taxistaColetaId() != null ? taxistaRepository.findById(dto.taxistaColetaId()).orElse(null) : null);
+        pv.setTaxistaEntrega(dto.taxistaEntregaId() != null ? taxistaRepository.findById(dto.taxistaEntregaId()).orElse(null) : null);
+        pv.setComisseiro(dto.comisseiroId() != null ? comisseiroRepository.findById(dto.comisseiroId()).orElse(null) : null);
     }
 
-    private void vincularAssentoExistente(PassageiroViagem pv, Long assentoId) {
-        Assento a = assentoRepository.findById(assentoId).orElse(null);
-        if(a != null && !a.isOcupado()) {
-            if(pv.getAssento()!=null) { Assento old = pv.getAssento(); old.setOcupado(false); old.setPassageiroViagem(null); assentoRepository.save(old); }
-            a.setOcupado(true); a.setPassageiroViagem(pv); pv.setAssento(a); assentoRepository.save(a);
+    @Transactional
+    public void atribuirTaxistaEmMassa(List<Long> pIds, List<Long> eIds, Long tId, String tipo) {
+        Taxista t = tId != null ? taxistaRepository.findById(tId).orElseThrow() : null;
+        if (pIds != null) {
+            for (PassageiroViagem pv : repository.findAllById(pIds)) {
+                if ("COLETA".equalsIgnoreCase(tipo)) pv.setTaxistaColeta(t);
+                else if ("ENTREGA".equalsIgnoreCase(tipo)) pv.setTaxistaEntrega(t);
+                repository.save(pv);
+            }
         }
-    }
-
-    private void vincularAssentoString(PassageiroViagem pv, String num) {
-        try {
-            if(!pv.getViagem().getListaOnibus().isEmpty()) vincularAssentoPorNumero(pv.getId(), pv.getViagem().getListaOnibus().get(0).getIdOnibus(), num);
-        } catch(Exception e) {}
+        if (eIds != null) encomendaService.atribuirTaxistaEmMassa(eIds, tId, tipo);
     }
 
     private Endereco resolverEndereco(EnderecoDto dto) {
         if(dto == null) return null;
         if(dto.id() != null) return enderecoRepository.findById(dto.id()).orElse(null);
-        if(dto.logradouro() != null) {
-            Endereco e = new Endereco(); e.setLogradouro(dto.logradouro()); e.setBairro(dto.bairro()); e.setCidade(dto.cidade()); e.setNumero(dto.numero()); e.setEstado(dto.estado());
+        if(dto.logradouro() != null && !dto.logradouro().isBlank()) {
+            Endereco e = new Endereco();
+            e.setLogradouro(dto.logradouro()); e.setBairro(dto.bairro()); e.setCidade(dto.cidade()); e.setNumero(dto.numero()); e.setEstado(dto.estado());
             return enderecoRepository.save(e);
         }
         return null;
     }
 
     private Pessoa resolverPessoa(FamilyMemberDto dto) {
-        if(dto.pessoaId() != null) return pessoaRepository.findById(dto.pessoaId()).map(p -> {
-            p.setNome(dto.nome()); p.setCpf(dto.cpf()); p.setTelefone(dto.telefone()); return pessoaRepository.save(p);
-        }).orElseGet(() -> criarPessoa(dto));
+        if(dto.pessoaId() != null) {
+            return pessoaRepository.findById(dto.pessoaId()).map(p -> {
+                p.setNome(dto.nome()); p.setCpf(dto.cpf()); p.setTelefone(dto.telefone()); return pessoaRepository.save(p);
+            }).orElseGet(() -> criarPessoa(dto));
+        }
         return criarPessoa(dto);
     }
 
     private Pessoa criarPessoa(FamilyMemberDto dto) {
-        if(dto.cpf()!=null && !dto.cpf().isEmpty()) { Optional<Pessoa> p = pessoaRepository.findByCpf(dto.cpf()); if(p.isPresent()) return p.get(); }
-        Pessoa p = new Pessoa(); p.setNome(dto.nome()); p.setCpf(dto.cpf()); p.setTelefone(dto.telefone()); return pessoaRepository.save(p);
+        if(dto.cpf() != null && !dto.cpf().isEmpty()) {
+            Optional<Pessoa> p = pessoaRepository.findByCpf(dto.cpf());
+            if(p.isPresent()) return p.get();
+        }
+        Pessoa p = new Pessoa(); p.setNome(dto.nome()); p.setCpf(dto.cpf()); p.setTelefone(dto.telefone());
+        return pessoaRepository.save(p);
     }
 }
