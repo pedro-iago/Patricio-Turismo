@@ -20,7 +20,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // [CORREÇÃO] 1. Força o fechamento do teclado no iPhone
+    // [CORREÇÃO 1] Esconde o teclado IMEDIATAMENTE ao clicar em Entrar
+    // Isso evita que o teclado fique aberto durante a transição de tela
     (document.activeElement as HTMLElement)?.blur();
 
     setIsLoading(true);
@@ -32,8 +33,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         password: password
       });
 
-      // [CORREÇÃO] 2. Reseta a posição da tela para o topo
-      // Isso impede que o Safari fique "deslocado" após o teclado fechar
+      // [CORREÇÃO 2] Reseta a posição do scroll para o topo (0,0)
+      // Se o teclado tiver empurrado a tela, isso força ela a voltar pro lugar certo
       window.scrollTo(0, 0);
 
       const loggedInUsername = response.data; 
@@ -52,7 +53,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   };
 
   return (
-    // Usei min-h-screen aqui, mas o globals.css vai travar o html/body
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-lg shadow-xl p-8">

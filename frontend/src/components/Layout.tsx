@@ -7,7 +7,7 @@ import {
   LayoutDashboard,
   Handshake,
   LogOut,
-  Menu, // Adicionei o ícone do menu caso precise
+  Menu,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import logo from '../assets/logo.png';
@@ -46,8 +46,9 @@ export default function Layout({ currentUser, onLogout }: LayoutProps) {
   };
 
   return (
-    // [CORREÇÃO 1] O segredo: 'fixed inset-0' trava a janela na viewport do iOS
-    // 'overflow-hidden' no pai impede que o Safari role a página inteira
+    // [CORREÇÃO CRÍTICA AQUI]
+    // Mudamos de 'h-screen' para 'fixed inset-0'.
+    // Isso prende o layout nas bordas físicas do celular, impedindo o Safari de empurrar.
     <div className="fixed inset-0 flex flex-col w-full h-full bg-gray-50 overflow-hidden">
       
       {/* HEADER DESKTOP */}
@@ -91,9 +92,9 @@ export default function Layout({ currentUser, onLogout }: LayoutProps) {
           <img src={logo} alt="Patricio Turismo" className="h-6 w-auto" />
       </header>
 
-      {/* [CORREÇÃO 2] Área de conteúdo com rolagem independente */}
-      {/* 'flex-1' ocupa o resto da tela */}
-      {/* 'overflow-y-auto' permite rolar SÓ o conteúdo */}
+      {/* [CORREÇÃO CRÍTICA AQUI TAMBÉM] */}
+      {/* Adicionamos 'overflow-y-auto' AQUI. */}
+      {/* Isso cria uma "janela de rolagem" interna, enquanto o corpo do site fica travado. */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 md:pb-8 overscroll-contain">
         <div className="max-w-[1600px] mx-auto">
           <Outlet />

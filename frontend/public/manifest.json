@@ -1,7 +1,7 @@
 {
   "name": "Patricio Turismo",
   "short_name": "Patricio",
-  "start_url": "/?v=5",
+  "start_url": "/?v=6",
   "scope": "/",
   "display": "standalone",
   "background_color": "#F7931E",
