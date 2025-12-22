@@ -18,6 +18,9 @@ import PessoaDetailsPage from './components/PessoaDetailsPage';
 // --- 1. Importe a nova página de relatório ---
 import TaxistaReportPage from './components/TaxistaReportPage';
 
+// Se quiser usar o logo na tela de carregamento, descomente a linha abaixo e ajuste o caminho
+// import logo from './assets/logo.png'; 
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
@@ -34,20 +37,50 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    (async () => {
+    let isMounted = true; // Flag para evitar atualização de estado em componente desmontado
+
+    const checkAuth = async () => {
       try {
         const response = await api.get('/api/me');
-        handleLogin(response.data);
+        if (isMounted) {
+          handleLogin(response.data);
+        }
       } catch (error) {
-        handleLogout();
+        if (isMounted) {
+          handleLogout();
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          // Pequeno delay (500ms) para evitar que a tela pisque muito rápido (flicker)
+          // e garantir uma transição suave da cor do manifest para o app.
+          setTimeout(() => setIsLoading(false), 500);
+        }
       }
-    })();
+    };
+
+    checkAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, [handleLogin, handleLogout]);
 
+  // === TELA DE CARREGAMENTO (SPLASH SCREEN) ===
+  // Fundo laranja (#F7931E) para combinar com o Manifest e o body do HTML
   if (isLoading) {
-    return <div className="flex h-screen items-center justify-center">Carregando...</div>;
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#F7931E]">
+        <div className="flex flex-col items-center gap-4 animate-pulse">
+          {/* Spinner Branco */}
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white border-t-transparent"></div>
+          
+          {/* Texto Branco */}
+          <span className="text-white font-bold text-lg tracking-wide">
+            CARREGANDO...
+          </span>
+        </div>
+      </div>
+    );
   }
 
   return (
