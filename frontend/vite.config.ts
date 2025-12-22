@@ -27,7 +27,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: [] // Mantendo desativado conforme seu pedido de não ser offline
+        maximumFileSizeToCacheInBytes: 4000000 // Aumenta para 4MB
       }
     })
   ],
