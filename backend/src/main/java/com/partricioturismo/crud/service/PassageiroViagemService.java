@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Random; // Import necessário para cor aleatória
 import java.util.stream.Collectors;
 
 @Service
@@ -84,9 +85,12 @@ public class PassageiroViagemService {
         PassageiroViagem p = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Passageiro não encontrado"));
         p.setGrupoId(null);
+        // Opcional: Limpar a cor ao desvincular se quiser que ele fique "neutro"
+        // p.setCorTag(null);
         repository.save(p);
     }
 
+    // ✅ VINCULAR COM ATUALIZAÇÃO DE COR
     @Transactional
     public void vincularGrupo(Long idOrigem, Long idDestino) {
         PassageiroViagem origem = repository.findById(idOrigem)
@@ -95,32 +99,61 @@ public class PassageiroViagemService {
                 .orElseThrow(() -> new EntityNotFoundException("Passageiro destino não encontrado"));
 
         String grupoId = destino.getGrupoId();
+        String corGrupo = destino.getCorTag();
+
+        // Se o destino não tem grupo, cria novo
         if (grupoId == null) {
             grupoId = UUID.randomUUID().toString();
             destino.setGrupoId(grupoId);
+
+            // Se não tem cor, gera uma nova para o grupo
+            if (corGrupo == null || corGrupo.isEmpty()) {
+                corGrupo = gerarCorAleatoria();
+                destino.setCorTag(corGrupo);
+            }
             repository.save(destino);
+        } else {
+            // Se já tem grupo mas por acaso está sem cor, gera agora
+            if (corGrupo == null || corGrupo.isEmpty()) {
+                corGrupo = gerarCorAleatoria();
+                destino.setCorTag(corGrupo);
+                repository.save(destino);
+            }
         }
+
+        // Aplica o Grupo e a Cor na origem (quem está sendo arrastado)
         origem.setGrupoId(grupoId);
+        origem.setCorTag(corGrupo);
+
         repository.save(origem);
     }
 
-    // --- SALVAR GRUPO FAMÍLIA ---
+    // --- SALVAR GRUPO FAMÍLIA (Com Cor Unificada) ---
     @Transactional
     public List<PassengerResponseDto> salvarGrupoFamilia(FamilyGroupRequestDto dto) {
         Viagem viagem = viagemRepository.findById(dto.viagemId())
                 .orElseThrow(() -> new EntityNotFoundException("Viagem não encontrada"));
 
+        // 1. Determina ID e COR do Grupo
         String grupoId = UUID.randomUUID().toString();
+        String corGrupo = gerarCorAleatoria(); // Cor padrão para novo grupo
+
+        // Tenta reaproveitar ID e Cor de algum membro existente
         for(FamilyMemberDto m : dto.membros()) {
             if(m.id() != null) {
                 Optional<PassageiroViagem> ex = repository.findById(m.id());
                 if(ex.isPresent() && ex.get().getGrupoId() != null) {
                     grupoId = ex.get().getGrupoId();
+                    // Se o grupo já tem cor, usamos ela
+                    if (ex.get().getCorTag() != null && !ex.get().getCorTag().isEmpty()) {
+                        corGrupo = ex.get().getCorTag();
+                    }
                     break;
                 }
             }
         }
 
+        // 2. Dados Compartilhados
         Taxista tc = dto.taxistaColetaId() != null ? taxistaRepository.findById(dto.taxistaColetaId()).orElse(null) : null;
         Taxista te = dto.taxistaEntregaId() != null ? taxistaRepository.findById(dto.taxistaEntregaId()).orElse(null) : null;
         Comisseiro c = dto.comisseiroId() != null ? comisseiroRepository.findById(dto.comisseiroId()).orElse(null) : null;
@@ -148,7 +181,10 @@ public class PassageiroViagemService {
                 pv.setPago(false);
             }
 
+            // Atualiza Grupo e COR
             pv.setGrupoId(grupoId);
+            pv.setCorTag(corGrupo); // <--- Aplica a cor unificada
+
             pv.setTaxistaColeta(tc);
             pv.setTaxistaEntrega(te);
             pv.setComisseiro(c);
@@ -159,7 +195,6 @@ public class PassageiroViagemService {
 
             PassageiroViagem salvo = repository.save(pv);
 
-            // Tenta vincular o assento (agora com lógica inteligente)
             if (m.numeroAssento() != null && !m.numeroAssento().isEmpty()) {
                 vincularAssentoPorNumero(salvo.getId(), null, m.numeroAssento());
                 salvo = repository.findById(salvo.getId()).orElse(salvo);
@@ -232,17 +267,15 @@ public class PassageiroViagemService {
         return new PassengerResponseDto(repository.save(pv));
     }
 
-    // === VINCULAR ASSENTO (LÓGICA CORRIGIDA E MELHORADA) ===
+    // --- VINCULAR ASSENTO ---
     @Transactional
     public PassengerResponseDto vincularAssentoPorNumero(Long passageiroId, Long onibusId, String numeroAssento) {
         PassageiroViagem pv = repository.findById(passageiroId).orElseThrow(() -> new EntityNotFoundException("Passageiro não encontrado"));
 
-        // 1. OTIMIZAÇÃO: Se o passageiro JÁ está na poltrona certa, não faz nada!
         if (pv.getAssento() != null && numeroAssento != null && numeroAssento.equals(pv.getAssento().getNumero())) {
             return new PassengerResponseDto(pv);
         }
 
-        // Caso: Desvincular (texto vazio)
         if (numeroAssento == null || numeroAssento.isEmpty()) {
             if (pv.getAssento() != null) {
                 Assento old = pv.getAssento(); old.setOcupado(false); old.setPassageiroViagem(null); assentoRepository.save(old); pv.setAssento(null);
@@ -264,31 +297,33 @@ public class PassageiroViagemService {
                     return assentoRepository.save(a);
                 });
 
-        // 2. LÓGICA DE ADMIN (ROUBAR ASSENTO):
-        // Se está ocupado, remove o dono atual (seja quem for) e passa para o passageiro atual.
         if (novo.isOcupado()) {
             PassageiroViagem ocupanteAtual = novo.getPassageiroViagem();
-
             if (ocupanteAtual != null && !ocupanteAtual.getId().equals(pv.getId())) {
-                // Tira a poltrona do ocupante anterior
                 ocupanteAtual.setAssento(null);
                 repository.save(ocupanteAtual);
-
-                // Limpa o assento
                 novo.setPassageiroViagem(null);
                 novo.setOcupado(false);
                 assentoRepository.save(novo);
             }
         }
 
-        // Se eu já tinha outro assento, libero o antigo
         if(pv.getAssento() != null && !pv.getAssento().getId().equals(novo.getId())) {
             Assento old = pv.getAssento(); old.setOcupado(false); old.setPassageiroViagem(null); assentoRepository.save(old);
         }
 
-        // Vincula o novo
         novo.setOcupado(true); novo.setPassageiroViagem(pv); pv.setAssento(novo); assentoRepository.save(novo);
         return new PassengerResponseDto(repository.save(pv));
+    }
+
+    // --- HELPERS ---
+
+    // ✅ NOVO MÉTODO PARA GERAR CORES
+    private String gerarCorAleatoria() {
+        // Gera uma cor Hex aleatória (ex: #A3F12B)
+        Random random = new Random();
+        int nextInt = random.nextInt(0xffffff + 1);
+        return String.format("#%06x", nextInt);
     }
 
     private void atualizarCamposComuns(PassageiroViagem pv, PassengerSaveRequestDto dto) {

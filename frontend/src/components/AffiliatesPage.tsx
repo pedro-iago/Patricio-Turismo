@@ -93,13 +93,13 @@ export default function AffiliatesPage() {
       else { if (page >= 0 && page < comisseiroTotalPages) fetchComisseiros(page); }
   };
 
-  // Componente de Card Reutilizável
+  // Componente de Card Otimizado
   const AffiliateCard = ({ item, type }: { item: Affiliate, type: AffiliateType }) => (
     <Card className="hover:shadow-md transition-shadow border-slate-200">
         <CardHeader className="pb-2">
             <div className="flex items-center gap-3">
-                {/* COR PADRONIZADA: LARANJA */}
-                <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                {/* Ícone com fundo laranja */}
+                <div className="p-2 bg-orange-50 text-orange-600 rounded-lg shrink-0">
                     {type === 'taxista' ? <Car className="w-5 h-5" /> : <UserCheck className="w-5 h-5" />}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -112,15 +112,14 @@ export default function AffiliatesPage() {
         </CardHeader>
         <CardContent className="text-sm text-slate-600 space-y-1">
             <div className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5 text-slate-400" />
-                <span>{item.pessoa.telefone || item.pessoa.telefones?.[0] || "Sem telefone"}</span>
+                <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span className="truncate">{item.pessoa.telefone || item.pessoa.telefones?.[0] || "Sem telefone"}</span>
             </div>
             {item.pessoa.cpf && (
-                <div className="text-xs text-slate-400 pl-5.5">CPF: {item.pessoa.cpf}</div>
+                <div className="text-xs text-slate-400 pl-5.5 truncate">CPF: {item.pessoa.cpf}</div>
             )}
         </CardContent>
         <CardFooter className="flex justify-end gap-1 pt-0">
-            {/* BOTÃO DE HISTÓRICO / REPORT */}
             <Button variant="ghost" size="icon" onClick={() => navigate(type === 'taxista' ? `/taxistas/${item.id}` : `/comisseiros/${item.id}`)} className="text-slate-400 hover:text-blue-600" title="Ver Histórico/Relatório">
                 <Eye className="w-4 h-4" />
             </Button>
@@ -146,14 +145,18 @@ export default function AffiliatesPage() {
       </div>
 
       <Tabs defaultValue="taxista" onValueChange={(val) => setCurrentAffiliateType(val as AffiliateType)} className="space-y-4">
-        <div className="flex items-center justify-between">
-            <TabsList className="bg-white border">
-                {/* COR PADRONIZADA NO ACTIVE STATE (via CSS ou className se customizado, mas o padrão shadcn é preto/branco. 
-                    Se quiser laranja no active, precisaria alterar o theme ou class. Deixei padrão shadcn por enquanto) */}
-                <TabsTrigger value="taxista" className="gap-2"><Car className="w-4 h-4" /> Taxistas</TabsTrigger>
-                <TabsTrigger value="comisseiro" className="gap-2"><UserCheck className="w-4 h-4" /> Comisseiros</TabsTrigger>
+        
+        {/* CORREÇÃO AQUI: Layout Flex Coluna no Mobile, Linha no Desktop */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            
+            {/* Tabs ocupam 100% no mobile */}
+            <TabsList className="bg-white border w-full md:w-auto grid grid-cols-2 md:flex">
+                <TabsTrigger value="taxista" className="gap-2 flex justify-center"><Car className="w-4 h-4" /> Taxistas</TabsTrigger>
+                <TabsTrigger value="comisseiro" className="gap-2 flex justify-center"><UserCheck className="w-4 h-4" /> Comisseiros</TabsTrigger>
             </TabsList>
-            <Button onClick={() => handleOpenModal(currentAffiliateType)} className="bg-orange-600 hover:bg-orange-700 gap-2 text-white">
+            
+            {/* Botão ocupa 100% no mobile */}
+            <Button onClick={() => handleOpenModal(currentAffiliateType)} className="bg-orange-600 hover:bg-orange-700 gap-2 text-white w-full md:w-auto">
                 <Plus className="w-4 h-4" /> Novo {currentAffiliateType === 'taxista' ? 'Taxista' : 'Comisseiro'}
             </Button>
         </div>

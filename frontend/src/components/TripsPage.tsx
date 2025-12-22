@@ -28,8 +28,8 @@ interface Trip {
     onibusId?: number;
     onibus?: BusData[];
     listaOnibus?: BusData[]; 
-    totalPassageiros?: number; // Backend deve enviar
-    totalEncomendas?: number; // Backend deve enviar
+    totalPassageiros?: number;
+    totalEncomendas?: number;
 }
 
 export default function TripsPage() {
@@ -169,14 +169,17 @@ export default function TripsPage() {
     return (
         <div className="p-4 md:p-8 space-y-8 bg-slate-50/50 min-h-screen pb-20">
             
+            {/* Header */}
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900">Painel de Viagens</h1>
                     <p className="text-sm text-slate-500">Gerencie saídas, chegadas e vendas.</p>
                 </div>
                 
-                <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto items-center">
-                    <div className="flex gap-2 w-full md:w-auto">
+                <div className="flex flex-col md:flex-row flex-wrap xl:flex-nowrap gap-3 w-full xl:w-auto items-center">
+                    
+                    {/* Filtros de Data: Lado a lado no mobile (grid-cols-2) */}
+                    <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto">
                         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                             <SelectTrigger className="w-full md:w-[130px] h-10"><SelectValue placeholder="Mês" /></SelectTrigger>
                             <SelectContent><SelectItem value="all">Todos</SelectItem>{months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
@@ -187,16 +190,21 @@ export default function TripsPage() {
                         </Select>
                     </div>
 
+                    {/* Busca */}
                     <div className="relative w-full md:w-64">
                         <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                         <Input placeholder="Buscar data ou placa..." className="pl-9 h-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                     </div>
                     
-                    <div className="flex gap-2 w-full md:w-auto">
-                        <Button variant="outline" onClick={() => { setSelectedTrip(null); setIsTripModalOpen(true); }} className="h-10 border-dashed border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-slate-50">
+                    {/* CORREÇÃO DE LAYOUT MOBILE: 
+                      Botões agora ficam empilhados em telas pequenas (flex-col) 
+                      e lado a lado em telas médias/grandes (sm:flex-row)
+                    */}
+                    <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                        <Button variant="outline" onClick={() => { setSelectedTrip(null); setIsTripModalOpen(true); }} className="h-10 border-dashed border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-slate-50 w-full sm:w-auto">
                             <Plus className="mr-2 h-4 w-4" /> Nova Viagem
                         </Button>
-                        <Button onClick={() => setIsQuickModalOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white shadow-md h-10 px-6 font-bold flex-1 md:flex-none">
+                        <Button onClick={() => setIsQuickModalOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white shadow-md h-10 px-6 font-bold w-full sm:w-auto">
                             <Plus className="mr-2 h-5 w-5" /> VENDA RÁPIDA
                         </Button>
                     </div>
@@ -256,7 +264,7 @@ export default function TripsPage() {
     );
 }
 
-// --- COMPONENTE TRIP CARD ATUALIZADO ---
+// --- COMPONENTE TRIP CARD OTIMIZADO ---
 function TripCard({ 
     trip, variant, onClick, onEdit, onDelete 
 }: { 
@@ -301,20 +309,20 @@ function TripCard({
             
             {/* Header */}
             <div className="flex justify-between items-start">
-                <div className="flex items-center gap-3">
-                    <div className={`flex flex-col items-center justify-center w-12 h-14 rounded-lg shadow-sm ${dateBoxClass}`}>
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className={`flex flex-col items-center justify-center w-12 h-14 rounded-lg shadow-sm shrink-0 ${dateBoxClass}`}>
                         <span className="text-[10px] font-bold uppercase leading-none mt-1">{month}</span>
                         <span className="text-2xl font-black leading-none">{day}</span>
                     </div>
-                    <div>
-                        <div className={`text-sm font-bold uppercase ${accentColor}`}>{weekDay}</div>
+                    <div className="min-w-0">
+                        <div className={`text-sm font-bold uppercase truncate ${accentColor}`}>{weekDay}</div>
                         <div className="flex items-center gap-1 text-xs text-slate-500 font-medium">
-                            <Clock className="w-3 h-3" /> {time}
+                            <Clock className="w-3 h-3 shrink-0" /> {time}
                         </div>
                     </div>
                 </div>
 
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-400 hover:text-blue-600" onClick={(e) => { e.stopPropagation(); onEdit(); }}><Edit className="w-3.5 h-3.5" /></Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); onDelete(); }}><Trash2 className="w-3.5 h-3.5" /></Button>
                 </div>
@@ -322,7 +330,7 @@ function TripCard({
 
             {/* Rota */}
             <div className="relative h-px bg-slate-200 w-full my-1">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider border border-slate-100 rounded-full">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider border border-slate-100 rounded-full whitespace-nowrap">
                     Bahia <span className="mx-1">↔</span> SP
                 </div>
             </div>
@@ -335,10 +343,11 @@ function TripCard({
                     <div className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
                         <Bus className="w-3 h-3" /> Veículo(s)
                     </div>
-                    <div className="flex flex-col gap-1">
+                    {/* Adicionado flex-wrap para não estourar se tiver muitos ônibus */}
+                    <div className="flex flex-wrap gap-1">
                         {busList.length > 0 ? (
                             busList.map(b => (
-                                <div key={b.id} className="text-[10px] font-mono font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded w-fit border border-slate-200">
+                                <div key={b.id} className="text-[10px] font-mono font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded w-fit border border-slate-200 truncate max-w-full">
                                     {b.placa}
                                 </div>
                             ))
@@ -372,8 +381,8 @@ function TripCard({
             </div>
 
             {variant === 'highlight' && (
-                <div className="absolute -top-2 -right-2 bg-orange-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse">
-                    PRÓXIMA SAÍDA
+                <div className="absolute -top-2 -right-2 bg-orange-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse z-10">
+                    PRÓXIMA
                 </div>
             )}
         </div>

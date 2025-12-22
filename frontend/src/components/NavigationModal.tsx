@@ -5,9 +5,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
 } from './ui/sheet'; 
-import logo from '../assets/logo.png';
 import { LogOut } from 'lucide-react';
 
 interface MenuItem {
@@ -19,7 +17,7 @@ interface MenuItem {
 interface NavigationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  menuItems: MenuItem[];
+  menuItems: MenuItem[]; // Recebe apenas os itens secundários
   onLogout: () => void;
 }
 
@@ -37,23 +35,19 @@ export default function NavigationModal({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
+      {/* MUDANÇA PRINCIPAL: side="bottom" */}
       <SheetContent 
-        side="left" 
-        // --- ADICIONE ESTAS CLASSES TAILWIND ---
-        className="flex flex-col h-full w-[280px] sm:w-[300px] 
-                   transition-transform duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left-full data-[state=open]:slide-in-from-left-full"
-        // ------------------------------------
+        side="bottom" 
+        className="rounded-t-[20px] px-4 pb-6 pt-2 outline-none" // Arredonda o topo
       >
-        <SheetHeader className="border-b pb-4">
-          <SheetTitle>
-            <img src={logo} alt="Logo" className="h-10 w-auto" />
-          </SheetTitle>
-          <SheetDescription className="sr-only">
-            Menu de navegação principal
-          </SheetDescription>
+        {/* Pequena "alça" visual para indicar que é arrastável */}
+        <div className="mx-auto h-1 w-12 rounded-full bg-slate-200 mb-6" />
+
+        <SheetHeader className="mb-4 text-left px-2">
+          <SheetTitle className="text-lg font-bold text-slate-800">Mais opções</SheetTitle>
         </SheetHeader>
 
-        <nav className="flex-1 flex flex-col py-4 space-y-2">
+        <nav className="flex flex-col gap-2 px-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -61,22 +55,24 @@ export default function NavigationModal({
                 key={item.path}
                 to={item.path}
                 onClick={onClose} 
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-lg text-sidebar-foreground hover:bg-sidebar-accent"
+                className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-base font-medium text-slate-700 bg-slate-50 hover:bg-orange-50 hover:text-orange-700 transition-colors active:scale-[0.98]"
               >
-                <Icon className="w-5 h-5" />
+                <div className="p-2 bg-white rounded-full shadow-sm text-current">
+                   <Icon className="w-5 h-5" />
+                </div>
                 <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="mt-auto border-t pt-4">
+        <div className="mt-6 pt-4 border-t border-slate-100 px-2">
           <button
             onClick={handleLogoutClick}
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-lg text-destructive hover:bg-destructive/10 w-full"
+            className="flex items-center justify-center gap-3 px-4 py-3.5 rounded-xl text-base font-medium text-red-600 bg-red-50 hover:bg-red-100 w-full transition-colors active:scale-[0.98]"
           >
             <LogOut className="w-5 h-5" />
-            <span>Logout</span>
+            <span>Sair do Sistema</span>
           </button>
         </div>
       </SheetContent>

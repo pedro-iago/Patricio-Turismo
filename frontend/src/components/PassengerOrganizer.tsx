@@ -3,7 +3,8 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor, // NOVO
+  TouchSensor, // NOVO
   useSensor,
   useSensors,
   DragOverlay,
@@ -84,7 +85,7 @@ interface PassengerOrganizerProps {
   onEditGroup?: (group: PassageiroGroup) => void;
 }
 
-// --- ITEM VISUAL PADRÃO (Individual/Vínculo Manual) ---
+// --- ITEM VISUAL PADRÃO ---
 function PassageiroVisualItem({ 
   passageiro, groupPosition = 'single',
   onMarkAsPaid, onEdit, onOpenLuggage, onDelete, onColorChange, onLink, onUnlink, previousInContext
@@ -162,21 +163,24 @@ function PassageiroVisualItem({
             </div>
           </div>
 
-          <div className="md:col-span-4 flex flex-col gap-1.5 text-xs border-l border-slate-200 pl-3 overflow-hidden">
+          {/* VISUAL FIX: Bordas ajustadas para Mobile (Top) e Desktop (Left) */}
+          <div className="md:col-span-4 flex flex-col gap-1.5 text-xs border-t md:border-t-0 md:border-l border-slate-200 pt-2 md:pt-0 pl-0 md:pl-3 overflow-hidden">
             <div className="flex items-start gap-1"><span className="font-bold text-slate-900 w-3 shrink-0">C:</span><span className="text-slate-800 leading-tight truncate font-medium" title={formatFullAddress(p.enderecoColeta)}>{formatFullAddress(p.enderecoColeta)}</span></div>
             <div className="flex items-start gap-1"><span className="font-bold text-slate-900 w-3 shrink-0">E:</span><span className="text-slate-800 leading-tight truncate font-medium" title={formatFullAddress(p.enderecoEntrega)}>{formatFullAddress(p.enderecoEntrega)}</span></div>
           </div>
 
-          <div className="md:col-span-2 flex flex-col gap-1 text-xs border-l border-slate-200 pl-3 justify-center">
+          <div className="md:col-span-2 flex flex-col md:flex-col sm:flex-row sm:justify-between md:justify-center gap-1 text-xs border-t md:border-t-0 md:border-l border-slate-200 pt-2 md:pt-0 pl-0 md:pl-3">
             <div className="flex flex-col gap-0.5">
                 <span className="text-slate-600 text-[10px] truncate" title={`TC: ${p.taxistaColeta?.pessoa?.nome}`}>TC: <span className="text-slate-800 font-bold">{p.taxistaColeta?.pessoa?.nome?.split(' ')[0] || '-'}</span></span>
                 <span className="text-slate-600 text-[10px] truncate" title={`TE: ${p.taxistaEntrega?.pessoa?.nome}`}>TE: <span className="text-slate-800 font-bold">{p.taxistaEntrega?.pessoa?.nome?.split(' ')[0] || '-'}</span></span>
                 <span className="text-slate-600 text-[10px] truncate" title={`C: ${p.comisseiro?.pessoa?.nome}`}>C: <span className="text-slate-800 font-bold">{p.comisseiro?.pessoa?.nome?.split(' ')[0] || '-'}</span></span>
             </div>
-            <div className="border-t border-slate-200 mt-1.5 pt-1"><span className="font-black text-slate-900 text-xs">R$ {p.valor?.toFixed(2)}</span></div>
+            <div className="border-t border-slate-200 mt-1.5 pt-1 sm:border-t-0 sm:pt-0 sm:border-l sm:pl-2 md:border-l-0 md:pl-0 md:border-t md:pt-1">
+                <span className="font-black text-slate-900 text-xs">R$ {p.valor?.toFixed(2)}</span>
+            </div>
           </div>
 
-          <div className="md:col-span-2 flex flex-col items-end gap-2 pl-1">
+          <div className="md:col-span-2 flex flex-col items-end gap-2 pl-1 border-t md:border-t-0 border-slate-100 pt-2 md:pt-0">
             <div className="flex items-center gap-2 justify-end w-full">
                 <Badge variant="outline" className={`text-[10px] h-5 px-2 font-bold border-0 ${isPaid ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>{isPaid ? "Pago" : "Pendente"}</Badge>
                 <div className="flex flex-col items-center min-w-[32px]"><span className="font-black text-lg leading-none text-slate-900">{p.numeroAssento || '0'}</span><span className="text-[9px] bg-slate-100 text-slate-600 px-1 rounded border border-slate-300 uppercase font-bold">{busBadge}</span></div>
@@ -201,49 +205,27 @@ function PassageiroVisualItem({
   );
 }
 
-// --- ITEM VISUAL UNIFICADO (Card Família) ---
+// --- ITEM VISUAL GRUPO ---
 function GroupVisualItem({ group, onMarkAsPaid, onEdit, onOpenLuggage, onDelete, onUnlink, onColorChange, onEditGroup }: any) {
     if (!group?.items?.length) return null;
-
     const common = group.items[0].dadosCompletos || {}; 
     const totalMembers = group.items.length;
-
     const groupColor = group.items[0]?.linkColor || '#64748b';
     const isCustomColor = !!group.items[0]?.linkColor;
-
     const formatAddress = (addr: any) => {
         if (!addr) return <span className="text-slate-400 italic">Não informado</span>;
         return `${addr.logradouro || ''}, ${addr.numero || ''} - ${addr.bairro || ''} - ${addr.cidade || ''}`;
     };
-
     return (
-        <div 
-            className={cn("relative border rounded-lg mb-4 bg-white shadow-sm overflow-hidden", isCustomColor ? "" : "border-slate-200")}
-            style={isCustomColor ? { borderColor: `${groupColor}50` } : {}}
-        >
-            {/* Lateral Colorida do GRUPO */}
+        <div className={cn("relative border rounded-lg mb-4 bg-white shadow-sm overflow-hidden", isCustomColor ? "" : "border-slate-200")} style={isCustomColor ? { borderColor: `${groupColor}50` } : {}}>
             <div className="absolute left-0 top-0 bottom-0 w-1.5 z-10" style={{ backgroundColor: groupColor }}></div>
-
-            {/* --- CABEÇALHO UNIFICADO --- */}
-            <div 
-                className="border-b pl-6 pr-4 py-3 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between"
-                style={{ backgroundColor: `${groupColor}10`, borderColor: `${groupColor}30` }}
-            >
+            <div className="border-b pl-6 pr-4 py-3 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between" style={{ backgroundColor: `${groupColor}10`, borderColor: `${groupColor}30` }}>
                 <div className="flex-1 min-w-0 flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4" style={{ color: groupColor }} />
-                        <span className="text-xs font-bold uppercase tracking-wider" style={{ color: groupColor }}>Família / Grupo ({totalMembers})</span>
-                    </div>
+                    <div className="flex items-center gap-2"><Users className="w-4 h-4" style={{ color: groupColor }} /><span className="text-xs font-bold uppercase tracking-wider" style={{ color: groupColor }}>Família / Grupo ({totalMembers})</span></div>
                     <div className="flex flex-col md:flex-row gap-2 md:gap-6 text-xs text-slate-600">
-                        <div className="flex items-center gap-1.5 truncate" title="Coleta">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                            <strong className="text-slate-500">De:</strong> <span className="truncate max-w-[250px]">{formatAddress(common.enderecoColeta)}</span>
-                        </div>
+                        <div className="flex items-center gap-1.5 truncate" title="Coleta"><MapPin className="w-3.5 h-3.5 text-slate-400" /><strong className="text-slate-500">De:</strong> <span className="truncate max-w-[250px]">{formatAddress(common.enderecoColeta)}</span></div>
                         <div className="hidden md:block text-slate-300"><ChevronRight className="w-3 h-3" /></div>
-                        <div className="flex items-center gap-1.5 truncate" title="Entrega">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                            <strong className="text-slate-500">Para:</strong> <span className="truncate max-w-[250px]">{formatAddress(common.enderecoEntrega)}</span>
-                        </div>
+                        <div className="flex items-center gap-1.5 truncate" title="Entrega"><MapPin className="w-3.5 h-3.5 text-slate-400" /><strong className="text-slate-500">Para:</strong> <span className="truncate max-w-[250px]">{formatAddress(common.enderecoEntrega)}</span></div>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -252,77 +234,29 @@ function GroupVisualItem({ group, onMarkAsPaid, onEdit, onOpenLuggage, onDelete,
                         {common.taxistaEntrega && <div className="flex items-center gap-1"><Car className="w-3 h-3" /> TE: <strong className="text-slate-700">{common.taxistaEntrega.pessoa.nome.split(' ')[0]}</strong></div>}
                         {common.comisseiro && <div className="flex items-center gap-1"><User className="w-3 h-3" /> C: <strong className="text-slate-700">{common.comisseiro.pessoa.nome.split(' ')[0]}</strong></div>}
                     </div>
-                    
-                    {/* BOTÃO EDITAR GRUPO */}
-                    <button 
-                        onPointerDown={(e) => e.stopPropagation()} 
-                        onClick={(e) => { e.stopPropagation(); onEditGroup?.(group); }} 
-                        className="p-1.5 rounded hover:bg-white/80 transition-colors"
-                        style={{ color: groupColor }}
-                        title="Editar Dados da Família"
-                    >
-                        <Edit className="w-4 h-4" />
-                    </button>
-
+                    <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onEditGroup?.(group); }} className="p-1.5 rounded hover:bg-white/80 transition-colors" style={{ color: groupColor }} title="Editar Dados da Família"><Edit className="w-4 h-4" /></button>
                     <div className="p-1 cursor-grab active:cursor-grabbing hover:bg-white/50 rounded" style={{ color: groupColor }}><GripVertical className="w-5 h-5" /></div>
                 </div>
             </div>
-
-            {/* --- LISTA DE MEMBROS (SEM BARRA LATERAL) --- */}
             <div className="divide-y divide-slate-100">
                 {group.items.map((passageiro: any) => {
                     const p = passageiro.dadosCompletos;
                     const isPaid = p.pago;
                     const hasLuggage = (p.bagagens?.length || 0) > 0;
-
                     return (
                         <div key={p.id} className="relative hover:bg-slate-50 transition-colors border-b last:border-b-0 border-slate-50">
-                            
-                            {/* --- CONTEÚDO DA LINHA --- */}
                             <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3 items-center p-3 pl-6">
-                                
                                 <div className="md:col-span-4 flex flex-col min-w-0">
                                     <span className="font-bold text-slate-800 text-sm truncate">{p.pessoa.nome}</span>
-                                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                                        <Phone className="w-3 h-3 opacity-60" /> {passageiro.displayTel}
-                                        <span className="text-slate-300">|</span>
-                                        <FileText className="w-3 h-3 opacity-60" /> {passageiro.displayDoc}
-                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5"><Phone className="w-3 h-3 opacity-60" /> {passageiro.displayTel}<span className="text-slate-300">|</span><FileText className="w-3 h-3 opacity-60" /> {passageiro.displayDoc}</div>
                                 </div>
-
-                                <div className="md:col-span-1 flex items-center justify-center">
-                                    {hasLuggage && (
-                                        <div className="flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-100" title={`${p.bagagens.length} volumes`}>
-                                            <Briefcase className="w-3 h-3" />
-                                            <span>{p.bagagens.length}</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="md:col-span-3 flex items-center justify-end gap-3">
-                                    <span className="font-bold text-slate-900 text-xs">R$ {p.valor?.toFixed(2)}</span>
-                                    <Badge variant="outline" className={cn("text-[10px] h-5 px-2 font-bold border-0 min-w-[65px] justify-center", isPaid ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800")}>
-                                        {isPaid ? "Pago" : "Pendente"}
-                                    </Badge>
-                                </div>
-
+                                <div className="md:col-span-1 flex items-center justify-center">{hasLuggage && (<div className="flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-100" title={`${p.bagagens.length} volumes`}><Briefcase className="w-3 h-3" /><span>{p.bagagens.length}</span></div>)}</div>
+                                <div className="md:col-span-3 flex items-center justify-end gap-3"><span className="font-bold text-slate-900 text-xs">R$ {p.valor?.toFixed(2)}</span><Badge variant="outline" className={cn("text-[10px] h-5 px-2 font-bold border-0 min-w-[65px] justify-center", isPaid ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800")}>{isPaid ? "Pago" : "Pendente"}</Badge></div>
                                 <div className="md:col-span-4 flex items-center justify-end gap-3">
-                                    <div className="flex flex-col items-center min-w-[36px] bg-slate-50 rounded border border-slate-200 px-1 py-0.5">
-                                        <span className="font-black text-base leading-none text-slate-900">{p.numeroAssento || '-'}</span>
-                                        <span className="text-[7px] text-slate-400 uppercase font-bold tracking-tighter">Poltrona</span>
-                                    </div>
-                                    
+                                    <div className="flex flex-col items-center min-w-[36px] bg-slate-50 rounded border border-slate-200 px-1 py-0.5"><span className="font-black text-base leading-none text-slate-900">{p.numeroAssento || '-'}</span><span className="text-[7px] text-slate-400 uppercase font-bold tracking-tighter">Poltrona</span></div>
                                     <div className="h-6 w-px bg-slate-200 mx-1"></div>
-                                    
                                     <div className="flex gap-1">
-                                        <Popover>
-                                            <PopoverTrigger asChild><button className="p-1.5 rounded text-slate-400 hover:text-purple-600 hover:bg-purple-50" title="Cor da Tag"><Palette className="w-4 h-4" /></button></PopoverTrigger>
-                                            <PopoverContent className="w-80 p-3 grid grid-cols-8 gap-2 shadow-xl bg-white border-slate-200" align="end">
-                                                {TAG_COLORS.map(c => (<button key={c.hex} title={c.label} className="w-6 h-6 rounded-full border border-slate-300 hover:scale-125 transition-all" style={{backgroundColor: c.hex}} onClick={(e) => { e.stopPropagation(); e.preventDefault(); onColorChange?.(Number(p.id), c.hex); }} />))}
-                                                <button className="w-6 h-6 rounded-full border border-slate-200 flex items-center justify-center text-xs text-slate-500 hover:bg-red-50 hover:text-red-500" onClick={(e) => { e.stopPropagation(); onColorChange?.(Number(p.id), null); }}>X</button>
-                                            </PopoverContent>
-                                        </Popover>
-
+                                        <Popover><PopoverTrigger asChild><button className="p-1.5 rounded text-slate-400 hover:text-purple-600 hover:bg-purple-50" title="Cor da Tag"><Palette className="w-4 h-4" /></button></PopoverTrigger><PopoverContent className="w-80 p-3 grid grid-cols-8 gap-2 shadow-xl bg-white border-slate-200" align="end">{TAG_COLORS.map(c => (<button key={c.hex} title={c.label} className="w-6 h-6 rounded-full border border-slate-300 hover:scale-125 transition-all" style={{backgroundColor: c.hex}} onClick={(e) => { e.stopPropagation(); e.preventDefault(); onColorChange?.(Number(p.id), c.hex); }} />))}<button className="w-6 h-6 rounded-full border border-slate-200 flex items-center justify-center text-xs text-slate-500 hover:bg-red-50 hover:text-red-500" onClick={(e) => { e.stopPropagation(); onColorChange?.(Number(p.id), null); }}>X</button></PopoverContent></Popover>
                                         <button onClick={(e) => { e.stopPropagation(); onMarkAsPaid?.(p.id); }} className={`p-1.5 rounded ${isPaid ? 'text-slate-300' : 'text-slate-400 hover:text-green-600 hover:bg-green-50'}`} title="Pagar"><DollarSign className="w-4 h-4" /></button>
                                         <button onClick={(e) => { e.stopPropagation(); onEdit?.(p); }} className="p-1.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Editar"><Edit className="w-4 h-4" /></button>
                                         <button onClick={(e) => { e.stopPropagation(); onUnlink?.(p); }} className="p-1.5 rounded text-slate-300 hover:text-blue-600 hover:bg-blue-50" title="Desvincular"><Unlink className="w-4 h-4" /></button>
@@ -338,93 +272,32 @@ function GroupVisualItem({ group, onMarkAsPaid, onEdit, onOpenLuggage, onDelete,
     );
 }
 
-// ... DraggableGroup (MANTIDO) ...
 function DraggableGroup({ group, isOverlay = false, onMarkAsPaid, onEdit, onOpenLuggage, onDelete, onColorChange, onLink, onUnlink, previousGroupLastItem, onEditGroup }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: group.id, data: { type: 'GROUP', group } });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1, zIndex: isDragging ? 999 : 'auto' };
-
   if (!group || !group.items) return null;
-
   const isMultiMember = group.items.length > 1;
-  const isSameAddress = isMultiMember && group.items.every((item: any) => {
-      const first = group.items[0].dadosCompletos;
-      const current = item.dadosCompletos;
-      const sameColeta = (first.enderecoColeta?.id === current.enderecoColeta?.id);
-      const sameEntrega = (first.enderecoEntrega?.id === current.enderecoEntrega?.id);
-      return sameColeta && sameEntrega;
-  });
-
+  const isSameAddress = isMultiMember && group.items.every((item: any) => { const first = group.items[0].dadosCompletos; const current = item.dadosCompletos; const sameColeta = (first.enderecoColeta?.id === current.enderecoColeta?.id); const sameEntrega = (first.enderecoEntrega?.id === current.enderecoEntrega?.id); return sameColeta && sameEntrega; });
   const shouldUseUnifiedCard = isMultiMember && isSameAddress;
-
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`touch-none outline-none ${isOverlay ? 'shadow-2xl scale-105 opacity-90' : ''}`}>
-      {shouldUseUnifiedCard ? (
-          <GroupVisualItem 
-              group={group} 
-              onMarkAsPaid={onMarkAsPaid} 
-              onEdit={onEdit} 
-              onOpenLuggage={onOpenLuggage} 
-              onDelete={onDelete} 
-              onUnlink={onUnlink}
-              onColorChange={onColorChange} 
-              onEditGroup={onEditGroup} 
-          />
-      ) : (
-          group.items.map((p: any, index: number) => {
-             let position = 'single';
-             if (group.items.length > 1) {
-                 if (index === 0) position = 'head';
-                 else if (index === group.items.length - 1) position = 'tail';
-                 else position = 'middle';
-             }
-             return (
-                 <PassageiroVisualItem 
-                    key={p.id} 
-                    passageiro={p} 
-                    groupPosition={position as any}
-                    onMarkAsPaid={onMarkAsPaid} 
-                    onEdit={onEdit} 
-                    onOpenLuggage={onOpenLuggage} 
-                    onDelete={onDelete} 
-                    onColorChange={onColorChange} 
-                    onLink={onLink} 
-                    onUnlink={onUnlink}
-                    previousInContext={index === 0 ? previousGroupLastItem : null} 
-                 />
-             );
-          })
-      )}
+      {shouldUseUnifiedCard ? (<GroupVisualItem group={group} onMarkAsPaid={onMarkAsPaid} onEdit={onEdit} onOpenLuggage={onOpenLuggage} onDelete={onDelete} onUnlink={onUnlink} onColorChange={onColorChange} onEditGroup={onEditGroup} />) : (group.items.map((p: any, index: number) => { let position = 'single'; if (group.items.length > 1) { if (index === 0) position = 'head'; else if (index === group.items.length - 1) position = 'tail'; else position = 'middle'; } return (<PassageiroVisualItem key={p.id} passageiro={p} groupPosition={position as any} onMarkAsPaid={onMarkAsPaid} onEdit={onEdit} onOpenLuggage={onOpenLuggage} onDelete={onDelete} onColorChange={onColorChange} onLink={onLink} onUnlink={onUnlink} previousInContext={index === 0 ? previousGroupLastItem : null} />); }))}
     </div>
   );
 }
 
-// ... BairroCard (MANTIDO) ...
 function BairroCard({ bairro, isOverlay = false, ...props }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: bairro.id, data: { type: 'BAIRRO', bairro } });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
   const isGenericHeader = bairro.nome === 'Geral' || bairro.nome === 'Passageiros';
   return (
     <div ref={setNodeRef} style={style} className={`bg-white border rounded-lg overflow-hidden mb-3 ${isOverlay ? 'shadow-2xl border-blue-500 rotate-1 z-40' : 'shadow-sm border-slate-200'}`}>
-      {!isGenericHeader && (
-          <div {...attributes} {...listeners} className="bg-slate-50 p-2 border-b border-slate-100 flex justify-between items-center cursor-grab active:cursor-grabbing group">
-            <div className="flex items-center gap-2 px-1"><MapPin className="w-3.5 h-3.5 text-slate-500"/><span className="font-bold text-slate-700 text-xs uppercase tracking-wider">{bairro.nome}</span></div>
-            <GripVertical className="w-4 h-4 text-slate-300 group-hover:text-slate-500" />
-          </div>
-      )}
-      <div className={isGenericHeader ? "p-0" : "flex flex-col min-h-[10px] p-2 bg-slate-50/50"}>
-        <SortableContext items={bairro.groups?.map((g: any) => g.id) || []} strategy={verticalListSortingStrategy}>
-          {bairro.groups?.map((group: any, gIndex: number) => {
-             const prevGroup = gIndex > 0 ? bairro.groups[gIndex - 1] : null;
-             const prevItem = prevGroup ? prevGroup.items[prevGroup.items.length - 1] : null;
-             return <DraggableGroup key={group.id} group={group} previousGroupLastItem={prevItem} {...props} />;
-          })}
-        </SortableContext>
-      </div>
+      {!isGenericHeader && (<div {...attributes} {...listeners} className="bg-slate-50 p-2 border-b border-slate-100 flex justify-between items-center cursor-grab active:cursor-grabbing group"><div className="flex items-center gap-2 px-1"><MapPin className="w-3.5 h-3.5 text-slate-500"/><span className="font-bold text-slate-700 text-xs uppercase tracking-wider">{bairro.nome}</span></div><GripVertical className="w-4 h-4 text-slate-300 group-hover:text-slate-500" /></div>)}
+      <div className={isGenericHeader ? "p-0" : "flex flex-col min-h-[10px] p-2 bg-slate-50/50"}><SortableContext items={bairro.groups?.map((g: any) => g.id) || []} strategy={verticalListSortingStrategy}>{bairro.groups?.map((group: any, gIndex: number) => { const prevGroup = gIndex > 0 ? bairro.groups[gIndex - 1] : null; const prevItem = prevGroup ? prevGroup.items[prevGroup.items.length - 1] : null; return <DraggableGroup key={group.id} group={group} previousGroupLastItem={prevItem} {...props} />; })}</SortableContext></div>
     </div>
   );
 }
 
-// ... CidadeContainer (MANTIDO) ...
 function CidadeContainer({ cidade, isOverlay = false, ...props }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cidade.id, data: { type: 'CIDADE', cidade } });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
@@ -433,24 +306,24 @@ function CidadeContainer({ cidade, isOverlay = false, ...props }: any) {
   const headerIcon = isDefaultMode ? <User className="w-4 h-4 text-slate-500" /> : <div className="w-1.5 h-6 bg-orange-500 rounded-full shadow-sm"></div>;
   return (
     <div ref={setNodeRef} style={style} className={`p-4 rounded-xl border mb-6 ${isOverlay ? 'bg-slate-100 shadow-2xl border-blue-500 z-30' : 'bg-slate-100/50 border-slate-200 shadow-sm'}`}>
-      <div {...attributes} {...listeners} className="mb-4 flex items-center justify-between cursor-grab active:cursor-grabbing pb-2 border-b border-slate-200 group">
-        <div className="flex items-center gap-3">
-            {headerIcon}
-            <h2 className="font-black text-lg text-slate-800 uppercase tracking-wide">{cidade.nome}</h2>
-            <span className="bg-white px-2 py-0.5 rounded-full text-xs font-bold text-slate-500 border border-slate-200 shadow-sm">{totalPax} PAX</span>
-        </div>
-        <GripVertical className="w-5 h-5 text-slate-300 group-hover:text-slate-500" />
-      </div>
-      <SortableContext items={cidade.bairros?.map((b: any) => b.id) || []} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-1">{cidade.bairros?.map((b: any) => <BairroCard key={b.id} bairro={b} {...props} />)}</div>
-      </SortableContext>
+      <div {...attributes} {...listeners} className="mb-4 flex items-center justify-between cursor-grab active:cursor-grabbing pb-2 border-b border-slate-200 group"><div className="flex items-center gap-3">{headerIcon}<h2 className="font-black text-lg text-slate-800 uppercase tracking-wide">{cidade.nome}</h2><span className="bg-white px-2 py-0.5 rounded-full text-xs font-bold text-slate-500 border border-slate-200 shadow-sm">{totalPax} PAX</span></div><GripVertical className="w-5 h-5 text-slate-300 group-hover:text-slate-500" /></div>
+      <SortableContext items={cidade.bairros?.map((b: any) => b.id) || []} strategy={verticalListSortingStrategy}><div className="flex flex-col gap-1">{cidade.bairros?.map((b: any) => <BairroCard key={b.id} bairro={b} {...props} />)}</div></SortableContext>
     </div>
   );
 }
 
 export default function PassengerOrganizer({ data, onChange, ...props }: PassengerOrganizerProps) {
   const [activeItem, setActiveItem] = useState<any | null>(null);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  
+  // --- CORREÇÃO DE SENSORES (PC x Mobile) ---
+  const sensors = useSensors(
+    // PC: Arrasta após 5px de movimento
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // Mobile: Arrasta apenas se segurar por 250ms (delay) e não mover mais que 5px (tolerance)
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
   function handleDragStart(event: DragStartEvent) { setActiveItem(event.active.data.current); }
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -460,51 +333,15 @@ export default function PassengerOrganizer({ data, onChange, ...props }: Passeng
     const overType = over.data.current?.type;
     if (activeType !== overType) return;
     let newData = [...data];
-    if (activeType === 'CIDADE') {
-        const oldIndex = newData.findIndex((c) => c.id === active.id);
-        const newIndex = newData.findIndex((c) => c.id === over.id);
-        onChange(arrayMove(newData, oldIndex, newIndex)); return;
-    }
-    if (activeType === 'BAIRRO') {
-      newData = newData.map((cidade) => {
-        const bairroAtivo = cidade.bairros.find(b => b.id === active.id);
-        const bairroAlvo = cidade.bairros.find(b => b.id === over.id);
-        if (bairroAtivo && bairroAlvo) {
-          const oldIndex = cidade.bairros.indexOf(bairroAtivo);
-          const newIndex = cidade.bairros.indexOf(bairroAlvo);
-          return { ...cidade, bairros: arrayMove(cidade.bairros, oldIndex, newIndex) };
-        } return cidade;
-      }); onChange(newData); return;
-    }
-    if (activeType === 'GROUP') {
-      newData = newData.map((cidade) => {
-        const novosBairros = cidade.bairros.map((bairro) => {
-           const grupoAtivo = bairro.groups.find(g => g.id === active.id);
-           const grupoAlvo = bairro.groups.find(g => g.id === over.id);
-           if (grupoAtivo && grupoAlvo) {
-             const oldIndex = bairro.groups.indexOf(grupoAtivo);
-             const newIndex = bairro.groups.indexOf(grupoAlvo);
-             return { ...bairro, groups: arrayMove(bairro.groups, oldIndex, newIndex) };
-           } return bairro;
-        }); return { ...cidade, bairros: novosBairros };
-      }); onChange(newData);
-    }
+    if (activeType === 'CIDADE') { const oldIndex = newData.findIndex((c) => c.id === active.id); const newIndex = newData.findIndex((c) => c.id === over.id); onChange(arrayMove(newData, oldIndex, newIndex)); return; }
+    if (activeType === 'BAIRRO') { newData = newData.map((cidade) => { const bairroAtivo = cidade.bairros.find(b => b.id === active.id); const bairroAlvo = cidade.bairros.find(b => b.id === over.id); if (bairroAtivo && bairroAlvo) { const oldIndex = cidade.bairros.indexOf(bairroAtivo); const newIndex = cidade.bairros.indexOf(bairroAlvo); return { ...cidade, bairros: arrayMove(cidade.bairros, oldIndex, newIndex) }; } return cidade; }); onChange(newData); return; }
+    if (activeType === 'GROUP') { newData = newData.map((cidade) => { const novosBairros = cidade.bairros.map((bairro) => { const grupoAtivo = bairro.groups.find(g => g.id === active.id); const grupoAlvo = bairro.groups.find(g => g.id === over.id); if (grupoAtivo && grupoAlvo) { const oldIndex = bairro.groups.indexOf(grupoAtivo); const newIndex = bairro.groups.indexOf(grupoAlvo); return { ...bairro, groups: arrayMove(bairro.groups, oldIndex, newIndex) }; } return bairro; }); return { ...cidade, bairros: novosBairros }; }); onChange(newData); }
   }
   const dropAnimationConfig: DropAnimation = { sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.4' } } }) };
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
-      <SortableContext items={data.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col">
-          {data.map((cidade) => <CidadeContainer key={cidade.id} cidade={cidade} {...props} />)}
-        </div>
-      </SortableContext>
-      <DragOverlay dropAnimation={dropAnimationConfig}>
-        {activeItem ? (
-            activeItem.type === 'CIDADE' ? <CidadeContainer cidade={activeItem.cidade} isOverlay {...props} /> :
-            activeItem.type === 'BAIRRO' ? <BairroCard bairro={activeItem.bairro} isOverlay {...props} /> :
-            activeItem.type === 'GROUP' ? <DraggableGroup group={activeItem.group} isOverlay {...props} /> : null
-        ) : null}
-      </DragOverlay>
+      <SortableContext items={data.map((c) => c.id)} strategy={verticalListSortingStrategy}><div className="flex flex-col">{data.map((cidade) => <CidadeContainer key={cidade.id} cidade={cidade} {...props} />)}</div></SortableContext>
+      <DragOverlay dropAnimation={dropAnimationConfig}>{activeItem ? (activeItem.type === 'CIDADE' ? <CidadeContainer cidade={activeItem.cidade} isOverlay {...props} /> : activeItem.type === 'BAIRRO' ? <BairroCard bairro={activeItem.bairro} isOverlay {...props} /> : activeItem.type === 'GROUP' ? <DraggableGroup group={activeItem.group} isOverlay {...props} /> : null) : null}</DragOverlay>
     </DndContext>
   );
 }

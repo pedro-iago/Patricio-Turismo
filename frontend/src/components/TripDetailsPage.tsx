@@ -375,11 +375,7 @@ export default function TripDetailsPage() {
             const currId = typeof current.id === 'string' ? parseInt(current.id) : current.id;
             const prevId = typeof previous.id === 'string' ? parseInt(previous.id) : previous.id;
             if (!currId || !prevId) return;
-            
-            // CORREÇÃO: Invertido ordem para (currId, prevId) = (Alvo, Principal)
-            // Isso faz com que o 'current' (o que clicamos) entre no grupo do 'previous' (o de cima)
             await api.post(`/api/passageiroviagem/${currId}/vincular/${prevId}`); 
-            
             await fetchFilteredData(); 
         } catch (e) { console.error(e); alert("Erro ao vincular."); } 
     };
@@ -454,6 +450,7 @@ export default function TripDetailsPage() {
                     <Button variant="ghost" size="icon" onClick={() => navigate('/trips')} className="-ml-2"><ArrowLeft className="w-5 h-5" /></Button>
                     <div><h2 className="text-lg md:text-2xl font-bold tracking-tight">Detalhes da viagem</h2><p className="text-xs md:text-sm text-muted-foreground">Gerenciamento de passageiros</p></div>
                 </div>
+                {/* Scroll Horizontal para Mobile */}
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
                     <Button variant="outline" size="sm" onClick={() => navigate(`/trips/${tripId}/passar-lista`)} className="whitespace-nowrap"><ListIcon className="w-4 h-4 mr-2" /> Passar Lista</Button>
                     <Button variant="outline" size="sm" onClick={() => setIsMapOpen(!isMapOpen)} className="hidden xl:flex gap-2 whitespace-nowrap">{isMapOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}{isMapOpen ? 'Ocultar Mapa' : 'Mostrar Mapa'}</Button>
@@ -514,19 +511,18 @@ export default function TripDetailsPage() {
                         </TabsList>
                         
                         <TabsContent value="passengers" className="space-y-4">
-                            {/* MODOS E AÇÕES */}
+                            {/* MODOS E AÇÕES - OTIMIZADO MOBILE */}
                             <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-2 bg-slate-50 border rounded-md overflow-x-auto">
-                                <div className="flex items-center gap-2">
+                                {/* Container de botões com scroll horizontal */}
+                                <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
                                     <span className="text-xs font-bold uppercase text-slate-500 whitespace-nowrap">Exibir por:</span>
-                                    <Button variant={organizeMode === 'padrao' ? 'default' : 'ghost'} size="sm" onClick={() => handleModeChange('padrao')} className={cn("h-7 text-xs border border-slate-200 bg-white", organizeMode === 'padrao' && "bg-slate-800 text-white hover:bg-slate-700 hover:text-white")}><ListIcon className="w-3 h-3 mr-1"/> Padrão</Button>
+                                    <Button variant={organizeMode === 'padrao' ? 'default' : 'ghost'} size="sm" onClick={() => handleModeChange('padrao')} className={cn("h-7 text-xs border border-slate-200 bg-white whitespace-nowrap", organizeMode === 'padrao' && "bg-slate-800 text-white hover:bg-slate-700 hover:text-white")}><ListIcon className="w-3 h-3 mr-1"/> Padrão</Button>
                                     
-                                    {/* MODO CIDADE E TOGGLE COLETA/ENTREGA */}
-                                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-md p-0.5">
+                                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-md p-0.5 whitespace-nowrap">
                                         <Button variant={organizeMode === 'cidade' ? 'default' : 'ghost'} size="sm" onClick={() => handleModeChange('cidade')} className={cn("h-7 text-xs", organizeMode === 'cidade' && "bg-blue-600 hover:bg-blue-700")}>
                                             <MapIcon className="w-3 h-3 mr-1"/> Cidade
                                         </Button>
                                         
-                                        {/* Toggle visível apenas no modo Cidade */}
                                         {organizeMode === 'cidade' && (
                                             <div className="flex items-center bg-slate-100 rounded ml-1 p-0.5">
                                                 <Button size="icon" variant={cityGroupBy === 'coleta' ? 'secondary' : 'ghost'} onClick={() => setCityGroupBy('coleta')} className="h-6 w-auto px-2 text-[10px] shadow-sm" title="Agrupar por Coleta">
@@ -539,8 +535,8 @@ export default function TripDetailsPage() {
                                         )}
                                     </div>
 
-                                    <Button variant={organizeMode === 'taxista' ? 'default' : 'outline'} size="sm" onClick={() => handleModeChange('taxista')} className={cn("h-7 text-xs", organizeMode === 'taxista' && "bg-orange-600 hover:bg-orange-700")}><Car className="w-3 h-3 mr-1"/> Taxista</Button>
-                                    <Button variant={organizeMode === 'comisseiro' ? 'default' : 'outline'} size="sm" onClick={() => handleModeChange('comisseiro')} className={cn("h-7 text-xs", organizeMode === 'comisseiro' && "bg-purple-600 hover:bg-purple-700")}><UserCheck className="w-3 h-3 mr-1"/> Comisseiro</Button>
+                                    <Button variant={organizeMode === 'taxista' ? 'default' : 'outline'} size="sm" onClick={() => handleModeChange('taxista')} className={cn("h-7 text-xs whitespace-nowrap", organizeMode === 'taxista' && "bg-orange-600 hover:bg-orange-700")}><Car className="w-3 h-3 mr-1"/> Taxista</Button>
+                                    <Button variant={organizeMode === 'comisseiro' ? 'default' : 'outline'} size="sm" onClick={() => handleModeChange('comisseiro')} className={cn("h-7 text-xs whitespace-nowrap", organizeMode === 'comisseiro' && "bg-purple-600 hover:bg-purple-700")}><UserCheck className="w-3 h-3 mr-1"/> Comisseiro</Button>
                                 </div>
                                 
                                 {organizeMode === 'cidade' && (
@@ -550,7 +546,7 @@ export default function TripDetailsPage() {
                                             variant="outline"
                                             onClick={handleSyncToDefault} 
                                             disabled={isSavingOrder} 
-                                            className="h-7 text-xs shadow-sm w-full sm:w-auto text-orange-600 hover:text-orange-700 border-orange-200 hover:bg-orange-50"
+                                            className="h-7 text-xs shadow-sm w-full sm:w-auto text-orange-600 hover:text-orange-700 border-orange-200 hover:bg-orange-50 whitespace-nowrap"
                                             title="Aplica a ordem visual desta tela para a listagem padrão"
                                         >
                                             <RefreshCw className="w-3 h-3 mr-1" /> Sincronizar Padrão
@@ -559,16 +555,38 @@ export default function TripDetailsPage() {
                                 )}
                             </div>
 
-                            {/* FILTROS E AÇÕES PRINCIPAIS */}
-                            <div className="bg-white p-3 md:p-4 rounded-lg border shadow-sm space-y-3">
+                            {/* FILTROS E AÇÕES PRINCIPAIS - OTIMIZADO (SEM SCROLL HORIZONTAL) */}
+                            <div className="bg-white p-3 md:p-4 rounded-lg border shadow-sm space-y-3 max-w-[100vw] overflow-hidden">
                                 <div className="flex flex-col lg:flex-row gap-3">
-                                    <div className="relative flex-1"><Input placeholder="Pesquisar nome..." value={passengerSearchTerm} onChange={(e) => setPassengerSearchTerm(e.target.value)} /></div>
-                                    <div className="flex items-center gap-2 justify-between lg:justify-start">
-                                        {isFiltering && (<Button variant="ghost" size="sm" onClick={resetFilters} className="text-red-500 h-9"><X className="w-4 h-4 mr-1" /> Limpar</Button>)}
+                                    <div className="relative flex-1">
+                                        <Input 
+                                            placeholder="Pesquisar nome..." 
+                                            value={passengerSearchTerm} 
+                                            onChange={(e) => setPassengerSearchTerm(e.target.value)} 
+                                        />
+                                    </div>
+                                    
+                                    {/* CORREÇÃO: flex-wrap permite que os botões caiam para a linha de baixo se faltar espaço */}
+                                    <div className="flex flex-wrap items-center gap-2 justify-between lg:justify-start">
+                                        {isFiltering && (
+                                            <Button variant="ghost" size="sm" onClick={resetFilters} className="text-red-500 h-9 px-2">
+                                                <X className="w-4 h-4 md:mr-1" /> <span className="hidden md:inline">Limpar</span>
+                                            </Button>
+                                        )}
                                         
-                                        {/* --- BOTÕES AQUI --- */}
-                                        <Button onClick={() => { setSelectedPassenger(null); setIsPassengerModalOpen(true); }} className="bg-primary hover:bg-primary/90 gap-2 w-full lg:w-auto"><Plus className="w-4 h-4" /> Novo</Button>
-                                        <Button onClick={() => { setEditingGroup(null); setIsFamilyModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm gap-2 w-full lg:w-auto"><Users className="w-4 h-4" /> Grupo</Button>
+                                        <Button 
+                                            onClick={() => { setSelectedPassenger(null); setIsPassengerModalOpen(true); }} 
+                                            className="bg-primary hover:bg-primary/90 gap-2 flex-1 sm:flex-none min-w-[100px]"
+                                        >
+                                            <Plus className="w-4 h-4" /> Novo
+                                        </Button>
+                                        
+                                        <Button 
+                                            onClick={() => { setEditingGroup(null); setIsFamilyModalOpen(true); }} 
+                                            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm gap-2 flex-1 sm:flex-none min-w-[100px]"
+                                        >
+                                            <Users className="w-4 h-4" /> Grupo
+                                        </Button>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -591,7 +609,6 @@ export default function TripDetailsPage() {
                                     onColorChange={handleColorChange}
                                     onLink={handleLinkPassengers}
                                     onUnlink={handleUnlinkPassenger}
-                                    // --- ATIVA O BOTÃO DE EDITAR GRUPO ---
                                     onEditGroup={(group) => {
                                         setEditingGroup(group); 
                                         setIsFamilyModalOpen(true);
@@ -620,7 +637,7 @@ export default function TripDetailsPage() {
                     </Tabs>
                 </div>
                 
-                {/* ... MAPA LATERAL (MANTIDO) ... */}
+                {/* ... MAPA LATERAL ... */}
                 <div className={cn("xl:col-span-3 transition-all duration-500", mobileView === 'map' ? "block" : "hidden", isMapOpen ? "xl:block" : "xl:hidden")}>
                     <div className="sticky top-6 space-y-4">
                         {trip?.onibus && trip.onibus.length > 1 ? (
