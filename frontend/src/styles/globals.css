@@ -1,7 +1,29 @@
-/* 1. DIRETIVAS DO TAILWIND (NO TOPO) */
+/* 1. DIRETIVAS DO TAILWIND */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* === CORREÇÃO IOS PWA (START) === */
+/* Isso impede o efeito elástico e ajusta o app ao "Notch" do iPhone */
+html {
+  overflow: hidden; /* Impede o "bounce" de fundo cinza */
+  height: 100%;
+  font-size: var(--font-size); /* Sua regra de fonte foi movida para cá */
+}
+
+body {
+  height: 100%;
+  overflow: auto; /* Permite rolar o conteúdo interno */
+  -webkit-overflow-scrolling: touch; /* Rolagem suave nativa */
+  
+  /* Garante que o conteúdo não fique escondido atrás do Notch ou Home Bar */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+/* === CORREÇÃO IOS PWA (END) === */
+
 
 /* 2. SEU TEMA (VARIÁVEIS, ETC) */
 @custom-variant dark (&:is(.dark *));
@@ -114,11 +136,6 @@
     --tw-ring-color: var(--ring);
   }
 }
-
-html {
-  font-size: var(--font-size);
-}
-
 
 /* --- 3. BLOCO DE IMPRESSÃO (COM NOMES pt-) --- */
 
