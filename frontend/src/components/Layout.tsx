@@ -7,12 +7,11 @@ import {
   LayoutDashboard,
   Handshake,
   LogOut,
+  Menu, // Adicionei o ícone do menu caso precise
 } from 'lucide-react';
 import { Button } from './ui/button';
 import logo from '../assets/logo.png';
 import api from '../services/api';
-
-// NavigationModal removido, pois tudo ficará no BottomNav
 import MobileBottomNav from './MobileBottomNav';
 
 interface LayoutProps {
@@ -23,7 +22,7 @@ interface LayoutProps {
 export default function Layout({ currentUser, onLogout }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isNavOpen, setIsNavOpen] = useState(false); // Controla a expansão da barra
+  const [isNavOpen, setIsNavOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -47,9 +46,11 @@ export default function Layout({ currentUser, onLogout }: LayoutProps) {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    // [CORREÇÃO 1] O segredo: 'fixed inset-0' trava a janela na viewport do iOS
+    // 'overflow-hidden' no pai impede que o Safari role a página inteira
+    <div className="fixed inset-0 flex flex-col w-full h-full bg-gray-50 overflow-hidden">
       
-      {/* --- TOP NAVIGATION BAR (Desktop) --- */}
+      {/* HEADER DESKTOP */}
       <header className="bg-white border-b border-gray-200 h-16 flex-shrink-0 pt-no-print relative z-10 hidden md:block">
         <div className="h-full px-8 flex items-center justify-between">
           <div className="flex items-center gap-8">
@@ -86,18 +87,20 @@ export default function Layout({ currentUser, onLogout }: LayoutProps) {
       </header>
 
       {/* HEADER MOBILE (Apenas Logo) */}
-      <header className="md:hidden bg-white border-b border-slate-200 h-14 flex items-center justify-center sticky top-0 z-10 shadow-sm">
+      <header className="md:hidden bg-white border-b border-slate-200 h-14 flex items-center justify-center flex-shrink-0 z-10 shadow-sm">
           <img src={logo} alt="Patricio Turismo" className="h-6 w-auto" />
       </header>
 
-      {/* --- MAIN CONTENT AREA --- */}
-      <main className="flex-1 overflow-auto bg-gray-50/50 p-4 md:p-8 pb-24 md:pb-8">
+      {/* [CORREÇÃO 2] Área de conteúdo com rolagem independente */}
+      {/* 'flex-1' ocupa o resto da tela */}
+      {/* 'overflow-y-auto' permite rolar SÓ o conteúdo */}
+      <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 md:pb-8 overscroll-contain">
         <div className="max-w-[1600px] mx-auto">
           <Outlet />
         </div>
       </main>
 
-      {/* --- BARRA DE NAVEGAÇÃO EXPANSÍVEL (MOBILE) --- */}
+      {/* BARRA INFERIOR MOBILE */}
       <MobileBottomNav 
         isOpen={isNavOpen} 
         onToggleMenu={() => setIsNavOpen(!isNavOpen)} 
