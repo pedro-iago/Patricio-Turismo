@@ -16,9 +16,6 @@ import PassListTripPage from './components/PassListTripPage';
 import PessoaDetailsPage from './components/PessoaDetailsPage';
 import TaxistaReportPage from './components/TaxistaReportPage';
 
-// Se quiser usar o logo na tela de carregamento, descomente a linha abaixo
-// import logo from './assets/logo.png'; 
-
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
@@ -37,19 +34,16 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
 
-    // === 1. TIMEOUT DE SEGURANÇA (A SALVAÇÃO) ===
-    // Se a API não responder em 3 segundos, forçamos o fim do carregamento.
-    // Isso impede o loop infinito na tela laranja.
+    // Timeout de segurança: Se travar, libera em 3s
     const safetyTimeout = setTimeout(() => {
       if (isMounted) {
-        console.warn("API demorou demais ou travou. Liberando tela de login.");
+        console.warn("API demorou. Liberando acesso.");
         setIsLoading(false);
       }
-    }, 3000); // 3 segundos máximo
+    }, 3000);
 
     const checkAuth = async () => {
       try {
-        // Tenta buscar o usuário com um timeout de rede também
         const response = await api.get('/api/me', { timeout: 5000 });
         if (isMounted) {
           handleLogin(response.data);
@@ -60,36 +54,32 @@ export default function App() {
         }
       } finally {
         if (isMounted) {
-          // Se a resposta chegou antes dos 3s, cancelamos o timeout de segurança
           clearTimeout(safetyTimeout);
-          
-          // Pequeno delay para transição suave
-          setTimeout(() => setIsLoading(false), 500);
+          // Remove o loading imediatamente
+          setIsLoading(false);
         }
       }
     };
 
     checkAuth();
 
-    // Limpeza ao desmontar
     return () => {
       isMounted = false;
       clearTimeout(safetyTimeout);
     };
   }, [handleLogin, handleLogout]);
 
-  // === TELA DE CARREGAMENTO (SPLASH SCREEN) ===
+  // TELA DE LOADING (Igual ao fundo do body)
   if (isLoading) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#F7931E]">
         <div className="flex flex-col items-center gap-4 animate-pulse">
-          {/* Spinner Branco */}
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-white border-t-transparent"></div>
-          
-          {/* Texto Branco */}
           <span className="text-white font-bold text-lg tracking-wide">
             CARREGANDO...
           </span>
+          {/* Indicador para sabermos se o iPhone atualizou o cache */}
+          <span className="text-white/60 text-xs font-mono">v3.0</span>
         </div>
       </div>
     );
@@ -100,25 +90,12 @@ export default function App() {
       <Routes>
         <Route
           path="/login"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/trips" replace />
-            ) : (
-              <LoginPage onLogin={handleLogin} />
-            )
-          }
+          element={ isAuthenticated ? <Navigate to="/trips" replace /> : <LoginPage onLogin={handleLogin} /> }
         />
-
-        {/* --- ROTAS DENTRO DO LAYOUT PRINCIPAL --- */}
+        
         <Route
           path="/"
-          element={
-            isAuthenticated ? (
-              <Layout currentUser={currentUser} onLogout={handleLogout} />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
+          element={ isAuthenticated ? <Layout currentUser={currentUser} onLogout={handleLogout} /> : <Navigate to="/login" replace /> }
         >
           <Route index element={<Navigate to="/trips" replace />} />
           <Route path="trips" element={<TripsPage />} />
@@ -134,17 +111,7 @@ export default function App() {
           <Route path="trips/:id/relatorio-taxistas" element={<TaxistaReportPage />} />
         </Route>
 
-        <Route
-          path="/trips/:id/print"
-          element={
-            isAuthenticated ? (
-              <PrintReportPage />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-
+        <Route path="/trips/:id/print" element={isAuthenticated ? <PrintReportPage /> : <Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
