@@ -8,27 +8,25 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo9.png'],
+      injectRegister: 'inline',
       manifest: {
         name: 'Patrício Turismo',
         short_name: 'Patrício',
-        description: 'Sistema de Gerenciamento de Transporte',
+        display: 'standalone',
+        start_url: '/', // Garante que o app comece na raiz
+        scope: '/',     // O segredo: diz que todas as sub-rotas (/painel, etc) fazem parte do app
         theme_color: '#ffffff',
         background_color: '#ffffff',
-        display: 'standalone',
         icons: [
           {
             src: 'logo9.png',
             sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
+            type: 'image/png'
           }
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        // Aumenta o limite para 3MB (3 * 1024 * 1024)
-        maximumFileSizeToCacheInBytes: 3145728 
+        globPatterns: [] // Mantendo desativado conforme seu pedido de não ser offline
       }
     })
   ],
