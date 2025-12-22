@@ -14,11 +14,9 @@ import TaxistaDetailsPage from './components/TaxistaDetailsPage';
 import ComisseiroDetailsPage from './components/ComisseiroDetailsPage';
 import PassListTripPage from './components/PassListTripPage';
 import PessoaDetailsPage from './components/PessoaDetailsPage';
-
-// --- 1. Importe a nova página de relatório ---
 import TaxistaReportPage from './components/TaxistaReportPage';
 
-// Se quiser usar o logo na tela de carregamento, descomente a linha abaixo e ajuste o caminho
+// Se quiser usar o logo na tela de carregamento, descomente a linha abaixo
 // import logo from './assets/logo.png'; 
 
 export default function App() {
@@ -37,11 +35,22 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    let isMounted = true; // Flag para evitar atualização de estado em componente desmontado
+    let isMounted = true;
+
+    // === 1. TIMEOUT DE SEGURANÇA (A SALVAÇÃO) ===
+    // Se a API não responder em 3 segundos, forçamos o fim do carregamento.
+    // Isso impede o loop infinito na tela laranja.
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.warn("API demorou demais ou travou. Liberando tela de login.");
+        setIsLoading(false);
+      }
+    }, 3000); // 3 segundos máximo
 
     const checkAuth = async () => {
       try {
-        const response = await api.get('/api/me');
+        // Tenta buscar o usuário com um timeout de rede também
+        const response = await api.get('/api/me', { timeout: 5000 });
         if (isMounted) {
           handleLogin(response.data);
         }
@@ -51,8 +60,10 @@ export default function App() {
         }
       } finally {
         if (isMounted) {
-          // Pequeno delay (500ms) para evitar que a tela pisque muito rápido (flicker)
-          // e garantir uma transição suave da cor do manifest para o app.
+          // Se a resposta chegou antes dos 3s, cancelamos o timeout de segurança
+          clearTimeout(safetyTimeout);
+          
+          // Pequeno delay para transição suave
           setTimeout(() => setIsLoading(false), 500);
         }
       }
@@ -60,13 +71,14 @@ export default function App() {
 
     checkAuth();
 
+    // Limpeza ao desmontar
     return () => {
       isMounted = false;
+      clearTimeout(safetyTimeout);
     };
   }, [handleLogin, handleLogout]);
 
   // === TELA DE CARREGAMENTO (SPLASH SCREEN) ===
-  // Fundo laranja (#F7931E) para combinar com o Manifest e o body do HTML
   if (isLoading) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#F7931E]">
@@ -111,38 +123,22 @@ export default function App() {
           <Route index element={<Navigate to="/trips" replace />} />
           <Route path="trips" element={<TripsPage />} />
           <Route path="trips/:id" element={<TripDetailsPage />} />
-          
-          {/* Rota de passar lista */}
           <Route path="trips/:id/passar-lista" element={<PassListTripPage />} />
-          
           <Route path="people" element={<PeoplePage />} />
           <Route path="fleet" element={<FleetPage />} />
           <Route path="addresses" element={<AddressesPage />} />
           <Route path="affiliates" element={<AffiliatesPage />} />
-          
           <Route path="taxistas/:id" element={<TaxistaDetailsPage />} />
           <Route path="comisseiros/:id" element={<ComisseiroDetailsPage />} />
           <Route path="pessoas/:id" element={<PessoaDetailsPage />} />
+          <Route path="trips/:id/relatorio-taxistas" element={<TaxistaReportPage />} />
         </Route>
 
-        {/* --- ROTAS DE IMPRESSÃO (SEM LAYOUT) --- */}
         <Route
           path="/trips/:id/print"
           element={
             isAuthenticated ? (
               <PrintReportPage />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-
-        {/* --- 2. Nova Rota de Relatório PDF por Taxista --- */}
-        <Route
-          path="/trips/:id/relatorio-taxistas"
-          element={
-            isAuthenticated ? (
-              <TaxistaReportPage />
             ) : (
               <Navigate to="/login" replace />
             )
