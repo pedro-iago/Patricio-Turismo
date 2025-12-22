@@ -10,17 +10,18 @@ import { cn } from './ui/utils';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 
-// REMOVIDO: import { ScrollArea } from './ui/scroll-area';
-
 import api from '../services/api';
 import { AddressSearchCombobox } from './AddressSearchCombobox';
 import { PessoaSearchCombobox } from './PessoaSearchCombobox';
 import PersonModal from './PersonModal';
+import AddressModal from './AddressModal'; // <--- IMPORTADO
 
 // --- TIPAGEM ---
 interface AffiliatePerson { id: number; nome: string; }
 interface Affiliate { id: number; pessoa: AffiliatePerson; }
 interface Page<T> { content: T[]; }
+// Interface para salvar endereço (igual ao PassengerModal)
+interface AddressSaveDto { logradouro: string; numero: string; bairro: string; cidade: string; estado: string; cep: string; }
 
 // Dados do Formulário
 interface FamilyFormData {
@@ -72,8 +73,13 @@ export default function FamilyPassengerModal({ isOpen, onClose, onSaveSuccess, t
     name: "membros"
   });
 
+  // --- ESTADOS DE MODAIS ---
   const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
   const [targetMemberIndex, setTargetMemberIndex] = useState<number | null>(null);
+
+  // Novos estados para o Modal de Endereço (IGUAL AO PASSENGER MODAL)
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [addressModalTarget, setAddressModalTarget] = useState<'enderecoColeta' | 'enderecoEntrega' | null>(null);
 
   // --- CARREGAR DADOS ---
   useEffect(() => {
@@ -127,14 +133,13 @@ export default function FamilyPassengerModal({ isOpen, onClose, onSaveSuccess, t
     }
   }, [isOpen, reset, initialData]);
 
-  // --- HANDLERS ---
+  // --- HANDLERS PESSOA ---
   const handleSelectPerson = async (index: number, pessoaId: number) => {
     setValue(`membros.${index}.pessoaId`, pessoaId);
     try {
       const res = await api.get(`/api/pessoa/${pessoaId}`);
       const p = res.data;
       setValue(`membros.${index}.nome`, p.nome);
-      // Mantemos os dados no state (hidden) caso precise enviar para update
       setValue(`membros.${index}.cpf`, p.cpf || '');
       if (p.telefones && p.telefones.length > 0) setValue(`membros.${index}.telefone`, p.telefones[0]);
       else if (p.telefone) setValue(`membros.${index}.telefone`, p.telefone);
@@ -150,6 +155,27 @@ export default function FamilyPassengerModal({ isOpen, onClose, onSaveSuccess, t
         setIsPersonModalOpen(false);
         toast.success("Pessoa criada!");
     } catch (error) { toast.error("Erro ao criar pessoa."); }
+  };
+
+  // --- HANDLER ENDEREÇO (NOVO) ---
+  const handleSaveAddress = async (addressDto: AddressSaveDto) => {
+    try {
+        // Sempre cria novo aqui para simplificar, já que é modal de cadastro rápido
+        const response = await api.post('/api/endereco', addressDto);
+        const savedAddress = response.data;
+
+        if (addressModalTarget) {
+            // Atualiza o valor no React Hook Form
+            setValue(addressModalTarget, savedAddress.id);
+        }
+        
+        setIsAddressModalOpen(false);
+        setAddressModalTarget(null);
+        toast.success("Endereço cadastrado!");
+    } catch (error) {
+        console.error("Erro ao salvar endereço:", error);
+        toast.error("Erro ao salvar endereço.");
+    }
   };
 
   const onSubmit = async (data: FamilyFormData) => {
@@ -180,8 +206,8 @@ export default function FamilyPassengerModal({ isOpen, onClose, onSaveSuccess, t
       onSaveSuccess();
       onClose();
     } catch (error: any) {
-      const msg = error.response?.data?.message || 'Erro ao salvar grupo.';
-      toast.error(msg);
+      const msg = error.response?.data || 'Erro ao salvar grupo.'; // Ajustei para pegar string direta se vier
+      toast.error(typeof msg === 'string' ? msg : 'Erro desconhecido');
     }
   };
 
@@ -234,7 +260,7 @@ export default function FamilyPassengerModal({ isOpen, onClose, onSaveSuccess, t
           </div>
         </DialogHeader>
 
-        {/* BODY - SCROLL ATIVADO AQUI */}
+        {/* BODY */}
         <div className="flex-1 overflow-y-auto p-6 space-y-8">
             
             {/* 1. ROTA E LOGÍSTICA */}
@@ -255,6 +281,11 @@ export default function FamilyPassengerModal({ isOpen, onClose, onSaveSuccess, t
                                     value={field.value} 
                                     onSelect={field.onChange} 
                                     placeholder="Buscar origem..."
+                                    // ✅ CONECTADO O MODAL DE ENDEREÇO
+                                    onAddNew={() => {
+                                        setAddressModalTarget('enderecoColeta');
+                                        setIsAddressModalOpen(true);
+                                    }}
                                 />
                             )}
                         />
@@ -269,6 +300,11 @@ export default function FamilyPassengerModal({ isOpen, onClose, onSaveSuccess, t
                                     value={field.value} 
                                     onSelect={field.onChange} 
                                     placeholder="Buscar destino..."
+                                    // ✅ CONECTADO O MODAL DE ENDEREÇO
+                                    onAddNew={() => {
+                                        setAddressModalTarget('enderecoEntrega');
+                                        setIsAddressModalOpen(true);
+                                    }}
                                 />
                             )}
                         />
@@ -352,7 +388,6 @@ export default function FamilyPassengerModal({ isOpen, onClose, onSaveSuccess, t
                                     )}
                                 />
                                 
-                                {/* Inputs Hidden para manter o state do formulário correto */}
                                 <Controller name={`membros.${index}.telefone`} control={control} render={({ field }) => <input type="hidden" {...field} />} />
                                 <Controller name={`membros.${index}.cpf`} control={control} render={({ field }) => <input type="hidden" {...field} />} />
                                 <Controller name={`membros.${index}.numeroAssento`} control={control} render={({ field }) => <input type="hidden" {...field} />} />
@@ -389,6 +424,17 @@ export default function FamilyPassengerModal({ isOpen, onClose, onSaveSuccess, t
         onClose={() => setIsPersonModalOpen(false)}
         onSave={handleSaveNewPerson}
         person={null}
+    />
+
+    {/* ✅ MODAL DE ENDEREÇO ADICIONADO AQUI */}
+    <AddressModal
+        isOpen={isAddressModalOpen}
+        onClose={() => {
+          setIsAddressModalOpen(false);
+          setAddressModalTarget(null);
+        }}
+        onSave={handleSaveAddress}
+        address={null} // Sempre null pois é cadastro rápido
     />
     </>
   );
