@@ -13,8 +13,23 @@ api.interceptors.response.use(
   (error) => {
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
       console.error('Sessão expirada ou acesso negado. Redirecionando para login...');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+
+      // Detecta se o usuário está em um dispositivo iOS (iPhone/iPad)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+
+      if (isIOS) {
+        // No iOS, apenas limpamos o estado. O App.tsx detectará a falta do user e mostrará o Login
+        // sem disparar o window.location.href, o que impede as abas do Safari de aparecerem.
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // Opcional: Recarregar apenas se não estiver na página de login, mas via React Router
+        // Se o seu App.tsx já reage ao localStorage, não precisa de mais nada aqui.
+      } else {
+        // Mantém o comportamento original para Android e Desktop
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);
@@ -29,8 +44,6 @@ export interface SeatLayout {
 }
 
 // === FUNÇÕES DE ÔNIBUS ===
-
-// Busca o desenho (layout) do ônibus
 export const getOnibusLayout = async (id: number): Promise<SeatLayout[][]> => {
   const response = await api.get(`/api/onibus/${id}/layout`);
   return response.data;
