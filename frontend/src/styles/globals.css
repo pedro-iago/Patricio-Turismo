@@ -4,19 +4,23 @@
 @tailwind utilities;
 
 /* === CORREÇÃO IOS PWA (START) === */
-/* Isso impede o efeito elástico e ajusta o app ao "Notch" do iPhone */
-html {
-  overflow: hidden; /* Impede o "bounce" de fundo cinza */
+/* TRAVA TOTAL: Impede que o navegador role a janela (o que faz as barras aparecerem) */
+html, body, #root {
   height: 100%;
-  font-size: var(--font-size); /* Sua regra de fonte foi movida para cá */
+  width: 100%;
+  overflow: hidden; /* O segredo: A janela principal NÃO rola */
+  position: fixed;  /* Garante que fique travado na viewport */
+  top: 0;
+  left: 0;
+  overscroll-behavior: none; /* Remove o efeito elástico (bouncing) */
+  font-size: var(--font-size);
 }
 
 body {
-  height: 100%;
-  overflow: auto; /* Permite rolar o conteúdo interno */
-  -webkit-overflow-scrolling: touch; /* Rolagem suave nativa */
-  
-  /* Garante que o conteúdo não fique escondido atrás do Notch ou Home Bar */
+  /* Fundo de segurança laranja para evitar flash branco */
+  background-color: #F7931E; 
+
+  /* Áreas seguras do iPhone (Notch e Barra inferior) */
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
