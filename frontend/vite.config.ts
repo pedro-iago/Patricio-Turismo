@@ -13,6 +13,7 @@ export default defineConfig({
         name: 'Patrício Turismo',
         short_name: 'Patrício',
         display: 'standalone',
+        display_override: ['standalone', 'fullscreen'], // Adicione esta linha para iOS
         start_url: '/', // Garante que o app comece na raiz
         scope: '/',     // O segredo: diz que todas as sub-rotas (/painel, etc) fazem parte do app
         theme_color: '#ffffff',

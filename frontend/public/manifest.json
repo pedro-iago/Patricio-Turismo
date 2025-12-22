@@ -9,8 +9,10 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
   "theme_color": "#ffffff",
   "background_color": "#ffffff"
 }
