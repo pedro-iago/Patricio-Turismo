@@ -3,8 +3,8 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  MouseSensor, // NOVO
-  TouchSensor, // NOVO
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragOverlay,
@@ -212,10 +212,14 @@ function GroupVisualItem({ group, onMarkAsPaid, onEdit, onOpenLuggage, onDelete,
     const totalMembers = group.items.length;
     const groupColor = group.items[0]?.linkColor || '#64748b';
     const isCustomColor = !!group.items[0]?.linkColor;
+    
+    // === ALTERAÇÃO: ORDEM DO ENDEREÇO MUDADA AQUI ===
     const formatAddress = (addr: any) => {
         if (!addr) return <span className="text-slate-400 italic">Não informado</span>;
-        return `${addr.logradouro || ''}, ${addr.numero || ''} - ${addr.bairro || ''} - ${addr.cidade || ''}`;
+        // Cidade > Bairro > Rua, Número
+        return `${addr.cidade || ''} - ${addr.bairro || ''} - ${addr.logradouro || ''}, ${addr.numero || ''}`;
     };
+
     return (
         <div className={cn("relative border rounded-lg mb-4 bg-white shadow-sm overflow-hidden", isCustomColor ? "" : "border-slate-200")} style={isCustomColor ? { borderColor: `${groupColor}50` } : {}}>
             <div className="absolute left-0 top-0 bottom-0 w-1.5 z-10" style={{ backgroundColor: groupColor }}></div>
