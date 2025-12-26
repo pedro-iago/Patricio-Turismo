@@ -120,13 +120,15 @@ function PassageiroVisualItem({
   const blockBackground = isVisualGroup ? { backgroundColor: `${groupColor}08` } : { backgroundColor: '#fff' }; 
   const busBadge = p.onibus?.apelido ? p.onibus.apelido : (p.onibus?.placa ? p.onibus.placa.substring(0, 4).toUpperCase() : '---'); 
 
+  // === ALTERAÇÃO: ORDEM DO ENDEREÇO ALTERADA PARA CIDADE > BAIRRO > RUA ===
   const formatFullAddress = (addr: any) => {
       if (!addr) return '-';
-      const parts = [addr.logradouro, addr.numero].filter(Boolean).join(', ');
-      const parts2 = [addr.bairro, addr.cidade].filter(Boolean).join(', ');
-      if (!parts && !parts2) return '-';
-      if (!parts) return parts2;
-      return `${parts} - ${parts2}`;
+      const components = [
+          addr.cidade,
+          addr.bairro,
+          addr.logradouro ? `${addr.logradouro}${addr.numero ? `, ${addr.numero}` : ''}` : null
+      ].filter(Boolean);
+      return components.join(' - ') || '-';
   };
 
   const canLink = !isDbLinked && previousInContext; 
@@ -163,7 +165,6 @@ function PassageiroVisualItem({
             </div>
           </div>
 
-          {/* VISUAL FIX: Bordas ajustadas para Mobile (Top) e Desktop (Left) */}
           <div className="md:col-span-4 flex flex-col gap-1.5 text-xs border-t md:border-t-0 md:border-l border-slate-200 pt-2 md:pt-0 pl-0 md:pl-3 overflow-hidden">
             <div className="flex items-start gap-1"><span className="font-bold text-slate-900 w-3 shrink-0">C:</span><span className="text-slate-800 leading-tight truncate font-medium" title={formatFullAddress(p.enderecoColeta)}>{formatFullAddress(p.enderecoColeta)}</span></div>
             <div className="flex items-start gap-1"><span className="font-bold text-slate-900 w-3 shrink-0">E:</span><span className="text-slate-800 leading-tight truncate font-medium" title={formatFullAddress(p.enderecoEntrega)}>{formatFullAddress(p.enderecoEntrega)}</span></div>
@@ -213,10 +214,9 @@ function GroupVisualItem({ group, onMarkAsPaid, onEdit, onOpenLuggage, onDelete,
     const groupColor = group.items[0]?.linkColor || '#64748b';
     const isCustomColor = !!group.items[0]?.linkColor;
     
-    // === ALTERAÇÃO: ORDEM DO ENDEREÇO MUDADA AQUI ===
+    // === ALTERAÇÃO: ORDEM DO ENDEREÇO MANTIDA CONSISTENTE AQUI ===
     const formatAddress = (addr: any) => {
         if (!addr) return <span className="text-slate-400 italic">Não informado</span>;
-        // Cidade > Bairro > Rua, Número
         return `${addr.cidade || ''} - ${addr.bairro || ''} - ${addr.logradouro || ''}, ${addr.numero || ''}`;
     };
 
