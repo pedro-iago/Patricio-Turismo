@@ -36,6 +36,7 @@ const styles = StyleSheet.create({
   // Textos
   textHeader: { fontWeight: 'bold', fontSize: 7 }, 
   textCell: { fontSize: 7 }, 
+  textStatus: { fontSize: 8, fontWeight: 'bold', marginTop: 1, textAlign: 'center' }, // Novo estilo para status
   textLuggage: { fontSize: 6, color: '#4b5563', marginTop: 1, fontStyle: 'italic' },
   textSmall: { fontSize: 6, color: '#6B7280', marginBottom: 0.5 }, 
   textAddress: { fontSize: 6.5, color: '#374151', marginBottom: 1, lineHeight: 1.1 }, 
@@ -100,25 +101,20 @@ export const TripReportPDF = ({ trip, passengers, packages, organizeMode = 'padr
             const prevP = passengers[i - 1];
             const nextP = passengers[i + 1];
 
-            // LÓGICA DE GRUPO FAMILIAR
             const hasGroup = !!p.grupoId;
             const isSameGroupPrev = hasGroup && prevP?.grupoId === p.grupoId;
             const isSameGroupNext = hasGroup && nextP?.grupoId === p.grupoId;
             
-            // Define estilo da linha baseado no grupo
             const rowStyles: any[] = [styles.tableRow];
             if (hasGroup) {
-                rowStyles.push({ backgroundColor: '#f0f9ff' }); // Azul bem claro para grupos
-                // Se é o último do grupo, adiciona borda inferior
+                rowStyles.push({ backgroundColor: '#f0f9ff' });
                 if (!isSameGroupNext) {
                     rowStyles.push({ borderBottomWidth: 1, borderBottomColor: '#bfdbfe' });
                 } else {
-                    // Se não é o último, remove borda interna para parecer um bloco único
                     rowStyles.push({ borderBottomWidth: 0 });
                 }
             }
 
-            // --- Lógica de Cabeçalhos (Cidade/Taxista) ---
             let headers = null;
             if (organizeMode === 'cidade') {
                 const targetAddr = groupingType === 'entrega' ? p.enderecoEntrega : p.enderecoColeta;
@@ -156,7 +152,6 @@ export const TripReportPDF = ({ trip, passengers, packages, organizeMode = 'padr
               <React.Fragment key={p.id}>
                   {headers}
                   <View style={rowStyles} wrap={false}>
-                      {/* Indicador de Cor + Indicador de Grupo (Barra Azul Lateral) */}
                       <View style={[styles.colorIndicator, { 
                           backgroundColor: p.corTag || (hasGroup ? '#3b82f6' : 'transparent'),
                           width: hasGroup ? 4 : 3 
@@ -178,7 +173,6 @@ export const TripReportPDF = ({ trip, passengers, packages, organizeMode = 'padr
                           <Text style={styles.textDoc}>{p.pessoa.cpf || 'S/ Doc'}</Text>
                       </View>
 
-                      {/* Rota com lógica de "Idem" para grupos */}
                       <View style={[styles.tableCol, styles.colRoute]}>
                           {(!isSameGroupPrev) ? (
                               <>
@@ -196,7 +190,14 @@ export const TripReportPDF = ({ trip, passengers, packages, organizeMode = 'padr
                           <Text style={styles.textSmall}>C: {p.comisseiro?.pessoa?.nome || '-'}</Text>
                       </View>
                       <View style={[styles.tableCol, styles.colSeat]}><Text style={{ fontSize: 10, fontWeight: 'bold', textAlign: 'center' }}>{p.numeroAssento || '-'}</Text></View>
-                      <View style={[styles.tableCol, styles.colValue]}><Text style={styles.textCell}>{formatCurrency(p.valor)}</Text><Text style={[styles.textSmall, { color: p.pago ? 'green' : 'red' }]}>{p.pago ? 'Pg' : 'Pd'}</Text></View>
+                      
+                      {/* Célula de Valor e Status Atualizada */}
+                      <View style={[styles.tableCol, styles.colValue]}>
+                          <Text style={[styles.textCell, { fontWeight: 'bold' }]}>{formatCurrency(p.valor)}</Text>
+                          <Text style={[styles.textStatus, { color: p.pago ? '#059669' : '#dc2626' }]}>
+                              {p.pago ? 'PAGO' : 'PENDE.'}
+                          </Text>
+                      </View>
                   </View>
               </React.Fragment>
             );
